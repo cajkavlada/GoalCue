@@ -1,0 +1,13 @@
+{
+  "name": "GoalCue",
+  "version": "1.0.0",
+  "description": "App for tracking personal goals and cueing one to be active.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Vladimir Cajka",
+  "license": "ISC",
+  "packageManager": "pnpm@10.13.1"
+}
