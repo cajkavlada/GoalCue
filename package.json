@@ -4,10 +4,15 @@
   "description": "App for tracking personal goals and cueing one to be active.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "turbo run build",
+    "check-types": "turbo run check-types",
+    "dev": "turbo run dev"
   },
   "keywords": [],
   "author": "Vladimir Cajka",
   "license": "ISC",
-  "packageManager": "pnpm@10.13.1"
+  "packageManager": "pnpm@10.13.1",
+  "devDependencies": {
+    "turbo": "^2.5.4"
+  }
 }
