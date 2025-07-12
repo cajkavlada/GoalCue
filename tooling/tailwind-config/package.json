@@ -1,0 +1,12 @@
+{
+  "name": "@gc/tailwind-config",
+  "version": "0.0.1",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./index.css"
+  },
+  "devDependencies": {
+    "tailwindcss": "^4.1.5"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@gc/prettier-config",
+  "version": "0.0.1",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./index.js"
+  },
+  "devDependencies": {
+    "@ianvs/prettier-plugin-sort-imports": "catalog:prettier",
+    "prettier": "catalog:prettier",
+    "prettier-plugin-tailwindcss": "catalog:prettier"
+  }
+}

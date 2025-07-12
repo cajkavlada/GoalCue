@@ -6,7 +6,10 @@
   "scripts": {
     "build": "turbo run build",
     "check-types": "turbo run check-types",
-    "dev": "turbo run dev"
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "format": "turbo run format",
+    "clean": "pnpm -r exec rimraf node_modules dist .turbo build && pnpm --workspace-root exec rimraf node_modules dist .turbo .nitro .output .tanstack"
   },
   "keywords": [],
   "author": "Vladimir Cajka",

@@ -1,12 +1,14 @@
 {
   "name": "web",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "",
   "main": "index.js",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
     "check-types": "tsc --noEmit",
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --write .",
     "build": "vite build"
   },
   "keywords": [],
@@ -14,17 +16,27 @@
   "license": "ISC",
   "packageManager": "pnpm@10.13.1",
   "dependencies": {
+    "@gc/react-kit": "workspace:*",
+    "@gc/utils": "workspace:*",
     "@tanstack/react-router": "^1.127.0",
     "@tanstack/react-start": "^1.127.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
+    "react": "catalog:react",
+    "react-dom": "catalog:react",
     "vite": "^7.0.4"
   },
   "devDependencies": {
+    "@gc/eslint-config": "workspace:*",
+    "@gc/prettier-config": "workspace:*",
+    "@gc/tailwind-config": "workspace:*",
     "@gc/typescript-config": "workspace:*",
-    "@types/react": "^19.1.8",
-    "@types/react-dom": "^19.1.6",
-    "typescript": "^5.8.3",
+    "@ianvs/prettier-plugin-sort-imports": "catalog:prettier",
+    "@tailwindcss/vite": "^4.1.11",
+    "@types/react": "catalog:react",
+    "@types/react-dom": "catalog:react",
+    "eslint": "catalog:eslint",
+    "prettier": "catalog:prettier",
+    "prettier-plugin-tailwindcss": "catalog:prettier",
+    "typescript": "catalog:typescript",
     "vite-tsconfig-paths": "^5.1.4"
   }
 }
