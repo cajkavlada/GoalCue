@@ -1,0 +1,44 @@
+{
+  "name": "@gc/react-kit",
+  "version": "0.0.1",
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": "./dist/index.js",
+    "./styles.css": "./dist/index.css"
+  },
+  "license": "MIT",
+  "scripts": {
+    "build:styles": "tailwindcss -i ./src/styles.css -o ./dist/index.css --content './src/**/*.tsx'",
+    "build:components": "tsc",
+    "check-types": "tsc --noEmit",
+    "dev:styles": "tailwindcss -i ./src/styles.css -o ./dist/index.css --watch --content './src/**/*.tsx'",
+    "dev:components": "tsc --watch",
+    "lint": "eslint src --max-warnings=0",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+  },
+  "dependencies": {
+    "react-error-boundary": "^6.0.0"
+  },
+  "peerDependencies": {
+    "react": "catalog:react"
+  },
+  "devDependencies": {
+    "@gc/eslint-config": "workspace:*",
+    "@gc/prettier-config": "workspace:*",
+    "@gc/tailwind-config": "workspace:*",
+    "@gc/typescript-config": "workspace:*",
+    "@ianvs/prettier-plugin-sort-imports": "catalog:prettier",
+    "@tailwindcss/cli": "^4.1.5",
+    "@types/react": "catalog:react",
+    "eslint": "catalog:eslint",
+    "prettier": "catalog:prettier",
+    "prettier-plugin-tailwindcss": "catalog:prettier",
+    "typescript": "catalog:typescript"
+  }
+}

@@ -11,8 +11,16 @@ GoalCue is a modern web application built to help users track personal goals and
 This project uses a **monorepo** structure powered by **Turborepo** to manage multiple interconnected parts of the application:
 
 - **Web App**: Built with TanStack Start (React + TypeScript)
-- **Shared Tooling**: TypeScript configurations and build tools
-- **Future Components**: Room for additional services (mobile app, API, etc.)
+- **Shared Packages**:
+  - `react-kit` - Reusable React components and utilities
+  - `utils` - Common utility functions and helpers
+- **Shared Tooling**:
+  - TypeScript configurations and build tools
+  - ESLint configurations for code linting
+  - Prettier configurations for code formatting
+  - Tailwind CSS configurations for styling
+
+All shared packages are compiled in the monorepo but changes are reflected live in apps when modifications occur.
 
 ## 🚀 Getting Started
 
@@ -56,8 +64,14 @@ GoalCue/
 │       │   └── ...
 │       ├── package.json
 │       └── vite.config.ts
+├── packages/
+│   ├── react-kit/           # Reusable React components
+│   └── utils/               # Common utility functions
 ├── tooling/
-│   └── typescript-config/   # Shared TypeScript configuration
+│   ├── typescript-config/   # Shared TypeScript configuration
+│   ├── eslint-config/       # Shared ESLint configuration
+│   ├── prettier-config/     # Shared Prettier configuration
+│   └── tailwind-config/     # Shared Tailwind CSS configuration
 ├── package.json
 ├── turbo.json              # Turborepo configuration
 └── pnpm-workspace.yaml
@@ -67,7 +81,10 @@ GoalCue/
 
 - `pnpm dev` - Start development server for all apps
 - `pnpm build` - Build all applications
-- `pnpm check-types` - Check types across all packages
+- `pnpm lint` - Run linting across all packages
+- `pnpm format` - Format code with Prettier across all packages
+- `pnpm check-types` - Type-check all TypeScript files
+- `pnpm clean` - Clean all build artifacts and node_modules
 
 ### Technology Stack
 
@@ -75,7 +92,9 @@ GoalCue/
 - **Build Tool**: Vite
 - **Package Manager**: pnpm
 - **Monorepo**: Turborepo
-- **Styling**: (To be added based on your preferences)
+- **Styling**: Tailwind CSS
+- **Code Quality**: ESLint, Prettier
+- **Shared Packages**: React Kit (components), Utils (helpers)
 
 ## 🎯 Features
 
