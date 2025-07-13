@@ -28,12 +28,19 @@ function Home() {
   const router = useRouter();
   const state = Route.useLoaderData();
   const [name, setName] = useState("");
+  const [note, setNote] = useState("");
 
   const { data } = useSuspenseQuery(
     convexQuery(api.names.getNames, { count: 10 })
   );
+  const { data: notes } = useSuspenseQuery(
+    convexQuery(api.userNotes.getMyNotes, { count: 10 })
+  );
   const addName = useMutation({
     mutationFn: useConvexMutation(api.names.addName),
+  });
+  const addNote = useMutation({
+    mutationFn: useConvexMutation(api.userNotes.addMyNote),
   });
   return (
     <div className="flex h-screen flex-col items-center justify-center gap-4">
@@ -49,23 +56,47 @@ function Home() {
       >
         Call Server
       </button>
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-      />
-      <button
-        type="button"
-        onClick={() => {
-          addName.mutate({ name });
-        }}
-      >
-        Add Name
-      </button>
-      <div>
-        {data.map((name) => (
-          <p key={name._id}>{name.name}</p>
-        ))}
+      <div className="flex gap-4">
+        <div className="border-2 border-gray-300 p-4">
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              addName.mutate({ name });
+            }}
+          >
+            Add Name
+          </button>
+          <div>
+            {data.map((name) => (
+              <p key={name._id}>{name.name}</p>
+            ))}
+          </div>
+        </div>
+        <div className="border-2 border-gray-300 p-4">
+          <input
+            type="text"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              addNote.mutate({ note });
+            }}
+          >
+            Add Note
+          </button>
+          <div>
+            {notes.map((note) => (
+              <p key={note._id}>{note.note}</p>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

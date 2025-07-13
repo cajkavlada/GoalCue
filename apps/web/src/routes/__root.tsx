@@ -8,6 +8,10 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 
+import { Authenticated, AuthLoading, Unauthenticated } from "@gc/convex";
+
+import { SignIn } from "../components/auth/SignIn";
+import { SignOut } from "../components/auth/SignOut";
 import appCss from "../styles/app.css?url";
 
 export const Route = createRootRouteWithContext<{
@@ -34,7 +38,14 @@ export const Route = createRootRouteWithContext<{
 function RootComponent() {
   return (
     <RootDocument>
-      <Outlet />
+      <AuthLoading>Auth Loading ... </AuthLoading>
+      <Unauthenticated>
+        <SignIn />
+      </Unauthenticated>
+      <Authenticated>
+        <SignOut />
+        <Outlet />
+      </Authenticated>
     </RootDocument>
   );
 }
