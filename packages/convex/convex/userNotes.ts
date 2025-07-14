@@ -2,6 +2,15 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
+import { RateLimiter, MINUTE } from "@convex-dev/rate-limiter";
+import { components } from "./_generated/api";
+
+const rateLimiter = new RateLimiter(components.rateLimiter, {
+  createTodo: { kind: "token bucket", rate: 10, period: MINUTE, capacity: 20 },
+  updateTodo: { kind: "token bucket", rate: 20, period: MINUTE },
+  deleteTodo: { kind: "token bucket", rate: 30, period: MINUTE },
+});
+
 export const addMyNote = mutation({
   args: {
     note: v.string(),
@@ -11,6 +20,8 @@ export const addMyNote = mutation({
     if (!userId) {
       throw new Error("User not authenticated");
     }
+    const { ok, retryAfter } = await rateLimiter.limit(ctx, "createTodo", { key: userId});
+    if (!ok) return { retryAfter };
     await ctx.db.insert("userNotes", { userId, note });
   },
 });

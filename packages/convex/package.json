@@ -19,6 +19,7 @@
   "dependencies": {
     "@auth/core": "0.37.0",
     "@convex-dev/auth": "^0.0.87",
+    "@convex-dev/rate-limiter": "^0.2.10",
     "convex": "^1.25.2"
   },
   "devDependencies": {
