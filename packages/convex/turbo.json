@@ -2,6 +2,7 @@
   "extends": ["//"],
   "tasks": {
     "build": {
+      "env": ["CONVEX_SITE_URL"],
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
     },
