@@ -22,7 +22,7 @@ export const addMyNote = mutation({
     }
     const { ok, retryAfter } = await rateLimiter.limit(ctx, "createTodo", { key: userId});
     if (!ok) return { retryAfter };
-    await ctx.db.insert("userNotes", { userId, note });
+    return await ctx.db.insert("userNotes", { userId, note });
   },
 });
 
