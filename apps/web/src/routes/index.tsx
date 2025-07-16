@@ -5,6 +5,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 
 import { api } from "@gc/convex/api";
+import { Button, Input } from "@gc/ui";
 
 const getServerValue = createServerFn({
   method: "GET",
@@ -45,8 +46,7 @@ function Home() {
   return (
     <div className="flex h-screen flex-col items-center justify-center gap-4">
       <p className="text-2xl font-bold">{state}</p>
-      <button
-        className="rounded-md bg-blue-500 p-2 text-white"
+      <Button
         type="button"
         onClick={() => {
           callServer({ data: 1 }).then(() => {
@@ -55,22 +55,22 @@ function Home() {
         }}
       >
         Call Server
-      </button>
+      </Button>
       <div className="flex gap-4">
         <div className="border-2 border-gray-300 p-4">
-          <input
+          <Input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
-          <button
+          <Button
             type="button"
             onClick={() => {
               addName.mutate({ name });
             }}
           >
             Add Name
-          </button>
+          </Button>
           <div>
             {data.map((name) => (
               <p key={name._id}>{name.name}</p>
@@ -78,19 +78,19 @@ function Home() {
           </div>
         </div>
         <div className="border-2 border-gray-300 p-4">
-          <input
+          <Input
             type="text"
             value={note}
             onChange={(e) => setNote(e.target.value)}
           />
-          <button
+          <Button
             type="button"
             onClick={() => {
               addNote.mutate({ note });
             }}
           >
             Add Note
-          </button>
+          </Button>
           <div>
             {notes.map((note) => (
               <p key={note._id}>{note.note}</p>
