@@ -19,6 +19,7 @@
     "@convex-dev/react-query": "0.0.0-alpha.11",
     "@gc/convex": "workspace:*",
     "@gc/react-kit": "workspace:*",
+    "@gc/ui": "workspace:*",
     "@gc/utils": "workspace:*",
     "@tanstack/react-query": "^5.83.0",
     "@tanstack/react-router": "^1.127.0",
