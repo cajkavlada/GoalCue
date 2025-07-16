@@ -63,6 +63,8 @@ export default tseslint.config(
       "turbo/no-undeclared-env-vars": "warn",
       // Turn off React-in-JSX-scope for new JSX transform
       "react/react-in-jsx-scope": "off",
+      // Turn off react-refresh/only-export-components for now
+      "react-refresh/only-export-components": "off",
     },
     settings: {
       react: {

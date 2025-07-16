@@ -44,8 +44,8 @@ function Home() {
     mutationFn: useConvexMutation(api.userNotes.addMyNote),
   });
   return (
-    <div className="flex h-screen flex-col items-center justify-center gap-4">
-      <p className="text-2xl font-bold">{state}</p>
+    <div className="bg-background flex h-screen flex-col items-center justify-center gap-4">
+      <p className="text-foreground text-2xl font-bold">{state}</p>
       <Button
         type="button"
         onClick={() => {
@@ -59,6 +59,7 @@ function Home() {
       <div className="flex gap-4">
         <div className="border-2 border-gray-300 p-4">
           <Input
+            className="bg-background text-foreground"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -73,12 +74,18 @@ function Home() {
           </Button>
           <div>
             {data.map((name) => (
-              <p key={name._id}>{name.name}</p>
+              <p
+                key={name._id}
+                className="text-foreground"
+              >
+                {name.name}
+              </p>
             ))}
           </div>
         </div>
         <div className="border-2 border-gray-300 p-4">
           <Input
+            className="bg-background text-foreground"
             type="text"
             value={note}
             onChange={(e) => setNote(e.target.value)}
@@ -93,7 +100,12 @@ function Home() {
           </Button>
           <div>
             {notes.map((note) => (
-              <p key={note._id}>{note.note}</p>
+              <p
+                key={note._id}
+                className="text-foreground"
+              >
+                {note.note}
+              </p>
             ))}
           </div>
         </div>
