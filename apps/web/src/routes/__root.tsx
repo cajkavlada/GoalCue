@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-router";
 
 import { Authenticated, AuthLoading, Unauthenticated } from "@gc/convex";
+import { ModeToggle, ThemeProvider } from "@gc/ui";
 
 import { SignIn } from "../components/auth/SignIn";
 import { SignOut } from "../components/auth/SignOut";
@@ -38,14 +39,20 @@ export const Route = createRootRouteWithContext<{
 function RootComponent() {
   return (
     <RootDocument>
-      <AuthLoading>Auth Loading ... </AuthLoading>
-      <Unauthenticated>
-        <SignIn />
-      </Unauthenticated>
-      <Authenticated>
-        <SignOut />
-        <Outlet />
-      </Authenticated>
+      <ThemeProvider
+        defaultTheme="dark"
+        storageKey="vite-ui-theme"
+      >
+        <ModeToggle />
+        <AuthLoading>Auth Loading ... </AuthLoading>
+        <Unauthenticated>
+          <SignIn />
+        </Unauthenticated>
+        <Authenticated>
+          <SignOut />
+          <Outlet />
+        </Authenticated>
+      </ThemeProvider>
     </RootDocument>
   );
 }
