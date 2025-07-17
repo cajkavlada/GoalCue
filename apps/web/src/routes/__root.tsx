@@ -13,6 +13,7 @@ import { ModeToggle, ThemeProvider } from "@gc/ui";
 
 import { SignIn } from "../components/auth/SignIn";
 import { SignOut } from "../components/auth/SignOut";
+import { LandingPage } from "../components/Layout/LandingPage";
 import appCss from "../styles/app.css?url";
 
 export const Route = createRootRouteWithContext<{
@@ -53,6 +54,7 @@ function RootComponent() {
         <AuthLoading>Auth Loading ... </AuthLoading>
         <Unauthenticated>
           <SignIn />
+          <LandingPage />
         </Unauthenticated>
         <Authenticated>
           <SignOut />
