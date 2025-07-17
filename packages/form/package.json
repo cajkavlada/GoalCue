@@ -1,13 +1,10 @@
 {
-  "name": "@gc/ui",
+  "name": "@gc/form",
   "version": "1.0.0",
   "description": "",
   "type": "module",
   "sideEffects": [
     "**/*.css"
-  ],
-  "files": [
-    "dist"
   ],
   "exports": {
     ".": "./dist/index.js",
@@ -23,11 +20,9 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "dependencies": {
+    "@gc/ui": "workspace:*",
     "@gc/utils": "workspace:*",
-    "@radix-ui/react-dropdown-menu": "^2.1.15",
-    "@radix-ui/react-label": "^2.1.7",
-    "@radix-ui/react-slot": "^1.2.3",
-    "class-variance-authority": "^0.7.1",
+    "@tanstack/react-form": "^1.14.1",
     "lucide-react": "^0.525.0"
   },
   "peerDependencies": {
@@ -44,7 +39,8 @@
     "eslint": "catalog:eslint",
     "prettier": "catalog:prettier",
     "prettier-plugin-tailwindcss": "catalog:prettier",
-    "typescript": "catalog:typescript"
+    "typescript": "catalog:typescript",
+    "zod": "^4.0.5"
   },
   "keywords": [],
   "author": "",

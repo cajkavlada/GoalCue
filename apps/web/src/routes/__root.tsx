@@ -31,7 +31,13 @@ export const Route = createRootRouteWithContext<{
         title: "TanStack Start Starter",
       },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Architects+Daughter&display=swap",
+      },
+    ],
   }),
   component: RootComponent,
 });
