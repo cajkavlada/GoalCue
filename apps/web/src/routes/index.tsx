@@ -5,6 +5,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 
 import { api } from "@gc/convex/api";
+import { useAppForm } from "@gc/form";
 import { Button, Input } from "@gc/ui";
 
 const getServerValue = createServerFn({
@@ -43,6 +44,16 @@ function Home() {
   const addNote = useMutation({
     mutationFn: useConvexMutation(api.userNotes.addMyNote),
   });
+
+  const form = useAppForm({
+    defaultValues: {
+      note: "",
+    },
+    onSubmit: ({ value }) => {
+      addNote.mutate(value);
+    },
+  });
+
   return (
     <div className="bg-background flex h-screen flex-col items-center justify-center gap-4">
       <p className="text-foreground text-2xl font-bold">{state}</p>
@@ -84,20 +95,14 @@ function Home() {
           </div>
         </div>
         <div className="border-2 border-gray-300 p-4">
-          <Input
-            className="bg-background text-foreground"
-            type="text"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-          />
-          <Button
-            type="button"
-            onClick={() => {
-              addNote.mutate({ note });
-            }}
-          >
-            Add Note
-          </Button>
+          <form.AppForm>
+            <form.FormRoot>
+              <form.AppField name="note">
+                {(field) => <field.Input label="Note" />}
+              </form.AppField>
+              <form.SubmitButton showSubmitResponse>Add note</form.SubmitButton>
+            </form.FormRoot>
+          </form.AppForm>
           <div>
             {notes.map((note) => (
               <p
