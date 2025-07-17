@@ -30,7 +30,6 @@ function Home() {
   const router = useRouter();
   const state = Route.useLoaderData();
   const [name, setName] = useState("");
-  const [note, setNote] = useState("");
 
   const { data } = useSuspenseQuery(
     convexQuery(api.names.getNames, { count: 10 })
