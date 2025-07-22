@@ -1,4 +1,3 @@
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
@@ -16,13 +15,13 @@ export const addMyNote = mutation({
     note: v.string(),
   },
   handler: async (ctx, { note }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
+    const identity = await ctx.auth.getUserIdentity()
+    if (identity === null) {
+      throw new Error('Not authenticated')
     }
-    const { ok, retryAfter } = await rateLimiter.limit(ctx, "createTodo", { key: userId});
+    const { ok, retryAfter } = await rateLimiter.limit(ctx, "createTodo", { key: "userId" });
     if (!ok) return { retryAfter };
-    return await ctx.db.insert("userNotes", { userId, note });
+    return await ctx.db.insert("userNotes", { note, userId: identity.subject });
   },
 });
 
@@ -31,11 +30,14 @@ export const getMyNotes = query({
     count: v.number(),
   },
   handler: async (ctx, { count }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
+    const identity = await ctx.auth.getUserIdentity()
+    if (identity === null) {
+      throw new Error('Not authenticated')
     }
-    const notes = await ctx.db.query("userNotes").filter((q) => q.eq(q.field("userId"), userId)).order("desc").take(count);
+    const notes = await ctx.db.query("userNotes")
+      .filter((q) => q.eq(q.field("userId"), identity.subject))
+      .order("desc")
+      .take(count);
     return notes.reverse();
   },
 });
