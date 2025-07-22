@@ -12,14 +12,9 @@
     "lint": "eslint src --max-warnings=0",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "packageManager": "pnpm@10.13.1",
   "dependencies": {
-    "@auth/core": "0.37.0",
-    "@convex-dev/auth": "^0.0.87",
     "@convex-dev/rate-limiter": "^0.2.10",
+    "@gc/auth": "workspace:*",
     "convex": "^1.25.2"
   },
   "devDependencies": {
@@ -29,5 +24,9 @@
     "eslint": "catalog:eslint",
     "prettier": "catalog:prettier",
     "typescript": "catalog:typescript"
-  }
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.13.1"
 }

@@ -3,7 +3,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
 import { routerWithQueryClient } from "@tanstack/react-router-with-query";
 
-import { ConvexAuthProvider } from "@gc/convex";
+import { ConvexProvider, ConvexReactClient } from "@gc/convex";
 
 import { routeTree } from "./routeTree.gen";
 
@@ -13,8 +13,10 @@ export function createRouter() {
   if (!CONVEX_URL) {
     console.error("missing envar VITE_CONVEX_URL");
   }
-  console.log("CONVEX_URL", CONVEX_URL);
-  const convexQueryClient = new ConvexQueryClient(CONVEX_URL);
+  const convex = new ConvexReactClient(CONVEX_URL, {
+    unsavedChangesWarning: false,
+  });
+  const convexQueryClient = new ConvexQueryClient(convex);
 
   const queryClient: QueryClient = new QueryClient({
     defaultOptions: {
@@ -30,11 +32,11 @@ export function createRouter() {
     createTanStackRouter({
       routeTree,
       defaultPreload: "intent",
-      context: { queryClient },
+      context: { queryClient, convexClient: convex, convexQueryClient },
       Wrap: ({ children }: { children: React.ReactNode }) => (
-        <ConvexAuthProvider client={convexQueryClient.convexClient}>
+        <ConvexProvider client={convexQueryClient.convexClient}>
           {children}
-        </ConvexAuthProvider>
+        </ConvexProvider>
       ),
       scrollRestoration: true,
     }),

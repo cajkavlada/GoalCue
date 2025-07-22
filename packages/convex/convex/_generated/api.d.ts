@@ -8,8 +8,6 @@
  * @module
  */
 
-import type * as auth from "../auth.js";
-import type * as http from "../http.js";
 import type * as names from "../names.js";
 import type * as userNotes from "../userNotes.js";
 
@@ -28,8 +26,6 @@ import type {
  * ```
  */
 declare const fullApi: ApiFromModules<{
-  auth: typeof auth;
-  http: typeof http;
   names: typeof names;
   userNotes: typeof userNotes;
 }>;

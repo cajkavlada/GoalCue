@@ -1,23 +1,49 @@
 /// <reference types="vite/client" />
 import type { ReactNode } from "react";
+import { ConvexQueryClient } from "@convex-dev/react-query";
 import { QueryClient } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
   createRootRouteWithContext,
   HeadContent,
   Outlet,
   Scripts,
+  useRouteContext,
 } from "@tanstack/react-router";
+import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import { createServerFn } from "@tanstack/react-start";
+import { getWebRequest } from "@tanstack/react-start/server";
 
-import { Authenticated, AuthLoading, Unauthenticated } from "@gc/convex";
+import {
+  ClerkLoaded,
+  ClerkLoading,
+  ClerkProvider,
+  getAuth,
+  SignedIn,
+  SignedOut,
+  SignInButton,
+  useAuth,
+  UserButton,
+} from "@gc/auth";
+import { ConvexProviderWithClerk, ConvexReactClient } from "@gc/convex";
 import { ModeToggle, ThemeProvider } from "@gc/ui";
 
-import { SignIn } from "../components/auth/SignIn";
-import { SignOut } from "../components/auth/SignOut";
-import { LandingPage } from "../components/Layout/LandingPage";
 import appCss from "../styles/app.css?url";
+
+const fetchClerkAuth = createServerFn({ method: "GET" }).handler(async () => {
+  const auth = await getAuth(getWebRequest());
+  const token = await auth.getToken({ template: "convex" });
+
+  return {
+    userId: auth.userId,
+    token,
+  };
+});
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient;
+  convexClient: ConvexReactClient;
+  convexQueryClient: ConvexQueryClient;
 }>()({
   head: () => ({
     meta: [
@@ -29,7 +55,7 @@ export const Route = createRootRouteWithContext<{
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "TanStack Start Starter",
+        title: "GoalCue",
       },
     ],
     links: [
@@ -40,28 +66,41 @@ export const Route = createRootRouteWithContext<{
       },
     ],
   }),
+  beforeLoad: async (ctx) => {
+    const auth = await fetchClerkAuth();
+
+    const { userId, token } = auth;
+
+    if (token) {
+      ctx.context.convexQueryClient.serverHttpClient?.setAuth(token);
+    }
+
+    return {
+      userId,
+      token,
+    };
+  },
   component: RootComponent,
 });
 
 function RootComponent() {
+  const context = useRouteContext({ from: Route.id });
   return (
-    <RootDocument>
-      <ThemeProvider
-        defaultTheme="dark"
-        storageKey="vite-ui-theme"
+    <ClerkProvider>
+      <ConvexProviderWithClerk
+        client={context.convexClient}
+        useAuth={useAuth}
       >
-        <ModeToggle />
-        <AuthLoading>Auth Loading ... </AuthLoading>
-        <Unauthenticated>
-          <SignIn />
-          <LandingPage />
-        </Unauthenticated>
-        <Authenticated>
-          <SignOut />
-          <Outlet />
-        </Authenticated>
-      </ThemeProvider>
-    </RootDocument>
+        <ThemeProvider
+          defaultTheme="dark"
+          storageKey="vite-ui-theme"
+        >
+          <RootDocument>
+            <Outlet />
+          </RootDocument>
+        </ThemeProvider>
+      </ConvexProviderWithClerk>
+    </ClerkProvider>
   );
 }
 
@@ -72,7 +111,23 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
         <HeadContent />
       </head>
       <body>
-        {children}
+        <div>
+          <div>
+            <ModeToggle />
+            <ClerkLoading>Auth Loading...</ClerkLoading>
+            <ClerkLoaded>
+              <SignedIn>
+                <UserButton />
+              </SignedIn>
+              <SignedOut>
+                <SignInButton mode="modal" />
+              </SignedOut>
+            </ClerkLoaded>
+          </div>
+          {children}
+        </div>
+        <TanStackRouterDevtools />
+        <ReactQueryDevtools initialIsOpen={false} />
         <Scripts />
       </body>
     </html>

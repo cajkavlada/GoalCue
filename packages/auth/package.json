@@ -1,6 +1,7 @@
 {
-  "name": "@gc/utils",
-  "version": "0.0.1",
+  "name": "@gc/auth",
+  "version": "1.0.0",
+  "description": "",
   "type": "module",
   "files": [
     "dist"
@@ -11,18 +12,20 @@
   "scripts": {
     "build": "tsc",
     "check-types": "tsc --noEmit",
-    "dev": "tsc --watch",
     "lint": "eslint src --max-warnings=0",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "dependencies": {
-    "clsx": "^2.1.1",
-    "tailwind-merge": "^3.3.1"
+    "@clerk/tanstack-react-start": "^0.21.0"
+  },
+  "peerDependencies": {
+    "react": "catalog:react"
   },
   "devDependencies": {
     "@gc/eslint-config": "workspace:*",
     "@gc/prettier-config": "workspace:*",
     "@gc/typescript-config": "workspace:*",
+    "@types/react": "catalog:react",
     "eslint": "catalog:eslint",
     "prettier": "catalog:prettier",
     "typescript": "catalog:typescript"
