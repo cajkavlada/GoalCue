@@ -26,6 +26,7 @@ import {
   UserButton,
 } from "@gc/auth";
 import { ConvexProviderWithClerk, ConvexReactClient } from "@gc/convex";
+import { ErrorSuspense } from "@gc/react-kit";
 import { ModeToggle, ThemeProvider } from "@gc/ui";
 
 import appCss from "../styles/app.css?url";
@@ -96,7 +97,9 @@ function RootComponent() {
           storageKey="vite-ui-theme"
         >
           <RootDocument>
-            <Outlet />
+            <ErrorSuspense>
+              <Outlet />
+            </ErrorSuspense>
           </RootDocument>
         </ThemeProvider>
       </ConvexProviderWithClerk>
