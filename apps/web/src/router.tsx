@@ -1,6 +1,9 @@
 import { ConvexQueryClient } from "@convex-dev/react-query";
 import { QueryClient } from "@tanstack/react-query";
-import { createRouter as createTanStackRouter } from "@tanstack/react-router";
+import {
+  createRouter as createTanStackRouter,
+  ErrorComponent,
+} from "@tanstack/react-router";
 import { routerWithQueryClient } from "@tanstack/react-router-with-query";
 
 import { ConvexProvider, ConvexReactClient } from "@gc/convex";
@@ -39,6 +42,7 @@ export function createRouter() {
         </ConvexProvider>
       ),
       scrollRestoration: true,
+      defaultErrorComponent: ErrorComponent,
     }),
     queryClient
   );
