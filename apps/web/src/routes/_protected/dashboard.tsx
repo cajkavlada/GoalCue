@@ -10,38 +10,36 @@ export const Route = createFileRoute("/_protected/dashboard")({
 });
 
 function RouteComponent() {
-  const { data: notes } = useSuspenseQuery(
-    convexQuery(api.userNotes.getMyNotes, { count: 10 })
-  );
-  const addNote = useMutation({
-    mutationFn: useConvexMutation(api.userNotes.addMyNote),
+  const { data: tasks } = useSuspenseQuery(convexQuery(api.tasks.getTasks, {}));
+  const addTask = useMutation({
+    mutationFn: useConvexMutation(api.tasks.addTask),
   });
 
   const form = useAppForm({
     defaultValues: {
-      note: "",
+      title: "",
     },
     onSubmit: ({ value }) => {
-      addNote.mutate(value);
+      addTask.mutate(value);
     },
   });
   return (
     <div className="border-2 border-gray-300 p-4">
       <form.AppForm>
         <form.FormRoot>
-          <form.AppField name="note">
-            {(field) => <field.Input label="Note" />}
+          <form.AppField name="title">
+            {(field) => <field.Input label="Title" />}
           </form.AppField>
-          <form.SubmitButton showSubmitResponse>Add note</form.SubmitButton>
+          <form.SubmitButton showSubmitResponse>Add task</form.SubmitButton>
         </form.FormRoot>
       </form.AppForm>
       <div>
-        {notes.map((note) => (
+        {tasks.map((task) => (
           <p
-            key={note._id}
+            key={task._id}
             className="text-foreground"
           >
-            {note.note}
+            {task.title}
           </p>
         ))}
       </div>
