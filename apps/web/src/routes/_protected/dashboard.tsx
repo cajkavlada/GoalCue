@@ -1,5 +1,5 @@
-import { convexQuery, useConvexMutation } from "@convex-dev/react-query";
-import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
+import { convexQuery } from "@convex-dev/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { api } from "@gc/convex/api";
@@ -11,16 +11,17 @@ export const Route = createFileRoute("/_protected/dashboard")({
 
 function RouteComponent() {
   const { data: tasks } = useSuspenseQuery(convexQuery(api.tasks.getTasks, {}));
-  const addTask = useMutation({
-    mutationFn: useConvexMutation(api.tasks.addTask),
-  });
+  // const addTask = useMutation({
+  //   mutationFn: useConvexMutation(api.tasks.addTask),
+  // });
 
   const form = useAppForm({
     defaultValues: {
       title: "",
     },
     onSubmit: ({ value }) => {
-      addTask.mutate(value);
+      console.log(value);
+      // addTask.mutate(value);
     },
   });
   return (
