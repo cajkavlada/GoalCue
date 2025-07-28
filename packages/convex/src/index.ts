@@ -1,9 +1,9 @@
-export { 
-  ConvexProvider, 
-  Authenticated, 
-  AuthLoading, 
-  Unauthenticated, 
-  ConvexReactClient
+export {
+  ConvexProvider,
+  Authenticated,
+  AuthLoading,
+  Unauthenticated,
+  ConvexReactClient,
 } from "convex/react";
 
-export { ConvexProviderWithClerk } from 'convex/react-clerk'
+export { ConvexProviderWithClerk } from "convex/react-clerk";

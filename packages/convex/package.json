@@ -15,7 +15,8 @@
   "dependencies": {
     "@convex-dev/rate-limiter": "^0.2.10",
     "@gc/auth": "workspace:*",
-    "convex": "^1.25.2"
+    "convex": "^1.25.2",
+    "fractional-indexing": "^3.2.0"
   },
   "devDependencies": {
     "@gc/eslint-config": "workspace:*",
