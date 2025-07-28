@@ -7,6 +7,9 @@ export {
   useAuth,
   ClerkLoading,
   ClerkLoaded,
-} from '@clerk/tanstack-react-start'
+} from "@clerk/tanstack-react-start";
 
-export { createClerkHandler, getAuth } from '@clerk/tanstack-react-start/server'
+export {
+  createClerkHandler,
+  getAuth,
+} from "@clerk/tanstack-react-start/server";
