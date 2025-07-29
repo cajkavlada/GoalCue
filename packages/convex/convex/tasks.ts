@@ -1,4 +1,5 @@
 import { MINUTE, RateLimiter } from "@convex-dev/rate-limiter";
+import { getManyFrom } from "convex-helpers/server/relationships";
 import { v } from "convex/values";
 import { generateKeyBetween } from "fractional-indexing";
 
@@ -8,10 +9,8 @@ import { authedMutation, authedQuery } from "./utils/authedFunctions";
 export const getExtendedTasks = authedQuery({
   args: {},
   handler: async ({ db, userId }) => {
-    const tasks = await db
-      .query("tasks")
-      .filter((q) => q.eq(q.field("userId"), userId))
-      .collect();
+    const tasks = await getManyFrom(db, "tasks", "by_userId", userId);
+
     const extendedTasks = await Promise.all(
       tasks.map(async (task) => {
         const taskType = await db.get(task.taskTypeId);
@@ -42,20 +41,19 @@ export const getExtendedTask = authedQuery({
 export const getTaskTypes = authedQuery({
   args: {},
   handler: async ({ db, userId }) => {
-    return await db
-      .query("taskTypes")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+    return await getManyFrom(db, "taskTypes", "by_userId", userId);
   },
 });
 
 export const getPriorityClasses = authedQuery({
   args: {},
   handler: async ({ db, userId }) => {
-    const priorityClasses = await db
-      .query("priorityClasses")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+    const priorityClasses = await getManyFrom(
+      db,
+      "priorityClasses",
+      "by_userId",
+      userId
+    );
     return priorityClasses.sort((a, b) => b.order.localeCompare(a.order));
   },
 });

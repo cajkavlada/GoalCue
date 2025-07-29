@@ -17,14 +17,14 @@ export default defineSchema({
     dueAt: v.optional(v.string()),
     archived: v.boolean(),
   })
-    .index("by_user", ["userId"])
+    .index("by_userId", ["userId"])
     .index("by_user_priority", ["userId", "priorityClassId", "priorityIndex"]),
   taskTypes: defineTable({
     name: v.string(),
     unitId: v.id("units"),
     completedWhen: v.optional(v.union(v.boolean(), v.number())),
     userId: v.string(),
-  }).index("by_user", ["userId"]),
+  }).index("by_userId", ["userId"]),
   units: defineTable({
     name: v.string(),
     symbol: v.optional(v.string()),
@@ -54,7 +54,7 @@ export default defineSchema({
     name: v.string(),
     color: v.optional(v.string()),
     order: v.string(),
-  }).index("by_user", ["userId"]),
+  }).index("by_userId", ["userId"]),
   events: defineTable({
     title: v.string(),
     description: v.optional(v.string()),
