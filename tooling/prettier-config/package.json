@@ -4,11 +4,7 @@
   "type": "module",
   "private": true,
   "exports": {
-    ".": "./index.js"
-  },
-  "devDependencies": {
-    "@ianvs/prettier-plugin-sort-imports": "catalog:prettier",
-    "prettier": "catalog:prettier",
-    "prettier-plugin-tailwindcss": "catalog:prettier"
+    "./base": "./base.js",
+    "./react": "./react.js"
   }
 }
