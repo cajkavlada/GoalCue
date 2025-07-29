@@ -1,10 +1,6 @@
 /** @type {import('prettier').Config} */
 export default {
-  plugins: [
-    "@ianvs/prettier-plugin-sort-imports",
-    "prettier-plugin-tailwindcss",
-  ],
-  tailwindFunctions: ["clsx", "cn", "twMerge", "cva"],
+  plugins: ["@ianvs/prettier-plugin-sort-imports"],
   importOrder: [
     "<TYPES>",
     "^(react/(.*)$)|^(react$)",
@@ -13,8 +9,8 @@ export default {
     "<TYPES>^@gc",
     "^@gc/(.*)$",
     "",
-    "<TYPES>^[.|..|~]",
-    "^~/",
+    "<TYPES>^[.|..|@]",
+    "^@/",
     "^[../]",
     "^[./]",
   ],
@@ -22,5 +18,5 @@ export default {
   importOrderTypeScriptVersion: "5.8.3",
   // printWidth: 120,
   singleAttributePerLine: true,
-  trailingComma: "es5"
+  trailingComma: "es5",
 };

@@ -23,6 +23,7 @@
     "@gc/eslint-config": "workspace:*",
     "@gc/prettier-config": "workspace:*",
     "@gc/typescript-config": "workspace:*",
+    "@ianvs/prettier-plugin-sort-imports": "catalog:prettier",
     "eslint": "catalog:eslint",
     "prettier": "catalog:prettier",
     "typescript": "catalog:typescript"

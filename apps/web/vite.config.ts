@@ -1,3 +1,4 @@
+import path from "path";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { defineConfig } from "vite";
@@ -8,4 +9,9 @@ export default defineConfig({
     port: 3000,
   },
   plugins: [tsConfigPaths(), tanstackStart(), tailwindcss()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
 });

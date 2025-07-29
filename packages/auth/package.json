@@ -25,6 +25,7 @@
     "@gc/eslint-config": "workspace:*",
     "@gc/prettier-config": "workspace:*",
     "@gc/typescript-config": "workspace:*",
+    "@ianvs/prettier-plugin-sort-imports": "catalog:prettier",
     "@types/react": "catalog:react",
     "eslint": "catalog:eslint",
     "prettier": "catalog:prettier",
