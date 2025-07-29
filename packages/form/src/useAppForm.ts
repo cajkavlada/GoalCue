@@ -1,14 +1,14 @@
 import { createFormHook, createFormHookContexts } from "@tanstack/react-form";
 
-import { Input } from "./fieldComponents";
+import { Input, Select } from "./fieldComponents";
 import { FormRoot, SubmitButton } from "./formComponents";
 
 export const { fieldContext, formContext, useFieldContext, useFormContext } =
   createFormHookContexts();
 
-export const { useAppForm } = createFormHook({
+export const { useAppForm, withForm } = createFormHook({
   fieldContext,
   formContext,
-  fieldComponents: { Input },
+  fieldComponents: { Input, Select },
   formComponents: { FormRoot, SubmitButton },
 });
