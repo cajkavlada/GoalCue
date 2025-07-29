@@ -3,23 +3,19 @@ import { v } from "convex/values";
 import { generateKeyBetween } from "fractional-indexing";
 
 import { components } from "./_generated/api";
-import { mutation, query } from "./_generated/server";
+import { authedMutation, authedQuery } from "./utils/authedFunctions";
 
-export const getExtendedTasks = query({
+export const getExtendedTasks = authedQuery({
   args: {},
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (identity === null) {
-      throw new Error("Not authenticated");
-    }
-    const tasks = await ctx.db
+  handler: async ({ db, userId }) => {
+    const tasks = await db
       .query("tasks")
-      .filter((q) => q.eq(q.field("userId"), identity.subject))
+      .filter((q) => q.eq(q.field("userId"), userId))
       .collect();
     const extendedTasks = await Promise.all(
       tasks.map(async (task) => {
-        const taskType = await ctx.db.get(task.taskTypeId);
-        const priorityClass = await ctx.db.get(task.priorityClassId);
+        const taskType = await db.get(task.taskTypeId);
+        const priorityClass = await db.get(task.priorityClassId);
         return { ...task, taskType, priorityClass };
       })
     );
@@ -28,49 +24,37 @@ export const getExtendedTasks = query({
   },
 });
 
-export const getExtendedTask = query({
+export const getExtendedTask = authedQuery({
   args: {
     taskId: v.id("tasks"),
   },
-  handler: async (ctx, { taskId }) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (identity === null) {
-      throw new Error("Not authenticated");
+  handler: async ({ db, userId }, { taskId }) => {
+    const task = await db.get(taskId);
+    if (!task || task.userId !== userId) {
+      throw new Error("Not authorized or task not found");
     }
-    const task = await ctx.db.get(taskId);
-    if (!task) {
-      throw new Error("Task not found");
-    }
-    const taskType = await ctx.db.get(task.taskTypeId);
-    const priorityClass = await ctx.db.get(task.priorityClassId);
+    const taskType = await db.get(task.taskTypeId);
+    const priorityClass = await db.get(task.priorityClassId);
     return { ...task, taskType, priorityClass };
   },
 });
 
-export const getTaskTypes = query({
+export const getTaskTypes = authedQuery({
   args: {},
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (identity === null) {
-      throw new Error("Not authenticated");
-    }
-    return await ctx.db
+  handler: async ({ db, userId }) => {
+    return await db
       .query("taskTypes")
-      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
   },
 });
 
-export const getPriorityClasses = query({
+export const getPriorityClasses = authedQuery({
   args: {},
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (identity === null) {
-      throw new Error("Not authenticated");
-    }
-    const priorityClasses = await ctx.db
+  handler: async ({ db, userId }) => {
+    const priorityClasses = await db
       .query("priorityClasses")
-      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
     return priorityClasses.sort((a, b) => b.order.localeCompare(a.order));
   },
@@ -81,7 +65,7 @@ const rateLimiter = new RateLimiter(components.rateLimiter, {
   updateTask: { kind: "token bucket", rate: 20, period: MINUTE },
 });
 
-export const createTask = mutation({
+export const createTask = authedMutation({
   args: {
     title: v.string(),
     description: v.optional(v.string()),
@@ -92,22 +76,17 @@ export const createTask = mutation({
     dueAt: v.optional(v.string()),
   },
   handler: async (ctx, task) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (identity === null) {
-      throw new Error("Not authenticated");
-    }
+    const { db, userId } = ctx;
     const { ok, retryAfter } = await rateLimiter.limit(ctx, "createTask", {
-      key: identity.subject,
+      key: userId,
     });
     if (!ok) return { retryAfter };
 
     const firstPriorityIndex = (
-      await ctx.db
+      await db
         .query("tasks")
         .withIndex("by_user_priority", (q) =>
-          q
-            .eq("userId", identity.subject)
-            .eq("priorityClassId", task.priorityClassId)
+          q.eq("userId", userId).eq("priorityClassId", task.priorityClassId)
         )
         .order("asc")
         .first()
@@ -115,14 +94,14 @@ export const createTask = mutation({
 
     return await ctx.db.insert("tasks", {
       ...task,
-      userId: identity.subject,
+      userId,
       archived: false,
       priorityIndex: generateKeyBetween(null, firstPriorityIndex),
     });
   },
 });
 
-export const updateTask = mutation({
+export const updateTask = authedMutation({
   args: {
     taskId: v.id("tasks"),
     title: v.optional(v.string()),
@@ -136,14 +115,17 @@ export const updateTask = mutation({
     archived: v.optional(v.boolean()),
   },
   handler: async (ctx, { taskId, ...task }) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (identity === null) {
-      throw new Error("Not authenticated");
-    }
+    const { db, userId } = ctx;
     const { ok, retryAfter } = await rateLimiter.limit(ctx, "updateTask", {
-      key: identity.subject,
+      key: userId,
     });
     if (!ok) return { retryAfter };
-    return await ctx.db.patch(taskId, task);
+
+    const originalTask = await db.get(taskId);
+    if (!originalTask || originalTask.userId !== userId) {
+      throw new Error("Not authorized or task not found");
+    }
+
+    return await db.patch(taskId, task);
   },
 });
