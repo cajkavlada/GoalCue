@@ -10,6 +10,7 @@
 
 import type * as tasks from "../tasks.js";
 import type * as users from "../users.js";
+import type * as utils_authedFunctions from "../utils/authedFunctions.js";
 
 import type {
   ApiFromModules,
@@ -28,6 +29,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   tasks: typeof tasks;
   users: typeof users;
+  "utils/authedFunctions": typeof utils_authedFunctions;
 }>;
 declare const fullApiWithMounts: typeof fullApi;
 

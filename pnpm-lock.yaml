@@ -181,6 +181,9 @@ importers:
       convex:
         specifier: ^1.25.2
         version: 1.25.4(@clerk/clerk-react@5.38.0(react-dom@19.1.1(react@19.1.1))(react@19.1.1))(react@19.1.1)
+      convex-helpers:
+        specifier: ^0.1.100
+        version: 0.1.100(convex@1.25.4(@clerk/clerk-react@5.38.0(react-dom@19.1.1(react@19.1.1))(react@19.1.1))(react@19.1.1))(react@19.1.1)(typescript@5.8.3)(zod@3.25.76)
       fractional-indexing:
         specifier: ^3.2.0
         version: 3.2.0

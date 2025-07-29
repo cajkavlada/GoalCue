@@ -17,6 +17,7 @@
     "@convex-dev/rate-limiter": "^0.2.10",
     "@gc/auth": "workspace:*",
     "convex": "^1.25.2",
+    "convex-helpers": "^0.1.100",
     "fractional-indexing": "^3.2.0"
   },
   "devDependencies": {
