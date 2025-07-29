@@ -2,22 +2,25 @@ import { v } from "convex/values";
 
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
+import { generateNKeysBetween } from "fractional-indexing";
+
+const defaultKeys = generateNKeysBetween(null, null, 3);
 
 const initPriorityClasses = [
   {
     name: "High",
     color: "red",
-    order: 1,
+    order: defaultKeys[0]!,
   },
   {
     name: "Medium",
     color: "yellow",
-    order: 2,
+    order: defaultKeys[1]!,
   },
   {
     name: "Low",
     color: "green",
-    order: 3,
+    order: defaultKeys[2]!,
   },
 ];
 

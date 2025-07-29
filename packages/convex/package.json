@@ -4,7 +4,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./api": "./convex/_generated/api.js"
+    "./api": "./convex/_generated/api.js",
+    "./types": "./convex/_generated/dataModel.d.ts"
   },
   "scripts": {
     "check-types": "tsc --noEmit",
