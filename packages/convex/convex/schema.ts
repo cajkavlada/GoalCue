@@ -1,3 +1,4 @@
+import { literals, typedV } from "convex-helpers/validators";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
@@ -28,12 +29,12 @@ export default defineSchema({
   units: defineTable({
     name: v.string(),
     symbol: v.optional(v.string()),
-    valueType: v.union(v.literal("number"), v.literal("boolean")),
+    valueType: literals("number", "boolean"),
     userId: v.optional(v.string()),
   }),
   taskActions: defineTable({
     taskId: v.id("tasks"),
-    value: v.union(v.literal("number"), v.literal("boolean")),
+    value: v.union(v.boolean(), v.number()),
     date: v.string(),
     note: v.optional(v.string()),
   }),
