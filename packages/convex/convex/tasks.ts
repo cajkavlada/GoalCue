@@ -1,10 +1,14 @@
 import { MINUTE, RateLimiter } from "@convex-dev/rate-limiter";
+import { omit, pick } from "convex-helpers";
 import { getManyFrom } from "convex-helpers/server/relationships";
-import { v } from "convex/values";
+import { doc, partial } from "convex-helpers/validators";
 import { generateKeyBetween } from "fractional-indexing";
 
 import { components } from "./_generated/api";
+import schema from "./schema";
 import { authedMutation, authedQuery } from "./utils/authedFunctions";
+
+const tasksSchema = doc(schema, "tasks").fields;
 
 export const getExtendedTasks = authedQuery({
   args: {},
@@ -25,7 +29,7 @@ export const getExtendedTasks = authedQuery({
 
 export const getExtendedTask = authedQuery({
   args: {
-    taskId: v.id("tasks"),
+    taskId: tasksSchema._id,
   },
   handler: async ({ db, userId }, { taskId }) => {
     const task = await db.get(taskId);
@@ -64,15 +68,15 @@ const rateLimiter = new RateLimiter(components.rateLimiter, {
 });
 
 export const createTask = authedMutation({
-  args: {
-    title: v.string(),
-    description: v.optional(v.string()),
-    taskTypeId: v.id("taskTypes"),
-    priorityClassId: v.id("priorityClasses"),
-    repetitionId: v.optional(v.id("repetitions")),
-    completedWhen: v.optional(v.union(v.boolean(), v.number())),
-    dueAt: v.optional(v.string()),
-  },
+  args: pick(tasksSchema, [
+    "title",
+    "description",
+    "taskTypeId",
+    "priorityClassId",
+    "repetitionId",
+    "completedWhen",
+    "dueAt",
+  ]),
   handler: async (ctx, task) => {
     const { db, userId } = ctx;
     const { ok, retryAfter } = await rateLimiter.limit(ctx, "createTask", {
@@ -101,16 +105,8 @@ export const createTask = authedMutation({
 
 export const updateTask = authedMutation({
   args: {
-    taskId: v.id("tasks"),
-    title: v.optional(v.string()),
-    description: v.optional(v.string()),
-    taskTypeId: v.optional(v.id("taskTypes")),
-    priorityClassId: v.optional(v.id("priorityClasses")),
-    repetitionId: v.optional(v.id("repetitions")),
-    completedWhen: v.optional(v.union(v.boolean(), v.number())),
-    priorityIndex: v.optional(v.string()),
-    dueAt: v.optional(v.string()),
-    archived: v.optional(v.boolean()),
+    taskId: tasksSchema._id,
+    ...partial(omit(tasksSchema, ["userId", "_creationTime", "_id"])),
   },
   handler: async (ctx, { taskId, ...task }) => {
     const { db, userId } = ctx;
