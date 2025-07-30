@@ -1,4 +1,4 @@
-import { literals, typedV } from "convex-helpers/validators";
+import { literals } from "convex-helpers/validators";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
