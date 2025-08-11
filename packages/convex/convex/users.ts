@@ -1,8 +1,8 @@
 import { v } from "convex/values";
+import { generateNKeysBetween } from "fractional-indexing";
 
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
-import { generateNKeysBetween } from "fractional-indexing";
 
 const defaultKeys = generateNKeysBetween(null, null, 3);
 
