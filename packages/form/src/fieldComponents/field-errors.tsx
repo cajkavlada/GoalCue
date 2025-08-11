@@ -1,5 +1,6 @@
-import type { AnyFieldMeta } from "@tanstack/react-form";
 import type { ZodError } from "zod";
+
+import type { AnyFieldMeta } from "@tanstack/react-form";
 
 export function FieldErrors({ meta }: { meta: AnyFieldMeta }) {
   if (!meta.isTouched) return null;

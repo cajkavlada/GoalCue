@@ -9,6 +9,7 @@ import { routerWithQueryClient } from "@tanstack/react-router-with-query";
 import { ConvexProvider, ConvexReactClient } from "@gc/convex";
 
 import { routeTree } from "./routeTree.gen";
+import { DialogProvider } from "@gc/ui";
 
 export function createRouter() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -38,7 +39,9 @@ export function createRouter() {
       context: { queryClient, convexClient: convex, convexQueryClient },
       Wrap: ({ children }: { children: React.ReactNode }) => (
         <ConvexProvider client={convexQueryClient.convexClient}>
-          {children}
+          <DialogProvider>
+            {children}
+          </DialogProvider>
         </ConvexProvider>
       ),
       scrollRestoration: true,
