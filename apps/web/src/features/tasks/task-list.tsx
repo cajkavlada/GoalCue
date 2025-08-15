@@ -5,7 +5,7 @@ import { api } from "@gc/convex/api";
 
 export function TaskList() {
   const { data: tasks } = useSuspenseQuery(
-    convexQuery(api.tasks.getExtendedTasks, {})
+    convexQuery(api.tasks.getAllExtendedForUserId, {})
   );
 
   return (
