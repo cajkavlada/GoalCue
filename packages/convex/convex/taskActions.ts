@@ -13,7 +13,7 @@ export const add = authedMutation({
   handler: async (ctx, input) => {
     const { taskId, value } = input;
     const task = await checkTask(ctx, taskId);
-    checkValueTypes(ctx, task, value);
+    await checkValueTypes(ctx, task, value);
     await rateLimit(ctx, "addTaskAction");
 
     await ctx.db.patch(taskId, { currentValue: value });
