@@ -1,16 +1,21 @@
-import { MINUTE, RateLimiter } from "@convex-dev/rate-limiter";
 import { omit, pick } from "convex-helpers";
 import { getManyFrom } from "convex-helpers/server/relationships";
 import { doc, partial } from "convex-helpers/validators";
 import { generateKeyBetween } from "fractional-indexing";
 
-import { components } from "./_generated/api";
+import { Doc, Id } from "./_generated/dataModel";
 import schema from "./schema";
-import { authedMutation, authedQuery } from "./utils/authedFunctions";
+import {
+  authedMutation,
+  AuthedMutationCtx,
+  authedQuery,
+  AuthedQueryCtx,
+} from "./utils/authedFunctions";
+import { rateLimit } from "./utils/rateLimiter";
 
 const tasksSchema = doc(schema, "tasks").fields;
 
-export const getExtendedTasks = authedQuery({
+export const getAllExtendedForUserId = authedQuery({
   args: {},
   handler: async ({ db, userId }) => {
     const tasks = await getManyFrom(db, "tasks", "by_userId", userId);
@@ -27,62 +32,35 @@ export const getExtendedTasks = authedQuery({
   },
 });
 
-export const getExtendedTask = authedQuery({
+export const getExtendedById = authedQuery({
   args: {
     taskId: tasksSchema._id,
   },
-  handler: async ({ db, userId }, { taskId }) => {
-    const task = await db.get(taskId);
-    if (!task || task.userId !== userId) {
-      throw new Error("Not authorized or task not found");
-    }
-    const taskType = await db.get(task.taskTypeId);
-    const priorityClass = await db.get(task.priorityClassId);
+  handler: async (ctx, { taskId }) => {
+    const task = await checkTask(ctx, taskId);
+
+    const taskType = await ctx.db.get(task.taskTypeId);
+    const priorityClass = await ctx.db.get(task.priorityClassId);
     return { ...task, taskType, priorityClass };
   },
 });
 
-export const getTaskTypes = authedQuery({
-  args: {},
-  handler: async ({ db, userId }) => {
-    return await getManyFrom(db, "taskTypes", "by_userId", userId);
-  },
-});
-
-export const getPriorityClasses = authedQuery({
-  args: {},
-  handler: async ({ db, userId }) => {
-    const priorityClasses = await getManyFrom(
-      db,
-      "priorityClasses",
-      "by_userId",
-      userId
-    );
-    return priorityClasses.sort((a, b) => b.order.localeCompare(a.order));
-  },
-});
-
-const rateLimiter = new RateLimiter(components.rateLimiter, {
-  createTask: { kind: "token bucket", rate: 10, period: MINUTE, capacity: 20 },
-  updateTask: { kind: "token bucket", rate: 20, period: MINUTE },
-});
-
-export const createTask = authedMutation({
+export const create = authedMutation({
   args: pick(tasksSchema, [
     "title",
     "description",
     "taskTypeId",
     "priorityClassId",
     "repetitionId",
-    "completedWhen",
     "dueAt",
+    "initialValue",
+    "completedValue",
   ]),
   handler: async (ctx, task) => {
     const { db, userId } = ctx;
-    const { ok, retryAfter } = await rateLimiter.limit(ctx, "createTask", {
-      key: userId,
-    });
-    if (!ok) return { retryAfter };
+
+    checkValueTypes(ctx, { ...task, currentValue: task.initialValue });
+    await rateLimit(ctx, "createTask");
 
     const firstPriorityIndex = (
       await db
@@ -99,27 +77,83 @@ export const createTask = authedMutation({
       userId,
       archived: false,
       priorityIndex: generateKeyBetween(null, firstPriorityIndex),
+      currentValue: task.initialValue,
     });
   },
 });
 
-export const updateTask = authedMutation({
+export const update = authedMutation({
   args: {
     taskId: tasksSchema._id,
-    ...partial(omit(tasksSchema, ["userId", "_creationTime", "_id"])),
+    ...partial(
+      omit(tasksSchema, ["userId", "_creationTime", "_id", "taskTypeId"])
+    ),
   },
   handler: async (ctx, { taskId, ...task }) => {
-    const { db, userId } = ctx;
-    const { ok, retryAfter } = await rateLimiter.limit(ctx, "updateTask", {
-      key: userId,
-    });
-    if (!ok) return { retryAfter };
+    const originalTask = await checkTask(ctx, taskId);
+    checkValueTypes(ctx, { ...originalTask, ...task });
+    await rateLimit(ctx, "updateTask");
 
-    const originalTask = await db.get(taskId);
-    if (!originalTask || originalTask.userId !== userId) {
-      throw new Error("Not authorized or task not found");
-    }
-
-    return await db.patch(taskId, task);
+    await ctx.db.patch(taskId, task);
   },
 });
+
+export const archive = authedMutation({
+  args: {
+    taskId: tasksSchema._id,
+  },
+  handler: async (ctx, { taskId }) => {
+    await checkTask(ctx, taskId);
+    await rateLimit(ctx, "deleteTask");
+
+    await ctx.db.patch(taskId, { archived: true });
+  },
+});
+
+export async function checkTask(
+  ctx: AuthedMutationCtx | AuthedQueryCtx,
+  taskId: Id<"tasks">
+) {
+  const { db, userId } = ctx;
+  const task = await db.get(taskId);
+  if (!task) {
+    throw new Error("Task not found");
+  }
+  if (task.userId !== userId) {
+    throw new Error("Not authorized for this task");
+  }
+  return task;
+}
+
+type TaskWithValues = Pick<
+  Doc<"tasks">,
+  "initialValue" | "completedValue" | "currentValue" | "taskTypeId"
+>;
+
+export async function checkValueTypes(
+  ctx: AuthedMutationCtx | AuthedQueryCtx,
+  task: TaskWithValues,
+  aditionalValue?: Doc<"taskActions">["value"]
+) {
+  const taskType = await ctx.db.get(task.taskTypeId);
+  if (!taskType) {
+    throw new Error("Task type not found");
+  }
+  const unit = await ctx.db.get(taskType.unitId);
+  if (!unit) {
+    throw new Error("Unit not found");
+  }
+  const commonType = typeof task.initialValue;
+  if (
+    typeof task.completedValue !== commonType ||
+    typeof task.currentValue !== commonType ||
+    (taskType.initialValue !== undefined &&
+      typeof taskType.initialValue !== commonType) ||
+    (taskType.completedValue !== undefined &&
+      typeof taskType.completedValue !== commonType) ||
+    unit.valueType !== commonType ||
+    (aditionalValue !== undefined && typeof aditionalValue !== commonType)
+  ) {
+    throw new Error("Value types do not match");
+  }
+}

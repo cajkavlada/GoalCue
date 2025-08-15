@@ -33,7 +33,7 @@ type TaskTypesForUnits = { unit: Unit; taskTypes: TaskType[] }[];
 
 const initTaskTypes: TaskTypesForUnits = [
   {
-    taskTypes: [{ name: "Todo", completedWhen: true }],
+    taskTypes: [{ name: "Todo", initialValue: false, completedValue: true }],
     unit: {
       name: "Boolean",
       valueType: "boolean",
@@ -47,9 +47,10 @@ const initTaskTypes: TaskTypesForUnits = [
     },
   },
   {
-    taskTypes: [{ name: "Percentage", completedWhen: 100 }],
+    taskTypes: [{ name: "Percentage", initialValue: 0, completedValue: 100 }],
     unit: {
       name: "Percent",
+      symbol: "%",
       valueType: "number",
     },
   },

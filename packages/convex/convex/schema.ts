@@ -13,17 +13,20 @@ export default defineSchema({
     taskTypeId: v.id("taskTypes"),
     priorityClassId: v.id("priorityClasses"),
     repetitionId: v.optional(v.id("repetitions")),
-    completedWhen: v.optional(v.union(v.boolean(), v.number())),
     priorityIndex: v.string(),
     dueAt: v.optional(v.string()),
     archived: v.boolean(),
+    initialValue: v.union(v.boolean(), v.number()),
+    currentValue: v.union(v.boolean(), v.number()),
+    completedValue: v.union(v.boolean(), v.number()),
   })
     .index("by_userId", ["userId"])
     .index("by_user_priority", ["userId", "priorityClassId", "priorityIndex"]),
   taskTypes: defineTable({
     name: v.string(),
     unitId: v.id("units"),
-    completedWhen: v.optional(v.union(v.boolean(), v.number())),
+    initialValue: v.optional(v.union(v.boolean(), v.number())),
+    completedValue: v.optional(v.union(v.boolean(), v.number())),
     userId: v.string(),
   }).index("by_userId", ["userId"]),
   units: defineTable({
@@ -35,9 +38,8 @@ export default defineSchema({
   taskActions: defineTable({
     taskId: v.id("tasks"),
     value: v.union(v.boolean(), v.number()),
-    date: v.string(),
     note: v.optional(v.string()),
-  }),
+  }).index("by_taskId", ["taskId"]),
   repetitions: defineTable({
     taskId: v.id("tasks"),
     repetitionType: v.union(

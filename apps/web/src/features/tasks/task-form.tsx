@@ -2,7 +2,7 @@ import { convexQuery, useConvexMutation } from "@convex-dev/react-query";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 
 import { api } from "@gc/convex/api";
-import { Doc } from "@gc/convex/types";
+import { Doc, Id } from "@gc/convex/types";
 import { useAppForm } from "@gc/form";
 import { DialogLayout, useDialog } from "@gc/ui";
 
@@ -11,22 +11,26 @@ type Task = Doc<"tasks"> & {
   priorityClass: Doc<"priorityClasses">;
 };
 
+type TaskTypeWithUnit = Doc<"taskTypes"> & {
+  unit: Doc<"units">;
+};
+
 export function TaskForm({ editedTask }: { editedTask?: Task }) {
   const { closeDialog } = useDialog();
   const { data: priorityClasses } = useSuspenseQuery(
-    convexQuery(api.tasks.getPriorityClasses, {})
+    convexQuery(api.priorityClasses.getAllForUserId, {})
   );
   const { data: taskTypes } = useSuspenseQuery(
-    convexQuery(api.tasks.getTaskTypes, {})
+    convexQuery(api.taskTypes.getAllWithUnitsForUserId, {})
   );
   const createTask = useMutation({
-    mutationFn: useConvexMutation(api.tasks.createTask),
+    mutationFn: useConvexMutation(api.tasks.create),
     onSuccess: () => {
       closeDialog();
     },
   });
   const updateTask = useMutation({
-    mutationFn: useConvexMutation(api.tasks.updateTask),
+    mutationFn: useConvexMutation(api.tasks.update),
     onSuccess: () => {
       closeDialog();
     },
@@ -38,6 +42,14 @@ export function TaskForm({ editedTask }: { editedTask?: Task }) {
       description: editedTask?.description ?? "",
       taskTypeId: editedTask?.taskTypeId ?? taskTypes[0]!._id,
       priorityClassId: editedTask?.priorityClassId ?? priorityClasses[0]!._id,
+      initialValue:
+        editedTask?.initialValue ??
+        taskTypes[0]?.initialValue ??
+        getTaskTypeInitialValue(taskTypes[0]!),
+      completedValue:
+        editedTask?.completedValue ??
+        taskTypes[0]?.completedValue ??
+        getTaskTypeCompletedValue(taskTypes[0]!),
     },
     onSubmit: ({ value }) => {
       if (editedTask) {
@@ -47,6 +59,23 @@ export function TaskForm({ editedTask }: { editedTask?: Task }) {
       }
     },
   });
+
+  function getTaskTypeInitialValue(taskType: TaskTypeWithUnit) {
+    const valueType = taskType.unit?.valueType;
+    return taskType.initialValue ?? (valueType === "number" ? 0 : false);
+  }
+
+  function getTaskTypeCompletedValue(taskType: TaskTypeWithUnit) {
+    const valueType = taskType.unit?.valueType;
+    return taskType.completedValue ?? (valueType === "number" ? 100 : true);
+  }
+
+  function onTaskTypeChange({ value }: { value: Id<"taskTypes"> }) {
+    const taskType = taskTypes.find((taskType) => taskType._id === value);
+    if (!taskType) throw new Error("Task type not found");
+    form.setFieldValue("initialValue", getTaskTypeInitialValue(taskType));
+    form.setFieldValue("completedValue", getTaskTypeCompletedValue(taskType));
+  }
 
   return (
     <DialogLayout
@@ -63,7 +92,10 @@ export function TaskForm({ editedTask }: { editedTask?: Task }) {
             <form.AppField name="description">
               {(field) => <field.Input label="Description" />}
             </form.AppField>
-            <form.AppField name="taskTypeId">
+            <form.AppField
+              name="taskTypeId"
+              listeners={{ onChange: onTaskTypeChange }}
+            >
               {(field) => (
                 <field.Select
                   label="Task Type"

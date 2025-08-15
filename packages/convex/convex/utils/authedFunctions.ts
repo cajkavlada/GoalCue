@@ -4,7 +4,14 @@ import {
   customQuery,
 } from "convex-helpers/server/customFunctions";
 
-import { action, mutation, query } from "../_generated/server";
+import {
+  action,
+  ActionCtx,
+  mutation,
+  MutationCtx,
+  query,
+  QueryCtx,
+} from "../_generated/server";
 
 export const authedQuery = customQuery(query, {
   args: {},
@@ -20,6 +27,10 @@ export const authedQuery = customQuery(query, {
   },
 });
 
+export type AuthedQueryCtx = QueryCtx & {
+  userId: string;
+};
+
 export const authedMutation = customMutation(mutation, {
   args: {},
   input: async (ctx) => {
@@ -34,6 +45,10 @@ export const authedMutation = customMutation(mutation, {
   },
 });
 
+export type AuthedMutationCtx = MutationCtx & {
+  userId: string;
+};
+
 export const authedAction = customAction(action, {
   args: {},
   input: async (ctx) => {
@@ -47,3 +62,7 @@ export const authedAction = customAction(action, {
     };
   },
 });
+
+export type AuthedActionCtx = ActionCtx & {
+  userId: string;
+};
