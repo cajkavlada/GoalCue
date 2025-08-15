@@ -1,6 +1,7 @@
 import { omit, pick } from "convex-helpers";
 import { getManyFrom } from "convex-helpers/server/relationships";
 import { doc, partial } from "convex-helpers/validators";
+import { ConvexError } from "convex/values";
 import { generateKeyBetween } from "fractional-indexing";
 
 import { Doc, Id } from "./_generated/dataModel";
@@ -58,8 +59,7 @@ export const create = authedMutation({
   ]),
   handler: async (ctx, task) => {
     const { db, userId } = ctx;
-
-    checkValueTypes(ctx, { ...task, currentValue: task.initialValue });
+    await checkValueTypes(ctx, { ...task, currentValue: task.initialValue });
     await rateLimit(ctx, "createTask");
 
     const firstPriorityIndex = (
@@ -91,7 +91,7 @@ export const update = authedMutation({
   },
   handler: async (ctx, { taskId, ...task }) => {
     const originalTask = await checkTask(ctx, taskId);
-    checkValueTypes(ctx, { ...originalTask, ...task });
+    await checkValueTypes(ctx, { ...originalTask, ...task });
     await rateLimit(ctx, "updateTask");
 
     await ctx.db.patch(taskId, task);
@@ -117,10 +117,10 @@ export async function checkTask(
   const { db, userId } = ctx;
   const task = await db.get(taskId);
   if (!task) {
-    throw new Error("Task not found");
+    throw new ConvexError({ message: "Task not found" });
   }
   if (task.userId !== userId) {
-    throw new Error("Not authorized for this task");
+    throw new ConvexError({ message: "Not authorized for this task" });
   }
   return task;
 }
@@ -137,11 +137,11 @@ export async function checkValueTypes(
 ) {
   const taskType = await ctx.db.get(task.taskTypeId);
   if (!taskType) {
-    throw new Error("Task type not found");
+    throw new ConvexError({ message: "Task type not found" });
   }
   const unit = await ctx.db.get(taskType.unitId);
   if (!unit) {
-    throw new Error("Unit not found");
+    throw new ConvexError({ message: "Unit not found" });
   }
   const commonType = typeof task.initialValue;
   if (
@@ -154,6 +154,6 @@ export async function checkValueTypes(
     unit.valueType !== commonType ||
     (aditionalValue !== undefined && typeof aditionalValue !== commonType)
   ) {
-    throw new Error("Value types do not match");
+    throw new ConvexError({ message: "Value types do not match" });
   }
 }

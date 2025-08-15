@@ -6,10 +6,10 @@ import {
 } from "@tanstack/react-router";
 import { routerWithQueryClient } from "@tanstack/react-router-with-query";
 
-import { ConvexProvider, ConvexReactClient } from "@gc/convex";
+import { ConvexError, ConvexProvider, ConvexReactClient } from "@gc/convex";
+import { DialogProvider, toast, Toaster } from "@gc/ui";
 
 import { routeTree } from "./routeTree.gen";
-import { DialogProvider } from "@gc/ui";
 
 export function createRouter() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -28,6 +28,15 @@ export function createRouter() {
         queryKeyHashFn: convexQueryClient.hashFn(),
         queryFn: convexQueryClient.queryFn(),
       },
+      mutations: {
+        onError: (error) => {
+          const errorMessage =
+            error instanceof ConvexError
+              ? (error.data as { message: string }).message
+              : "Unexpected error occurred";
+          toast.error(errorMessage);
+        },
+      },
     },
   });
   convexQueryClient.connect(queryClient);
@@ -39,9 +48,8 @@ export function createRouter() {
       context: { queryClient, convexClient: convex, convexQueryClient },
       Wrap: ({ children }: { children: React.ReactNode }) => (
         <ConvexProvider client={convexQueryClient.convexClient}>
-          <DialogProvider>
-            {children}
-          </DialogProvider>
+          <DialogProvider>{children}</DialogProvider>
+          <Toaster />
         </ConvexProvider>
       ),
       scrollRestoration: true,
