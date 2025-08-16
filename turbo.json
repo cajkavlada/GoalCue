@@ -1,5 +1,6 @@
 {
   "$schema": "https://turborepo.com/schema.json",
+  "globalEnv": ["SSR"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
