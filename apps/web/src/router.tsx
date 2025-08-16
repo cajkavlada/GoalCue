@@ -9,6 +9,7 @@ import { routerWithQueryClient } from "@tanstack/react-router-with-query";
 import { ConvexError, ConvexProvider, ConvexReactClient } from "@gc/convex";
 import { DialogProvider, toast, Toaster } from "@gc/ui";
 
+import { NotFoundRoute } from "./components/NotFoundRoute";
 import { routeTree } from "./routeTree.gen";
 
 export function createRouter() {
@@ -54,7 +55,7 @@ export function createRouter() {
       ),
       scrollRestoration: true,
       defaultErrorComponent: ErrorComponent,
-      defaultNotFoundComponent: () => <div>Not found</div>,
+      defaultNotFoundComponent: NotFoundRoute,
     }),
     queryClient
   );
