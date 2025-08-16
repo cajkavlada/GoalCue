@@ -29,7 +29,8 @@
     "@tanstack/react-start": "^1.129.3",
     "react": "catalog:react",
     "react-dom": "catalog:react",
-    "vite": "^7.0.4"
+    "vite": "^7.0.4",
+    "zod": "^4.0.13"
   },
   "devDependencies": {
     "@gc/eslint-config": "workspace:*",

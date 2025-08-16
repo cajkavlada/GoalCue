@@ -1,10 +1,11 @@
 import { convexQuery, useConvexMutation } from "@convex-dev/react-query";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
+import z from "zod";
 
 import { api } from "@gc/convex/api";
 import { Doc, Id } from "@gc/convex/types";
 import { useAppForm } from "@gc/form";
-import { DialogLayout, useDialog } from "@gc/ui";
+import { Dialog, useDialog } from "@gc/ui";
 
 type Task = Doc<"tasks"> & {
   taskType: Doc<"taskTypes">;
@@ -78,15 +79,19 @@ export function TaskForm({ editedTask }: { editedTask?: Task }) {
   }
 
   return (
-    <DialogLayout
-      title="Create Task"
-      onSubmit={form.handleSubmit}
-      submitLabel={editedTask ? "Update Task" : "Create Task"}
+    <Dialog
+      title={editedTask ? "Edit Task" : "Create Task"}
+      customFooter
     >
       <div>
         <form.AppForm>
           <form.FormRoot>
-            <form.AppField name="title">
+            <form.AppField
+              name="title"
+              validators={{
+                onChange: z.string().min(1, "Title is required"),
+              }}
+            >
               {(field) => <field.Input label="Title" />}
             </form.AppField>
             <form.AppField name="description">
@@ -117,10 +122,12 @@ export function TaskForm({ editedTask }: { editedTask?: Task }) {
                 />
               )}
             </form.AppField>
-            {/* <form.SubmitButton showSubmitResponse>Create task</form.SubmitButton> */}
+            <Dialog.Footer>
+              <form.SubmitButton showSubmitResponse />
+            </Dialog.Footer>
           </form.FormRoot>
         </form.AppForm>
       </div>
-    </DialogLayout>
+    </Dialog>
   );
 }
