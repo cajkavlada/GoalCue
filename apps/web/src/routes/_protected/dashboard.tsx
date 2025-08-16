@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { ErrorSuspense } from "@gc/react-kit";
+import { Button, useDialog } from "@gc/ui";
 
 import { TaskForm } from "@/features/tasks/task-form";
 import { TaskList } from "@/features/tasks/task-list";
-import { Button, useDialog } from "@gc/ui";
 
 export const Route = createFileRoute("/_protected/dashboard")({
   component: RouteComponent,
