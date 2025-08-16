@@ -1,9 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { ErrorSuspense } from "@gc/react-kit";
+
+import { TaskForm } from "@/features/tasks/task-form";
+import { TaskList } from "@/features/tasks/task-list";
+import { Button, useDialog } from "@gc/ui";
+
 export const Route = createFileRoute("/_protected/dashboard")({
   component: RouteComponent,
 });
 
 function RouteComponent() {
-  return <div className="border-2 border-gray-300 p-4">Dashboard</div>;
+  const { openDialog } = useDialog();
+  return (
+    <ErrorSuspense>
+      <Button onClick={() => openDialog(<TaskForm />)}>Create Task</Button>
+      <TaskList />
+    </ErrorSuspense>
+  );
 }
