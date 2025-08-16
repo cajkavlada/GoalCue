@@ -8,10 +8,10 @@ import { useFormContext } from "../useAppForm";
 import { useSubmitResponse } from "./useSubmitResponse";
 
 export function SubmitButton({
-  children,
+  children = "Save",
   showSubmitResponse,
 }: {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   showSubmitResponse?: boolean;
 }) {
   const form = useFormContext();
@@ -22,7 +22,6 @@ export function SubmitButton({
 
   return (
     <Button
-      className="w-full gap-4"
       disabled={isSubmitting}
       type="submit"
     >

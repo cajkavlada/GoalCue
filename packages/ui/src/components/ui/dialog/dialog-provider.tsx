@@ -1,6 +1,6 @@
 import { createContext, useCallback, useMemo, useState } from "react";
 
-import { Dialog } from "../dialog";
+import { Dialog } from "./dialog";
 
 export const DialogContext = createContext<{
   openDialog: (content: React.ReactNode) => void;
