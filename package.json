@@ -9,13 +9,15 @@
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "format": "turbo run format",
-    "clean": "pnpm -r exec rimraf node_modules dist .turbo build && pnpm --workspace-root exec rimraf node_modules dist .turbo .nitro .output .tanstack"
+    "clean": "pnpm -r exec rimraf node_modules dist .turbo build && pnpm --workspace-root exec rimraf node_modules dist .turbo .nitro .output .tanstack",
+    "prepare": "husky"
   },
   "keywords": [],
   "author": "Vladimir Cajka",
   "license": "ISC",
   "packageManager": "pnpm@10.13.1",
   "devDependencies": {
+    "husky": "^9.1.7",
     "turbo": "^2.5.4"
   }
 }
