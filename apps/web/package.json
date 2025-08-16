@@ -9,7 +9,8 @@
     "check-types": "tsc --noEmit",
     "lint": "eslint . --max-warnings=0",
     "format": "prettier --write .",
-    "build": "vite build"
+    "build": "vite build",
+    "machine-translate": "inlang machine translate --project project.inlang"
   },
   "keywords": [],
   "author": "",
@@ -47,6 +48,8 @@
     "prettier": "catalog:prettier",
     "prettier-plugin-tailwindcss": "catalog:prettier",
     "typescript": "catalog:typescript",
-    "vite-tsconfig-paths": "^5.1.4"
+    "vite-tsconfig-paths": "^5.1.4",
+    "@inlang/paraglide-js": "2.2.0",
+    "@inlang/cli": "^3.0.0"
   }
 }
