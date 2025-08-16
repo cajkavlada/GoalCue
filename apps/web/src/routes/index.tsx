@@ -1,6 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/")({
+  beforeLoad: async ({ context: { userId, token } }) => {
+    if (userId && token) {
+      throw redirect({ to: "/dashboard" });
+    }
+  },
   component: Home,
 });
 
