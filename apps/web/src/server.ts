@@ -1,9 +1,3 @@
-export const config = {
-  runtime: "nodejs",
-} as const;
-
-import "urlpattern-polyfill";
-
 import {
   createStartHandler,
   defaultStreamHandler,

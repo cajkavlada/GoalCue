@@ -13,17 +13,17 @@ export default defineConfig({
     paraglideVitePlugin({
       project: "./project.inlang",
       outdir: "./src/paraglide",
-      strategy: ["url", "cookie", "preferredLanguage", "baseLocale"],
-      urlPatterns: [
-        {
-          pattern: "/:path(.*)?",
-          localized: [
-            ["en", "/en/:path(.*)?"],
-            ["cs", "/cs/:path(.*)?"],
-          ],
-        },
-      ],
-      disableAsyncLocalStorage: true,
+      strategy: ["cookie", "preferredLanguage", "baseLocale"],
+      // urlPatterns: [
+      //   {
+      //     pattern: "/:path(.*)?",
+      //     localized: [
+      //       ["en", "/en/:path(.*)?"],
+      //       ["cs", "/cs/:path(.*)?"],
+      //     ],
+      //   },
+      // ],
+      // disableAsyncLocalStorage: true,
     }),
     tsConfigPaths(),
     tanstackStart({ target: "vercel" }),

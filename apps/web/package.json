@@ -31,7 +31,6 @@
     "@tanstack/react-start": "^1.129.3",
     "react": "catalog:react",
     "react-dom": "catalog:react",
-    "urlpattern-polyfill": "^10.1.0",
     "vite": "^7.0.4",
     "zod": "^4.0.13"
   },
