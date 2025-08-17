@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 
-// import { locales, setLocale } from "@/paraglide/runtime.js";
+import { locales, setLocale } from "@/paraglide/runtime.js";
 
 export const Route = createFileRoute("/{-$locale}")({
   component: RouteComponent,
@@ -10,7 +10,7 @@ function RouteComponent() {
   return (
     <>
       <div>
-        {/* {locales.map((locale) => (
+        {locales.map((locale) => (
           <button
             onClick={() => setLocale(locale)}
             key={locale}
@@ -18,7 +18,7 @@ function RouteComponent() {
           >
             {locale}
           </button>
-        ))} */}
+        ))}
       </div>
       <Outlet />
     </>
