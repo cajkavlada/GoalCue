@@ -5,7 +5,8 @@ import { Button, useDialog } from "@gc/ui";
 
 import { TaskForm } from "@/features/tasks/task-form";
 import { TaskList } from "@/features/tasks/task-list";
-import { m } from "@/paraglide/messages";
+
+// import { m } from "@/paraglide/messages";
 
 export const Route = createFileRoute("/{-$locale}/_protected/dashboard")({
   component: RouteComponent,
@@ -16,7 +17,8 @@ function RouteComponent() {
   return (
     <>
       <Button onClick={() => openDialog(<TaskForm />)}>
-        {m.tasks_create_button_label()}
+        Create Task
+        {/* {m.tasks_create_button_label()} */}
       </Button>
       <ErrorSuspense>
         <TaskList />
