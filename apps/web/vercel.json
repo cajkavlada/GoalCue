@@ -1,5 +1,5 @@
 {
   "functions": {
-    "server.js": { "runtime": "nodejs" }
+    "server.js": { "runtime": "nodejs20.x" }
   }
 }
