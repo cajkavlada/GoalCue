@@ -29,9 +29,9 @@ import { ConvexProviderWithClerk, ConvexReactClient } from "@gc/convex";
 import { ErrorSuspense } from "@gc/react-kit";
 import { ModeToggle, ThemeProvider } from "@gc/ui";
 
-// import { m } from "@/paraglide/messages";
-// import { getLocale } from "@/paraglide/runtime";
-// import { clerkLocalizations } from "@/utils/clerkLocalizations";
+import { m } from "@/paraglide/messages";
+import { getLocale } from "@/paraglide/runtime";
+import { clerkLocalizations } from "@/utils/clerkLocalizations";
 import appCss from "../styles/app.css?url";
 
 const fetchClerkAuth = createServerFn({ method: "GET" }).handler(async () => {
@@ -89,11 +89,11 @@ export const Route = createRootRouteWithContext<{
 
 function RootComponent() {
   const context = useRouteContext({ from: Route.id });
-  // const locale = getLocale();
-  // const clerkLocalization = clerkLocalizations[locale] || clerkLocalizations.en;
+  const locale = getLocale();
+  const clerkLocalization = clerkLocalizations[locale] || clerkLocalizations.en;
 
   return (
-    <ClerkProvider>
+    <ClerkProvider localization={clerkLocalization}>
       <ConvexProviderWithClerk
         client={context.convexClient}
         useAuth={useAuth}
@@ -123,15 +123,14 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
         <div>
           <div>
             <ModeToggle />
-            <ClerkLoading>Loading...</ClerkLoading>
+            <ClerkLoading>{m.auth_loading()}</ClerkLoading>
             <ClerkLoaded>
               <SignedIn>
                 <UserButton />
               </SignedIn>
               <SignedOut>
                 <SignInButton mode="modal">
-                  Sign in
-                  {/* {m.auth_signIn_button_label()} */}
+                  {m.auth_signIn_button_label()}
                 </SignInButton>
               </SignedOut>
             </ClerkLoaded>

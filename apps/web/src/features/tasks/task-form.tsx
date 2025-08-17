@@ -7,7 +7,7 @@ import { Doc, Id } from "@gc/convex/types";
 import { useAppForm } from "@gc/form";
 import { Dialog, useDialog } from "@gc/ui";
 
-// import { m } from "@/paraglide/messages";
+import { m } from "@/paraglide/messages";
 
 type Task = Doc<"tasks"> & {
   taskType: Doc<"taskTypes">;
@@ -83,9 +83,9 @@ export function TaskForm({ editedTask }: { editedTask?: Task }) {
   return (
     <Dialog
       title={
-        editedTask ? "Update Task" : "Create Task"
-        // ? m.tasks_update_dialog_title()
-        // : m.tasks_create_dialog_title()
+        editedTask
+          ? m.tasks_update_dialog_title()
+          : m.tasks_create_dialog_title()
       }
       customFooter
     >
@@ -95,13 +95,19 @@ export function TaskForm({ editedTask }: { editedTask?: Task }) {
             <form.AppField
               name="title"
               validators={{
-                onChange: z.string().min(1, "Title is required"),
+                onChange: z
+                  .string()
+                  .min(1, m.tasks_form_field_title_validation_required()),
               }}
             >
-              {(field) => <field.Input label="Title" />}
+              {(field) => (
+                <field.Input label={m.tasks_form_field_title_label()} />
+              )}
             </form.AppField>
             <form.AppField name="description">
-              {(field) => <field.Input label="Description" />}
+              {(field) => (
+                <field.Input label={m.tasks_form_field_description_label()} />
+              )}
             </form.AppField>
             <form.AppField
               name="taskTypeId"
@@ -109,7 +115,7 @@ export function TaskForm({ editedTask }: { editedTask?: Task }) {
             >
               {(field) => (
                 <field.Select
-                  label="Task Type"
+                  label={m.tasks_form_field_taskType_label()}
                   options={taskTypes.map((taskType) => ({
                     label: taskType.name,
                     value: taskType._id,
@@ -120,7 +126,7 @@ export function TaskForm({ editedTask }: { editedTask?: Task }) {
             <form.AppField name="priorityClassId">
               {(field) => (
                 <field.Select
-                  label="Priority Class"
+                  label={m.tasks_form_field_priorityClass_label()}
                   options={priorityClasses.map((priorityClass) => ({
                     label: priorityClass.name,
                     value: priorityClass._id,
