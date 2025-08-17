@@ -18,6 +18,7 @@ export default tseslint.config(
       ".output",
       ".tanstack",
       ".nitro",
+      ".vercel",
       "pnpm-lock.yaml",
     ],
   },
