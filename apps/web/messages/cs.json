@@ -11,5 +11,7 @@
   "tasks_form_field_priorityClass_label": "Priorita",
   "not_found_description": "Stránka, kterou hledáte, neexistuje.",
   "not_found_goBack": "Zpět",
-  "not_found_startOver": "Začít znovu"
+  "not_found_startOver": "Začít znovu",
+  "auth_loading": "Načítání...",
+  "auth_signIn_button_label": "Přihlásit se"
 }
