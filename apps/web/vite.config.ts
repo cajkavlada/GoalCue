@@ -23,6 +23,7 @@ export default defineConfig({
           ],
         },
       ],
+      disableAsyncLocalStorage: true,
     }),
     tsConfigPaths(),
     tanstackStart({ target: "vercel" }),
