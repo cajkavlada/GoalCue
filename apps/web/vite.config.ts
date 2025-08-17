@@ -25,7 +25,7 @@ export default defineConfig({
       ],
     }),
     tsConfigPaths(),
-    tanstackStart(),
+    tanstackStart({ target: "vercel" }),
     tailwindcss(),
   ],
   resolve: {
