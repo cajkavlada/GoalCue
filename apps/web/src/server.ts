@@ -1,4 +1,4 @@
-export const config = { runtime: 'nodejs' } as const;
+export const config = { runtime: 'nodejs20.x' } as const;
 
 import {
   createStartHandler,
