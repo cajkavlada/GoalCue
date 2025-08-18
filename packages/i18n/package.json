@@ -9,20 +9,15 @@
     ".": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsc",
-    "check-types": "tsc --noEmit",
-    "dev": "tsc --watch",
-    "lint": "eslint src --max-warnings=0",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+    "compile": "pnpm exec paraglide-js compile --project ./project.inlang --outdir ./dist --strategy url cookie preferredLanguage baseLocale",
+    "dev": "pnpm exec chokidar \"project.inlang/settings.json\" \"messages/**\" -c \"pnpm run compile\"",
+    "build": "pnpm run compile",
+    "machine-translate": "inlang machine translate --project project.inlang"
   },
   "devDependencies": {
-    "@gc/eslint-config": "workspace:*",
-    "@gc/prettier-config": "workspace:*",
-    "@gc/typescript-config": "workspace:*",
-    "@ianvs/prettier-plugin-sort-imports": "catalog:prettier",
-    "eslint": "catalog:eslint",
-    "prettier": "catalog:prettier",
-    "typescript": "catalog:typescript"
+    "@inlang/cli": "^3.0.0",
+    "@inlang/paraglide-js": "2.2.0",
+    "chokidar-cli": "^3.0.0"
   },
   "keywords": [],
   "author": "",

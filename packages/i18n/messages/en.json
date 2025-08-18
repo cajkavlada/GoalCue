@@ -1,0 +1,7 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "example_message": "Hello world {username}",
+  "test": "Testin package",
+  "test4": "Testin package 2",
+  "some_message": "Some message for testing of machine translation"
+}

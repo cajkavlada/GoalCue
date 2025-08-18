@@ -1,0 +1,7 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "example_message": "Guten Tag {username}",
+  "test": "Testovací zpráva",
+  "test4": "Testovací zpráva 2",
+  "some_message": "Nějaká zpráva pro testování strojového překladu"
+}
