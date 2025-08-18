@@ -13,5 +13,7 @@
   "not_found_goBack": "Zpět",
   "not_found_startOver": "Začít znovu",
   "auth_loading": "Načítání...",
-  "auth_signIn_button_label": "Přihlásit se"
+  "auth_signIn_button_label": "Přihlásit se",
+  "cancel": "Zrušit",
+  "save": "Uložit"
 }

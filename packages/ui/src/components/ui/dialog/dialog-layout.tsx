@@ -1,3 +1,5 @@
+import { m } from "@gc/i18n/messages";
+
 import { Button } from "../button";
 import {
   DialogContent,
@@ -46,8 +48,8 @@ export function Dialog({
 }
 
 Dialog.Footer = function Footer({
-  cancelLabel = "Cancel",
-  submitLabel = "Save",
+  cancelLabel = m.cancel(),
+  submitLabel = m.save(),
   onCancel,
   onSubmit,
   children,

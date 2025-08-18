@@ -13,5 +13,7 @@
   "not_found_goBack": "Go back",
   "not_found_startOver": "Start over",
   "auth_loading": "Auth Loading...",
-  "auth_signIn_button_label": "Sign In"
+  "auth_signIn_button_label": "Sign In",
+  "cancel": "Cancel",
+  "save": "Save"
 }
