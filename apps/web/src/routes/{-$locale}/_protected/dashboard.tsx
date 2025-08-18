@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { m } from "@gc/i18n/messages";
 import { ErrorSuspense } from "@gc/react-kit";
 import { Button, useDialog } from "@gc/ui";
 
 import { TaskForm } from "@/features/tasks/task-form";
 import { TaskList } from "@/features/tasks/task-list";
-import { m } from "@/paraglide/messages";
 
 export const Route = createFileRoute("/{-$locale}/_protected/dashboard")({
   component: RouteComponent,

@@ -26,11 +26,11 @@ import {
   UserButton,
 } from "@gc/auth";
 import { ConvexProviderWithClerk, ConvexReactClient } from "@gc/convex";
+import { m } from "@gc/i18n/messages";
+import { getLocale } from "@gc/i18n/runtime";
 import { ErrorSuspense } from "@gc/react-kit";
 import { ModeToggle, ThemeProvider } from "@gc/ui";
 
-import { m } from "@/paraglide/messages";
-import { getLocale } from "@/paraglide/runtime";
 import { clerkLocalizations } from "@/utils/clerkLocalizations";
 import appCss from "../styles/app.css?url";
 

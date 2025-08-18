@@ -1,0 +1,28 @@
+{
+  "name": "@gc/i18n",
+  "version": "0.0.1",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    "./messages": "./dist/messages.js",
+    "./runtime": "./dist/runtime.js",
+    "./server": "./dist/server.js"
+  },
+  "scripts": {
+    "compile": "pnpm exec paraglide-js compile --project ./project.inlang --outdir ./dist --strategy url cookie preferredLanguage baseLocale",
+    "dev": "pnpm exec chokidar \"project.inlang/settings.json\" \"messages/**\" -c \"pnpm run compile\"",
+    "build": "pnpm run compile",
+    "machine-translate": "inlang machine translate --project project.inlang"
+  },
+  "devDependencies": {
+    "@inlang/cli": "^3.0.0",
+    "@inlang/paraglide-js": "2.2.0",
+    "chokidar-cli": "^3.0.0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.13.1"
+}
