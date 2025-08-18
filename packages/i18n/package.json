@@ -6,7 +6,9 @@
     "dist"
   ],
   "exports": {
-    ".": "./dist/index.js"
+    "./messages": "./dist/messages.js",
+    "./runtime": "./dist/runtime.js",
+    "./server": "./dist/server.js"
   },
   "scripts": {
     "compile": "pnpm exec paraglide-js compile --project ./project.inlang --outdir ./dist --strategy url cookie preferredLanguage baseLocale",

@@ -5,9 +5,9 @@ import {
 } from "@tanstack/react-start/server";
 
 import { createClerkHandler } from "@gc/auth";
+import { overwriteGetLocale } from "@gc/i18n/runtime";
+import { paraglideMiddleware } from "@gc/i18n/server";
 
-import { overwriteGetLocale } from "./paraglide/runtime.js";
-import { paraglideMiddleware } from "./paraglide/server.js";
 import { createRouter } from "./router";
 
 export default createClerkHandler(createStartHandler({ createRouter }))(

@@ -1,7 +1,17 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
-  "example_message": "Hello world {username}",
-  "test": "Testin package",
-  "test4": "Testin package 2",
-  "some_message": "Some message for testing of machine translation"
+  "landing_greet": "Hello",
+  "tasks_create_button_label": "Create Task",
+  "tasks_create_dialog_title": "Create Task",
+  "tasks_update_dialog_title": "Edit Task",
+  "tasks_form_field_title_label": "Title",
+  "tasks_form_field_title_validation_required": "Title is required",
+  "tasks_form_field_description_label": "Description",
+  "tasks_form_field_taskType_label": "Task Type",
+  "tasks_form_field_priorityClass_label": "Priority Class",
+  "not_found_description": "The page you are looking for does not exist.",
+  "not_found_goBack": "Go back",
+  "not_found_startOver": "Start over",
+  "auth_loading": "Auth Loading...",
+  "auth_signIn_button_label": "Sign In"
 }

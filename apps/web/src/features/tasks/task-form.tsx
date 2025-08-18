@@ -5,9 +5,8 @@ import z from "zod";
 import { api } from "@gc/convex/api";
 import { Doc, Id } from "@gc/convex/types";
 import { useAppForm } from "@gc/form";
+import { m } from "@gc/i18n/messages";
 import { Dialog, useDialog } from "@gc/ui";
-
-import { m } from "@/paraglide/messages";
 
 type Task = Doc<"tasks"> & {
   taskType: Doc<"taskTypes">;

@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 
-import { locales, setLocale } from "@/paraglide/runtime.js";
+import { locales, setLocale } from "@gc/i18n/runtime";
 
 export const Route = createFileRoute("/{-$locale}")({
   component: RouteComponent,

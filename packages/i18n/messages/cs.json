@@ -1,7 +1,17 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
-  "example_message": "Guten Tag {username}",
-  "test": "Testovací zpráva",
-  "test4": "Testovací zpráva 2",
-  "some_message": "Nějaká zpráva pro testování strojového překladu"
+  "landing_greet": "Ahoj",
+  "tasks_create_button_label": "Vytvořit úkol",
+  "tasks_create_dialog_title": "Vytvořit úkol",
+  "tasks_update_dialog_title": "Upravit úkol",
+  "tasks_form_field_title_label": "Název",
+  "tasks_form_field_title_validation_required": "Název je povinný",
+  "tasks_form_field_description_label": "Popis",
+  "tasks_form_field_taskType_label": "Typ úkolu",
+  "tasks_form_field_priorityClass_label": "Priorita",
+  "not_found_description": "Stránka, kterou hledáte, neexistuje.",
+  "not_found_goBack": "Zpět",
+  "not_found_startOver": "Začít znovu",
+  "auth_loading": "Načítání...",
+  "auth_signIn_button_label": "Přihlásit se"
 }

@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { m } from "@/paraglide/messages";
+import { m } from "@gc/i18n/messages";
 
 export const Route = createFileRoute("/{-$locale}/")({
   beforeLoad: async ({ context: { userId, token } }) => {

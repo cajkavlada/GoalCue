@@ -1,8 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
+import { m } from "@gc/i18n/messages";
 import { Button } from "@gc/ui";
-
-import { m } from "@/paraglide/messages";
 
 export function NotFoundRoute() {
   return (
