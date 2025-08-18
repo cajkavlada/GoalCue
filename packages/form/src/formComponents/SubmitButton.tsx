@@ -1,5 +1,6 @@
 import { useStore } from "@tanstack/react-form";
 
+import { m } from "@gc/i18n/messages";
 import { Button } from "@gc/ui";
 
 // import { CheckmarkCircleRegular, DismissCircleRegular } from "@nnlib/ui/icons";
@@ -8,7 +9,7 @@ import { useFormContext } from "../useAppForm";
 import { useSubmitResponse } from "./useSubmitResponse";
 
 export function SubmitButton({
-  children = "Save",
+  children = m.save(),
   showSubmitResponse,
 }: {
   children?: React.ReactNode;
