@@ -283,6 +283,30 @@ importers:
         specifier: ^4.0.5
         version: 4.0.13
 
+  packages/i18n:
+    devDependencies:
+      '@gc/eslint-config':
+        specifier: workspace:*
+        version: link:../../tooling/eslint-config
+      '@gc/prettier-config':
+        specifier: workspace:*
+        version: link:../../tooling/prettier-config
+      '@gc/typescript-config':
+        specifier: workspace:*
+        version: link:../../tooling/typescript-config
+      '@ianvs/prettier-plugin-sort-imports':
+        specifier: catalog:prettier
+        version: 4.5.1(@vue/compiler-sfc@3.5.18)(prettier@3.6.2)
+      eslint:
+        specifier: catalog:eslint
+        version: 9.32.0(jiti@2.5.1)
+      prettier:
+        specifier: catalog:prettier
+        version: 3.6.2
+      typescript:
+        specifier: catalog:typescript
+        version: 5.8.3
+
   packages/react-kit:
     dependencies:
       react:
