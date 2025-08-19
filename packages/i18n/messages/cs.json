@@ -15,5 +15,20 @@
   "auth_loading": "Načítání...",
   "auth_signIn_button_label": "Přihlásit se",
   "cancel": "Zrušit",
-  "save": "Uložit"
+  "save": "Uložit",
+  "priorityClasses_high": "Vysoká",
+  "priorityClasses_medium": "Střední",
+  "priorityClasses_low": "Nízká",
+  "taskTypes_todo": "Jednoduchý úkol (Hotovo/Není hotovo)",
+  "taskTypes_percentage": "Kontinuální úkol na procenta (0-100%)",
+  "taskTypes_time": "Kontinuální úkol na čas (minuty)",
+  "taskTypes_distance": "Kontinuální úkol na vzdálenost (kilometry)",
+  "taskTypes_pages": "Kontinuální úkol na počet stránek (stránky)",
+  "taskTypes_number": "Kontinuální úkol na počet (počet)",
+  "units_boolean": "Hotovo/Není hotovo",
+  "units_percent": "Procenta",
+  "units_minute": "Minuty",
+  "units_kilometer": "Kilometry",
+  "units_page": "Stránky",
+  "units_count": "Počet"
 }

@@ -9,6 +9,7 @@ export default defineSchema({
   tasks: defineTable({
     title: v.string(),
     description: v.optional(v.string()),
+    i18nKey: v.optional(v.string()),
     userId: v.string(),
     taskTypeId: v.id("taskTypes"),
     priorityClassId: v.id("priorityClasses"),
@@ -19,11 +20,13 @@ export default defineSchema({
     initialValue: v.union(v.boolean(), v.number()),
     currentValue: v.union(v.boolean(), v.number()),
     completedValue: v.union(v.boolean(), v.number()),
+    completed: v.boolean(),
   })
     .index("by_userId", ["userId"])
     .index("by_user_priority", ["userId", "priorityClassId", "priorityIndex"]),
   taskTypes: defineTable({
     name: v.string(),
+    i18nKey: v.optional(v.string()),
     unitId: v.id("units"),
     initialValue: v.optional(v.union(v.boolean(), v.number())),
     completedValue: v.optional(v.union(v.boolean(), v.number())),
@@ -31,6 +34,7 @@ export default defineSchema({
   }).index("by_userId", ["userId"]),
   units: defineTable({
     name: v.string(),
+    i18nKey: v.optional(v.string()),
     symbol: v.optional(v.string()),
     valueType: literals("number", "boolean"),
     userId: v.optional(v.string()),
@@ -55,12 +59,14 @@ export default defineSchema({
   priorityClasses: defineTable({
     userId: v.string(),
     name: v.string(),
+    i18nKey: v.optional(v.string()),
     color: v.optional(v.string()),
     order: v.string(),
   }).index("by_userId", ["userId"]),
   events: defineTable({
     title: v.string(),
     description: v.optional(v.string()),
+    i18nKey: v.optional(v.string()),
     userId: v.string(),
     startTime: v.string(),
     endTime: v.string(),
