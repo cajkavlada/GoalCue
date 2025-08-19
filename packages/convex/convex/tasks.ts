@@ -78,6 +78,7 @@ export const create = authedMutation({
       archived: false,
       priorityIndex: generateKeyBetween(null, firstPriorityIndex),
       currentValue: task.initialValue,
+      completed: false,
     });
   },
 });
