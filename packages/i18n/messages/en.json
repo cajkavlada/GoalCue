@@ -15,5 +15,20 @@
   "auth_loading": "Auth Loading...",
   "auth_signIn_button_label": "Sign In",
   "cancel": "Cancel",
-  "save": "Save"
+  "save": "Save",
+  "priorityClasses_high": "High",
+  "priorityClasses_medium": "Medium",
+  "priorityClasses_low": "Low",
+  "taskTypes_todo": "Simple task (Done/Not Done)",
+  "taskTypes_percentage": "Continuos percentage task (0-100%)",
+  "taskTypes_time": "Continuos time task (minutes)",
+  "taskTypes_distance": "Continuos distance task (kilometers)",
+  "taskTypes_pages": "Continuos pages task (pages)",
+  "taskTypes_number": "Continuos number task (count)",
+  "units_boolean": "Done/Not Done",
+  "units_percent": "Percent",
+  "units_minute": "Minute",
+  "units_kilometer": "Kilometer",
+  "units_page": "Page",
+  "units_count": "Count"
 }

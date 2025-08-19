@@ -1,5 +1,5 @@
-import { convexQuery, useConvexMutation } from "@convex-dev/react-query";
-import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
+import { useConvexMutation } from "@convex-dev/react-query";
+import { useMutation } from "@tanstack/react-query";
 import z from "zod";
 
 import { api } from "@gc/convex/api";
@@ -7,6 +7,9 @@ import { Doc, Id } from "@gc/convex/types";
 import { useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
 import { Dialog, useDialog } from "@gc/ui";
+
+import { usePriorityClasses } from "../priority-classes/use-priority-classes";
+import { useTaskTypes } from "../task-types/use-task-types";
 
 type Task = Doc<"tasks"> & {
   taskType: Doc<"taskTypes">;
@@ -19,12 +22,10 @@ type TaskTypeWithUnit = Doc<"taskTypes"> & {
 
 export function TaskForm({ editedTask }: { editedTask?: Task }) {
   const { closeDialog } = useDialog();
-  const { data: priorityClasses } = useSuspenseQuery(
-    convexQuery(api.priorityClasses.getAllForUserId, {})
-  );
-  const { data: taskTypes } = useSuspenseQuery(
-    convexQuery(api.taskTypes.getAllWithUnitsForUserId, {})
-  );
+
+  const priorityClasses = usePriorityClasses();
+  const taskTypes = useTaskTypes();
+
   const createTask = useMutation({
     mutationFn: useConvexMutation(api.tasks.create),
     onSuccess: () => {
