@@ -1,11 +1,4 @@
-import {
-  Label,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Select as UISelect,
-} from "@gc/ui";
+import { Label, Select as UISelect } from "@gc/ui";
 import { cn } from "@gc/utils";
 
 import { useFieldContext } from "../useAppForm";
@@ -25,23 +18,10 @@ export function Select<T extends string>({
     <div className={cn("flex flex-col", className)}>
       <Label htmlFor={field.name}>{label}</Label>
       <UISelect
+        options={options}
         value={field.state.value}
         onValueChange={field.handleChange}
-      >
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder={label} />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((option) => (
-            <SelectItem
-              key={option.value}
-              value={option.value}
-            >
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </UISelect>
+      />
       <FieldErrors meta={field.state.meta} />
     </div>
   );

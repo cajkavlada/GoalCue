@@ -4,7 +4,7 @@ import { doc, partial } from "convex-helpers/validators";
 import { ConvexError } from "convex/values";
 import { generateKeyBetween } from "fractional-indexing";
 
-import { Id } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
 import schema from "./schema";
 import {
   authedMutation,
@@ -30,7 +30,22 @@ export const getAllExtendedForUserId = authedQuery({
             message: "Task or priority class not found",
           });
         }
-        return { ...task, taskType, priorityClass };
+        let enumOptions: Doc<"taskTypeEnumOptions">[] | undefined;
+        if (taskType.valueKind === "enum") {
+          enumOptions = await getManyFrom(
+            db,
+            "taskTypeEnumOptions",
+            "by_taskTypeId_orderKey",
+            task.taskTypeId,
+            "taskTypeId"
+          );
+        }
+        return {
+          ...task,
+          taskType,
+          priorityClass,
+          ...(enumOptions ? { enumOptions } : {}),
+        };
       })
     );
 

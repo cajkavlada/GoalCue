@@ -31,5 +31,6 @@
   "units_kilometer": "Kilometer",
   "units_page": "Page",
   "units_count": "Count",
-  "taskTypes_articleWorkflow": "Article Workflow"
+  "taskTypes_articleWorkflow": "Article Workflow",
+  "select_placeholder": "Select an option"
 }
