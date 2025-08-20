@@ -18,7 +18,8 @@
     "@gc/auth": "workspace:*",
     "convex": "^1.25.2",
     "convex-helpers": "^0.1.100",
-    "fractional-indexing": "^3.2.0"
+    "fractional-indexing": "^3.2.0",
+    "zod": "catalog:common"
   },
   "devDependencies": {
     "@gc/eslint-config": "workspace:*",

@@ -33,7 +33,7 @@
     "react": "catalog:react",
     "react-dom": "catalog:react",
     "vite": "^7.0.4",
-    "zod": "^4.0.13"
+    "zod": "catalog:common"
   },
   "devDependencies": {
     "@clerk/types": "^4.78.0",

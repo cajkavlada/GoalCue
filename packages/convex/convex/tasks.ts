@@ -1,10 +1,10 @@
-import { omit, pick } from "convex-helpers";
+import { pick } from "convex-helpers";
 import { getManyFrom } from "convex-helpers/server/relationships";
 import { doc, partial } from "convex-helpers/validators";
 import { ConvexError } from "convex/values";
 import { generateKeyBetween } from "fractional-indexing";
 
-import { Doc, Id } from "./_generated/dataModel";
+import { Id } from "./_generated/dataModel";
 import schema from "./schema";
 import {
   authedMutation,
@@ -54,12 +54,11 @@ export const create = authedMutation({
     "priorityClassId",
     "repetitionId",
     "dueAt",
-    "initialValue",
-    "completedValue",
+    "initialNumValue",
+    "completedNumValue",
   ]),
   handler: async (ctx, task) => {
     const { db, userId } = ctx;
-    await checkValueTypes(ctx, { ...task, currentValue: task.initialValue });
     await rateLimit(ctx, "createTask");
 
     const firstPriorityIndex = (
@@ -72,13 +71,22 @@ export const create = authedMutation({
         .first()
     )?.priorityIndex;
 
+    const taskType = await ctx.db.get(task.taskTypeId);
+    if (!taskType) {
+      throw new ConvexError({ message: "Task type not found" });
+    }
+
     return await ctx.db.insert("tasks", {
       ...task,
       userId,
       archived: false,
+      valueKind: taskType.valueKind,
       priorityIndex: generateKeyBetween(null, firstPriorityIndex),
-      currentValue: task.initialValue,
       completed: false,
+      initialNumValue: task.initialNumValue ?? taskType.initialNumValue,
+      currentNumValue: task.initialNumValue ?? taskType.initialNumValue,
+      completedNumValue: task.completedNumValue ?? taskType.completedNumValue,
+      currentEnumOptionId: taskType.initialEnumOptionId,
     });
   },
 });
@@ -87,12 +95,20 @@ export const update = authedMutation({
   args: {
     taskId: tasksSchema._id,
     ...partial(
-      omit(tasksSchema, ["userId", "_creationTime", "_id", "taskTypeId"])
+      pick(tasksSchema, [
+        "title",
+        "description",
+        "priorityClassId",
+        "priorityIndex",
+        "repetitionId",
+        "dueAt",
+        "initialNumValue",
+        "completedNumValue",
+      ])
     ),
   },
   handler: async (ctx, { taskId, ...task }) => {
-    const originalTask = await checkTask(ctx, taskId);
-    await checkValueTypes(ctx, { ...originalTask, ...task });
+    await checkTask(ctx, taskId);
     await rateLimit(ctx, "updateTask");
 
     await ctx.db.patch(taskId, task);
@@ -124,37 +140,4 @@ export async function checkTask(
     throw new ConvexError({ message: "Not authorized for this task" });
   }
   return task;
-}
-
-type TaskWithValues = Pick<
-  Doc<"tasks">,
-  "initialValue" | "completedValue" | "currentValue" | "taskTypeId"
->;
-
-export async function checkValueTypes(
-  ctx: AuthedMutationCtx | AuthedQueryCtx,
-  task: TaskWithValues,
-  aditionalValue?: Doc<"taskActions">["value"]
-) {
-  const taskType = await ctx.db.get(task.taskTypeId);
-  if (!taskType) {
-    throw new ConvexError({ message: "Task type not found" });
-  }
-  const unit = await ctx.db.get(taskType.unitId);
-  if (!unit) {
-    throw new ConvexError({ message: "Unit not found" });
-  }
-  const commonType = typeof task.initialValue;
-  if (
-    typeof task.completedValue !== commonType ||
-    typeof task.currentValue !== commonType ||
-    (taskType.initialValue !== undefined &&
-      typeof taskType.initialValue !== commonType) ||
-    (taskType.completedValue !== undefined &&
-      typeof taskType.completedValue !== commonType) ||
-    unit.valueType !== commonType ||
-    (aditionalValue !== undefined && typeof aditionalValue !== commonType)
-  ) {
-    throw new ConvexError({ message: "Value types do not match" });
-  }
 }

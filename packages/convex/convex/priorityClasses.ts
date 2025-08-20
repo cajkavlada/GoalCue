@@ -11,6 +11,6 @@ export const getAllForUserId = authedQuery({
       "by_userId",
       userId
     );
-    return priorityClasses.sort((a, b) => b.order.localeCompare(a.order));
+    return priorityClasses.sort((a, b) => b.orderKey.localeCompare(a.orderKey));
   },
 });

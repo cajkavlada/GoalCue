@@ -10,6 +10,9 @@ catalogs:
     "@types/react": ^19.1.8
     "@types/react-dom": ^19.1.6
 
+  common:
+    zod: ^4.0.17
+
   prettier:
     "@ianvs/prettier-plugin-sort-imports": ^4.4.2
     prettier: ^3.5.3
