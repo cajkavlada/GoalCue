@@ -3,25 +3,14 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 
 import { api } from "@gc/convex/api";
 
+import { BoolTaskActionCheckbox } from "../task-actions/bool-task-action-checkbox";
+import { EnumTaskActionSelect } from "../task-actions/enum-task-action-select";
+import { NumberTaskActionInput } from "../task-actions/number-task-action-input";
+
 export function TaskList() {
   const { data: tasks } = useSuspenseQuery(
     convexQuery(api.tasks.getAllExtendedForUserId, {})
   );
-
-  // const { mutate: addTaskAction } = useMutation({
-  //   mutationFn: useConvexMutation(api.taskActions.add),
-  // });
-
-  // function handleAddTaskAction(
-  //   task: Doc<"tasks"> & { taskType: Doc<"taskTypes"> }
-  // ) {
-  //   addTaskAction({
-  //     taskId: task._id,
-  //     booleanValue: undefined,
-  //     numValue: undefined,
-  //     enumOptionId: task.taskType.completedEnumOptionId,
-  //   });
-  // }
 
   return (
     <div>
@@ -31,10 +20,12 @@ export function TaskList() {
           className="flex items-center gap-2"
         >
           {task.title}
-          {task.completed ? "  Done" : "  Not done"}
-          {/* <Button onClick={() => handleAddTaskAction(task)}>
-            Add task action
-          </Button> */}
+          {task.completed ? "Done" : "Not done"}
+          {task.valueKind === "boolean" && (
+            <BoolTaskActionCheckbox task={task} />
+          )}
+          {task.valueKind === "number" && <NumberTaskActionInput task={task} />}
+          {task.valueKind === "enum" && <EnumTaskActionSelect task={task} />}
         </div>
       ))}
     </div>

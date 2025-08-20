@@ -31,5 +31,6 @@
   "units_kilometer": "Kilometry",
   "units_page": "Stránky",
   "units_count": "Počet",
-  "taskTypes_articleWorkflow": "Workflow článku"
+  "taskTypes_articleWorkflow": "Workflow článku",
+  "select_placeholder": "Vyberte možnost"
 }
