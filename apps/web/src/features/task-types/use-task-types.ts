@@ -6,7 +6,7 @@ import { m } from "@gc/i18n/messages";
 
 export function useTaskTypes() {
   const { data: taskTypes } = useSuspenseQuery(
-    convexQuery(api.taskTypes.getAllWithUnitsForUserId, {})
+    convexQuery(api.taskTypes.getAllForUserId, {})
   );
   return taskTypes.map(({ i18nKey, name, ...rest }) => ({
     name: i18nKey ? (m[i18nKey as keyof typeof m]() ?? name) : name,

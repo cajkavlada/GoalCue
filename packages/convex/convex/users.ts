@@ -1,10 +1,11 @@
 import { v } from "convex/values";
 import { generateNKeysBetween } from "fractional-indexing";
 
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 
-const defaultKeys = generateNKeysBetween(null, null, 3);
+const priorityClassDefaultKeys = generateNKeysBetween(null, null, 3);
+const articleWorkflowEnumDefaultKeys = generateNKeysBetween(null, null, 6);
 
 type PriorityClass = Required<
   Omit<Doc<"priorityClasses">, "_id" | "_creationTime" | "userId">
@@ -14,96 +15,140 @@ const initPriorityClasses: PriorityClass[] = [
   {
     name: "High",
     color: "red",
-    order: defaultKeys[0]!,
+    orderKey: priorityClassDefaultKeys[0]!,
     i18nKey: "priorityClasses_high",
   },
   {
     name: "Medium",
     color: "yellow",
-    order: defaultKeys[1]!,
+    orderKey: priorityClassDefaultKeys[1]!,
     i18nKey: "priorityClasses_medium",
   },
   {
     name: "Low",
     color: "green",
-    order: defaultKeys[2]!,
+    orderKey: priorityClassDefaultKeys[2]!,
     i18nKey: "priorityClasses_low",
   },
 ];
 
 type Unit = Omit<Doc<"units">, "_id" | "_creationTime" | "userId">;
+type TaskTypeEnumOption = Omit<
+  Doc<"taskTypeEnumOptions">,
+  "_id" | "_creationTime" | "taskTypeId"
+> & { initial?: boolean; completed?: boolean };
 type TaskType = Omit<
   Doc<"taskTypes">,
   "_id" | "_creationTime" | "userId" | "unitId"
->;
-type TaskTypesForUnits = { unit: Unit; taskTypes: TaskType[] }[];
+> & { taskTypeEnumOptions?: TaskTypeEnumOption[] };
+type TaskTypesForUnits = { unit?: Unit; taskTypes: TaskType[] }[];
 
 const initTaskTypes: TaskTypesForUnits = [
   {
     taskTypes: [
       {
         name: "Todo",
-        initialValue: false,
-        completedValue: true,
         i18nKey: "taskTypes_todo",
+        valueKind: "boolean",
       },
     ],
-    unit: {
-      name: "Boolean",
-      valueType: "boolean",
-      i18nKey: "units_boolean",
-    },
   },
   {
     taskTypes: [
       {
         name: "Percentage",
-        initialValue: 0,
-        completedValue: 100,
         i18nKey: "taskTypes_percentage",
+        valueKind: "number",
+        initialNumValue: 0,
+        completedNumValue: 100,
       },
     ],
     unit: {
       name: "Percent",
-      symbol: "%",
-      valueType: "number",
       i18nKey: "units_percent",
+      symbol: "%",
     },
   },
   {
-    taskTypes: [{ name: "Time", i18nKey: "taskTypes_time" }],
+    taskTypes: [
+      { name: "Time", i18nKey: "taskTypes_time", valueKind: "number" },
+    ],
     unit: {
       name: "Minute",
-      symbol: "min",
-      valueType: "number",
       i18nKey: "units_minute",
+      symbol: "min",
     },
   },
   {
-    taskTypes: [{ name: "Distance", i18nKey: "taskTypes_distance" }],
+    taskTypes: [
+      { name: "Distance", i18nKey: "taskTypes_distance", valueKind: "number" },
+    ],
     unit: {
       name: "Kilometer",
-      symbol: "km",
-      valueType: "number",
       i18nKey: "units_kilometer",
+      symbol: "km",
     },
   },
   {
-    taskTypes: [{ name: "Pages", i18nKey: "taskTypes_pages" }],
+    taskTypes: [
+      { name: "Pages", i18nKey: "taskTypes_pages", valueKind: "number" },
+    ],
     unit: {
       name: "Page",
-      symbol: "pg",
-      valueType: "number",
       i18nKey: "units_page",
     },
   },
   {
-    taskTypes: [{ name: "Number", i18nKey: "taskTypes_number" }],
+    taskTypes: [
+      { name: "Number", i18nKey: "taskTypes_number", valueKind: "number" },
+    ],
     unit: {
       name: "Count",
-      valueType: "number",
       i18nKey: "units_count",
     },
+  },
+  {
+    taskTypes: [
+      {
+        name: "Article Workflow",
+        i18nKey: "taskTypes_articleWorkflow",
+        valueKind: "enum",
+        taskTypeEnumOptions: [
+          {
+            name: "Backlog",
+            i18nKey: "enumOptions_backlog",
+            orderKey: articleWorkflowEnumDefaultKeys[0]!,
+            initial: true,
+          },
+          {
+            name: "Draft",
+            i18nKey: "enumOptions_draft",
+            orderKey: articleWorkflowEnumDefaultKeys[1]!,
+          },
+          {
+            name: "Review",
+            i18nKey: "enumOptions_review",
+            orderKey: articleWorkflowEnumDefaultKeys[2]!,
+          },
+          {
+            name: "Revise",
+            i18nKey: "enumOptions_revise",
+            orderKey: articleWorkflowEnumDefaultKeys[3]!,
+          },
+          {
+            name: "Approved",
+            i18nKey: "enumOptions_approved",
+            orderKey: articleWorkflowEnumDefaultKeys[4]!,
+          },
+          {
+            name: "Published",
+            i18nKey: "enumOptions_published",
+            orderKey: articleWorkflowEnumDefaultKeys[5]!,
+            completed: true,
+          },
+        ],
+      },
+    ],
   },
 ];
 
@@ -137,16 +182,48 @@ export const initUser = mutation({
       });
     }
     for (const { unit, taskTypes } of initTaskTypes) {
-      const unitId = await ctx.db.insert("units", {
-        ...unit,
-        userId,
-      });
-      for (const taskType of taskTypes) {
-        await ctx.db.insert("taskTypes", {
-          ...taskType,
-          unitId,
+      let unitId: Id<"units"> | undefined;
+      if (unit) {
+        unitId = await ctx.db.insert("units", {
+          ...unit,
           userId,
         });
+      }
+      for (const taskType of taskTypes) {
+        const { taskTypeEnumOptions, ...rest } = taskType;
+        const taskTypeWithUnitId = {
+          ...rest,
+          userId,
+          unitId,
+        };
+
+        const taskTypeId = await ctx.db.insert("taskTypes", taskTypeWithUnitId);
+        if (taskTypeEnumOptions) {
+          let initialEnumOptionId: Id<"taskTypeEnumOptions"> | undefined;
+          let completedEnumOptionId: Id<"taskTypeEnumOptions"> | undefined;
+          for (const opt of taskTypeEnumOptions) {
+            const { initial, completed, ...taskTypeEnumOption } = opt;
+            const taskTypeEnumOptionId = await ctx.db.insert(
+              "taskTypeEnumOptions",
+              {
+                ...taskTypeEnumOption,
+                taskTypeId,
+              }
+            );
+            if (initial) {
+              initialEnumOptionId = taskTypeEnumOptionId;
+            }
+            if (completed) {
+              completedEnumOptionId = taskTypeEnumOptionId;
+            }
+          }
+          if (initialEnumOptionId && completedEnumOptionId) {
+            await ctx.db.patch(taskTypeId, {
+              initialEnumOptionId,
+              completedEnumOptionId,
+            });
+          }
+        }
       }
     }
   },

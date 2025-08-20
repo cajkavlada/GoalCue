@@ -30,5 +30,6 @@
   "units_minute": "Minute",
   "units_kilometer": "Kilometer",
   "units_page": "Page",
-  "units_count": "Count"
+  "units_count": "Count",
+  "taskTypes_articleWorkflow": "Article Workflow"
 }

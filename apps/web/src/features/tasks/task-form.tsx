@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import z from "zod";
 
 import { api } from "@gc/convex/api";
-import { Doc, Id } from "@gc/convex/types";
+import { Doc } from "@gc/convex/types";
 import { useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
 import { Dialog, useDialog } from "@gc/ui";
@@ -14,10 +14,6 @@ import { useTaskTypes } from "../task-types/use-task-types";
 type Task = Doc<"tasks"> & {
   taskType: Doc<"taskTypes">;
   priorityClass: Doc<"priorityClasses">;
-};
-
-type TaskTypeWithUnit = Doc<"taskTypes"> & {
-  unit: Doc<"units">;
 };
 
 export function TaskForm({ editedTask }: { editedTask?: Task }) {
@@ -45,14 +41,10 @@ export function TaskForm({ editedTask }: { editedTask?: Task }) {
       description: editedTask?.description ?? "",
       taskTypeId: editedTask?.taskTypeId ?? taskTypes[0]!._id,
       priorityClassId: editedTask?.priorityClassId ?? priorityClasses[0]!._id,
-      initialValue:
-        editedTask?.initialValue ??
-        taskTypes[0]?.initialValue ??
-        getTaskTypeInitialValue(taskTypes[0]!),
-      completedValue:
-        editedTask?.completedValue ??
-        taskTypes[0]?.completedValue ??
-        getTaskTypeCompletedValue(taskTypes[0]!),
+      initialNumValue:
+        editedTask?.initialNumValue ?? taskTypes[0]?.initialNumValue,
+      completedNumValue:
+        editedTask?.completedNumValue ?? taskTypes[0]?.completedNumValue,
     },
     onSubmit: ({ value }) => {
       if (editedTask) {
@@ -62,23 +54,6 @@ export function TaskForm({ editedTask }: { editedTask?: Task }) {
       }
     },
   });
-
-  function getTaskTypeInitialValue(taskType: TaskTypeWithUnit) {
-    const valueType = taskType.unit?.valueType;
-    return taskType.initialValue ?? (valueType === "number" ? 0 : false);
-  }
-
-  function getTaskTypeCompletedValue(taskType: TaskTypeWithUnit) {
-    const valueType = taskType.unit?.valueType;
-    return taskType.completedValue ?? (valueType === "number" ? 100 : true);
-  }
-
-  function onTaskTypeChange({ value }: { value: Id<"taskTypes"> }) {
-    const taskType = taskTypes.find((taskType) => taskType._id === value);
-    if (!taskType) throw new Error("Task type not found");
-    form.setFieldValue("initialValue", getTaskTypeInitialValue(taskType));
-    form.setFieldValue("completedValue", getTaskTypeCompletedValue(taskType));
-  }
 
   return (
     <Dialog
@@ -109,10 +84,7 @@ export function TaskForm({ editedTask }: { editedTask?: Task }) {
                 <field.Input label={m.tasks_form_field_description_label()} />
               )}
             </form.AppField>
-            <form.AppField
-              name="taskTypeId"
-              listeners={{ onChange: onTaskTypeChange }}
-            >
+            <form.AppField name="taskTypeId">
               {(field) => (
                 <field.Select
                   label={m.tasks_form_field_taskType_label()}
