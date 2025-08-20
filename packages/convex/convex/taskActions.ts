@@ -1,179 +1,113 @@
-// import { pick } from "convex-helpers";
-// import { doc } from "convex-helpers/validators";
-// import { ConvexError } from "convex/values";
-// import z from "zod";
+import { pick } from "convex-helpers";
+import { doc } from "convex-helpers/validators";
+import { ConvexError } from "convex/values";
+import z from "zod";
 
-// import { Doc, Id } from "./_generated/dataModel";
-// import schema from "./schema";
-// import { checkTask } from "./tasks";
-// import { authedMutation, AuthedMutationCtx } from "./utils/authedFunctions";
-// import { rateLimit } from "./utils/rateLimiter";
+import { Doc, Id } from "./_generated/dataModel";
+import schema from "./schema";
+import { checkTask } from "./tasks";
+import { authedMutation } from "./utils/authedFunctions";
+import { rateLimit } from "./utils/rateLimiter";
 
-// const taskActionsSchema = doc(schema, "taskActions").fields;
+const taskActionsSchema = doc(schema, "taskActions").fields;
 
-// const taskActionValueZodSchema = z.discriminatedUnion("valueKind", [
-//   z
-//     .object({
-//       valueKind: z.literal("boolean"),
-//       booleanValue: z.boolean(),
-//     })
-//     .strict(),
-//   z
-//     .object({
-//       valueKind: z.literal("number"),
-//       numValue: z.number(),
-//     })
-//     .strict(),
-//   z
-//     .object({
-//       valueKind: z.literal("enum"),
-//       enumOptionId: z.string(),
-//     })
-//     .strict(),
-// ]);
+export const add = authedMutation({
+  args: pick(taskActionsSchema, [
+    "taskId",
+    "booleanValue",
+    "numValue",
+    "enumOptionId",
+    "note",
+  ]),
+  handler: async (ctx, input) => {
+    const { taskId, ...action } = input;
+    const task = await checkTask(ctx, taskId);
+    const taskType = await ctx.db.get(task.taskTypeId);
+    if (!taskType) {
+      throw new ConvexError({
+        message: `Task type not found.`,
+      });
+    }
 
-// type TaskActionValue = z.infer<typeof taskActionValueZodSchema>;
+    const checkedNewTaskValues = checkTaskValues({
+      valueKind: task.valueKind,
+      ...action,
+      ...(task.valueKind === "number"
+        ? {
+            completedNumValue: task.completedNumValue,
+            initialNumValue: task.initialNumValue,
+          }
+        : {}),
+      ...(task.valueKind === "enum"
+        ? { completedEnumOptionId: taskType.completedEnumOptionId }
+        : {}),
+    });
 
-// export const add = authedMutation({
-//   args: pick(taskActionsSchema, [
-//     "taskId",
-//     "booleanValue",
-//     "numValue",
-//     "enumOptionId",
-//     "note",
-//   ]),
-//   handler: async (ctx, input) => {
-//     const { taskId, ...action } = input;
-//     const task = await checkTask(ctx, taskId);
-//     const taskType = await ctx.db.get(task.taskTypeId);
+    await rateLimit(ctx, "addTaskAction");
 
-//     const checked = check({valueKind: task.valueKind, ...action});
+    await ctx.db.patch(taskId, checkedNewTaskValues);
+    return await ctx.db.insert("taskActions", input);
+  },
+});
 
-//     const completed = await isCompleted(
-//       task,
-//       { ...parsed.data, valueKind: task.valueKind },
-//       ctx
-//     );
+const taskValuesSchema = z.discriminatedUnion("valueKind", [
+  z
+    .object({
+      valueKind: z.literal("boolean"),
+      booleanValue: z.boolean(),
+    })
+    .strict(),
+  z
+    .object({
+      valueKind: z.literal("number"),
+      numValue: z.number(),
+      initialNumValue: z.number(),
+      completedNumValue: z.number(),
+    })
+    .strict(),
+  z
+    .object({
+      valueKind: z.literal("enum"),
+      enumOptionId: z.string(),
+      completedEnumOptionId: z.string(),
+    })
+    .strict(),
+]);
 
-//     await rateLimit(ctx, "addTaskAction");
+function checkTaskValues(
+  data: Pick<Doc<"taskActions">, "booleanValue" | "numValue" | "enumOptionId"> &
+    Pick<Doc<"tasks">, "valueKind" | "initialNumValue" | "completedNumValue"> &
+    Pick<Doc<"taskTypes">, "completedEnumOptionId">
+) {
+  const parseValuesError = new ConvexError({
+    message: `Provide correct value for a task action. Value kind is ${data.valueKind}.`,
+  });
+  const parsed = taskValuesSchema.safeParse(data);
 
-//     await ctx.db.patch(taskId, completed);
-//     return await ctx.db.insert("taskActions", input);
-//   },
-// });
-
-// const schema = z.discriminatedUnion("valueKind", [
-//   z
-//     .object({
-//       valueKind: z.literal("boolean"),
-//       booleanValue: z.boolean(),
-//     })
-//     .strict(),
-//   z
-//     .object({
-//       valueKind: z.literal("number"),
-//       numValue: z.number(),
-//       initialNumValue: z.number(),
-//       completedNumValue: z.number(),
-//     })
-//     .strict(),
-//   z
-//     .object({
-//       valueKind: z.literal("enum"),
-//       enumOptionId: z.string(),
-//       completedEnumOptionId: z.string(),
-//     })
-//     .strict(),
-// ]);
-
-// function check(
-//   value: Pick<
-//     Doc<"taskActions">,
-//     "booleanValue" | "numValue" | "enumOptionId"
-//   > &
-//     Pick<Doc<"tasks">, "valueKind">
-// ) {
-//   value.
-//   const parsed = schema.safeParse(value);
-//   if (parsed.error) {
-//     throw new ConvexError({
-//       message: `Provide only correct value for a task action. Value kind is ${value.valueKind}.`,
-//     });
-//   }
-//   if (parsed.data.valueKind === "boolean") {
-//     return {
-//       completed: parsed.data.booleanValue,
-//     };
-//   }
-//   if (parsed.data.valueKind === "number") {
-//     return {
-//       completed:
-//         (parsed.data.completedNumValue >= parsed.data.initialNumValue &&
-//           parsed.data.numValue >= parsed.data.completedNumValue) ||
-//         (parsed.data.completedNumValue <= parsed.data.initialNumValue &&
-//           parsed.data.numValue <= parsed.data.completedNumValue),
-//       currentNumValue: parsed.data.numValue,
-//     };
-//   }
-//   if (parsed.data.valueKind === "enum") {
-//     return {
-//       completed: parsed.data.enumOptionId === parsed.data.completedEnumOptionId,
-//       currentEnumOptionId: parsed.data.enumOptionId,
-//     };
-//   }
-// }
-
-// const taskValuesZodSchema = z.discriminatedUnion("valueKind", [
-//   z
-//     .object({
-//       valueKind: z.literal("boolean"),
-//       completed: z.boolean(),
-//     })
-//     .strict(),
-//   z
-//     .object({
-//       valueKind: z.literal("number"),
-//       initialNumValue: z.number(),
-//       completedNumValue: z.number(),
-//     })
-//     .strict(),
-//   z
-//     .object({
-//       valueKind: z.literal("enum"),
-//       completedEnumOptionId: z.string(),
-//     })
-//     .strict(),
-// ]);
-
-// type TaskValue = z.infer<typeof taskValuesZodSchema>;
-
-// async function isCompleted(
-//   task: TaskValue,
-//   action: TaskActionValue,
-//   ctx: AuthedMutationCtx
-// ) {
-//   if (action.valueKind === "boolean") {
-//     return action.booleanValue;
-//   }
-//   if (task.valueKind === "number" && action.valueKind === "number") {
-//     return (
-//       (task.completedNumValue >= task.initialNumValue &&
-//         action.numValue >= task.completedNumValue) ||
-//       (task.completedNumValue <= task.initialNumValue &&
-//         action.numValue <= task.completedNumValue)
-//     );
-//   }
-//   if (action.valueKind === "enum") {
-//     const taskType = await ctx.db.get(task.taskTypeId);
-//     if (!taskType) {
-//       throw new ConvexError({
-//         message: `Task type not found.`,
-//       });
-//     }
-
-//     return (
-//       taskType.completedEnumOptionId &&
-//       taskType.completedEnumOptionId === action.enumOptionId
-//     );
-//   }
-// }
+  if (parsed.error) {
+    throw parseValuesError;
+  }
+  const values = parsed.data;
+  if (values.valueKind === "boolean") {
+    return {
+      completed: values.booleanValue,
+    };
+  }
+  if (values.valueKind === "number") {
+    return {
+      completed:
+        (values.completedNumValue >= values.initialNumValue &&
+          values.numValue >= values.completedNumValue) ||
+        (values.completedNumValue <= values.initialNumValue &&
+          values.numValue <= values.completedNumValue),
+      currentNumValue: values.numValue,
+    };
+  }
+  if (values.valueKind === "enum") {
+    return {
+      completed: values.enumOptionId === values.completedEnumOptionId,
+      currentEnumOptionId: values.enumOptionId as Id<"taskTypeEnumOptions">,
+    };
+  }
+  throw parseValuesError;
+}

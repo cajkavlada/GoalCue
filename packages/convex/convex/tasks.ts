@@ -25,6 +25,11 @@ export const getAllExtendedForUserId = authedQuery({
       tasks.map(async (task) => {
         const taskType = await db.get(task.taskTypeId);
         const priorityClass = await db.get(task.priorityClassId);
+        if (!taskType || !priorityClass) {
+          throw new ConvexError({
+            message: "Task or priority class not found",
+          });
+        }
         return { ...task, taskType, priorityClass };
       })
     );

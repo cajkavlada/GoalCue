@@ -7,7 +7,7 @@ import {
 import { routerWithQueryClient } from "@tanstack/react-router-with-query";
 
 import { ConvexError, ConvexProvider, ConvexReactClient } from "@gc/convex";
-import { ErrorSuspense } from "@gc/react-kit";
+import { ErrorBoundary } from "@gc/react-kit";
 import { DialogProvider, toast, Toaster } from "@gc/ui";
 
 import { NotFoundRoute } from "./components/NotFoundRoute";
@@ -49,12 +49,12 @@ export function createRouter() {
       defaultPreload: "intent",
       context: { queryClient, convexClient: convex, convexQueryClient },
       Wrap: ({ children }: { children: React.ReactNode }) => (
-        <ErrorSuspense>
+        <ErrorBoundary>
           <ConvexProvider client={convexQueryClient.convexClient}>
             <DialogProvider>{children}</DialogProvider>
             <Toaster />
           </ConvexProvider>
-        </ErrorSuspense>
+        </ErrorBoundary>
       ),
       scrollRestoration: true,
       defaultErrorComponent: ErrorComponent,
