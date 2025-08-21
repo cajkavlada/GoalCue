@@ -55,6 +55,8 @@ export default tseslint.config(
       ...pluginReact.configs.recommended.rules,
       // React Hooks plugin
       ...pluginReactHooks.configs.recommended.rules,
+      // React Compiler rule
+      "react-hooks/react-compiler": "error",
       // react-refresh rule for Vite safety
       "react-refresh/only-export-components": [
         "warn",

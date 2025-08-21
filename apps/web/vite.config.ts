@@ -10,7 +10,14 @@ export default defineConfig({
   },
   plugins: [
     tsConfigPaths(),
-    tanstackStart({ target: "vercel" }),
+    tanstackStart({
+      target: "vercel",
+      react: {
+        babel: {
+          plugins: ["babel-plugin-react-compiler"],
+        },
+      },
+    }),
     tailwindcss(),
   ],
   resolve: {
