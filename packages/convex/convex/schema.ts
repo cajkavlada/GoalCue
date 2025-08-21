@@ -23,9 +23,22 @@ export default defineSchema({
     currentNumValue: v.optional(v.number()),
     completedNumValue: v.optional(v.number()),
     currentEnumOptionId: v.optional(v.id("taskTypeEnumOptions")),
+    valueUpdatedAt: v.optional(v.number()),
   })
-    .index("by_userId", ["userId"])
-    .index("by_user_priority", ["userId", "priorityClassId", "priorityIndex"]),
+    .index("by_user_status_priority", [
+      "userId",
+      "completed",
+      "priorityClassId",
+      "priorityIndex",
+    ])
+    .index("by_user_status_valueUpdatedAt_priority", [
+      "userId",
+      "completed",
+      "valueUpdatedAt",
+      "priorityClassId",
+      "priorityIndex",
+    ]),
+
   taskTypes: defineTable({
     name: v.string(),
     i18nKey: v.optional(v.string()),
@@ -51,7 +64,7 @@ export default defineSchema({
   }),
   taskActions: defineTable({
     taskId: v.id("tasks"),
-    booleanValue: v.optional(v.boolean()),
+    boolValue: v.optional(v.boolean()),
     numValue: v.optional(v.number()),
     enumOptionId: v.optional(v.id("taskTypeEnumOptions")),
     note: v.optional(v.string()),

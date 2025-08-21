@@ -10,7 +10,8 @@
     "lint": "turbo run lint",
     "format": "turbo run format",
     "clean": "pnpm -r exec rimraf node_modules dist .turbo build && pnpm --workspace-root exec rimraf node_modules dist .turbo .nitro .output .tanstack .cache .vercel",
-    "prepare": "husky"
+    "prepare": "husky",
+    "repare": "pnpm run clean && pnpm install && pnpm build"
   },
   "keywords": [],
   "author": "Vladimir Cajka",

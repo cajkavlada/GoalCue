@@ -14,7 +14,7 @@ const taskActionsSchema = doc(schema, "taskActions").fields;
 export const add = authedMutation({
   args: pick(taskActionsSchema, [
     "taskId",
-    "booleanValue",
+    "boolValue",
     "numValue",
     "enumOptionId",
     "note",
@@ -45,7 +45,10 @@ export const add = authedMutation({
 
     await rateLimit(ctx, "addTaskAction");
 
-    await ctx.db.patch(taskId, checkedNewTaskValues);
+    await ctx.db.patch(taskId, {
+      ...checkedNewTaskValues,
+      valueUpdatedAt: Date.now(),
+    });
     return await ctx.db.insert("taskActions", input);
   },
 });
@@ -54,7 +57,7 @@ const taskValuesSchema = z.discriminatedUnion("valueKind", [
   z
     .object({
       valueKind: z.literal("boolean"),
-      booleanValue: z.boolean(),
+      boolValue: z.boolean(),
     })
     .strict(),
   z
@@ -75,7 +78,7 @@ const taskValuesSchema = z.discriminatedUnion("valueKind", [
 ]);
 
 function checkTaskValues(
-  data: Pick<Doc<"taskActions">, "booleanValue" | "numValue" | "enumOptionId"> &
+  data: Pick<Doc<"taskActions">, "boolValue" | "numValue" | "enumOptionId"> &
     Pick<Doc<"tasks">, "valueKind" | "initialNumValue" | "completedNumValue"> &
     Pick<Doc<"taskTypes">, "completedEnumOptionId">
 ) {
@@ -90,7 +93,7 @@ function checkTaskValues(
   const values = parsed.data;
   if (values.valueKind === "boolean") {
     return {
-      completed: values.booleanValue,
+      completed: values.boolValue,
     };
   }
   if (values.valueKind === "number") {
