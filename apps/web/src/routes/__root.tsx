@@ -96,6 +96,7 @@ function RootComponent() {
     <ClerkProvider localization={clerkLocalization}>
       <ConvexProviderWithClerk
         client={context.convexClient}
+        // eslint-disable-next-line react-hooks/react-compiler
         useAuth={useAuth}
       >
         <ThemeProvider

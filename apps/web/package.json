@@ -47,6 +47,7 @@
     "@tanstack/react-router-devtools": "^1.129.3",
     "@types/react": "catalog:react",
     "@types/react-dom": "catalog:react",
+    "babel-plugin-react-compiler": "19.1.0-rc.2",
     "eslint": "catalog:eslint",
     "prettier": "catalog:prettier",
     "prettier-plugin-tailwindcss": "catalog:prettier",
