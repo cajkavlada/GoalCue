@@ -32,5 +32,7 @@
   "units_page": "Page",
   "units_count": "Count",
   "taskTypes_articleWorkflow": "Article Workflow",
-  "select_placeholder": "Select an option"
+  "select_placeholder": "Select an option",
+  "tasks_section_uncompleted_empty_message": "No uncompleted tasks",
+  "tasks_section_completed_title": "Completed tasks"
 }

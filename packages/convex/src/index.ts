@@ -9,3 +9,5 @@ export {
 export { ConvexError } from "convex/values";
 
 export { ConvexProviderWithClerk } from "convex/react-clerk";
+
+export type { ExtendedTask } from "../convex/tasks";

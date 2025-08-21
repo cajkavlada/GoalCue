@@ -1,7 +1,7 @@
 import { pick } from "convex-helpers";
 import { getManyFrom } from "convex-helpers/server/relationships";
 import { doc, partial } from "convex-helpers/validators";
-import { ConvexError } from "convex/values";
+import { ConvexError, Infer, v } from "convex/values";
 import { generateKeyBetween } from "fractional-indexing";
 
 import { Doc, Id } from "./_generated/dataModel";
@@ -16,10 +16,71 @@ import { rateLimit } from "./utils/rateLimiter";
 
 const tasksSchema = doc(schema, "tasks").fields;
 
-export const getAllExtendedForUserId = authedQuery({
+const extendedTaskSchema = v.object({
+  ...tasksSchema,
+  taskType: doc(schema, "taskTypes"),
+  priorityClass: doc(schema, "priorityClasses"),
+  enumOptions: v.optional(v.array(doc(schema, "taskTypeEnumOptions"))),
+});
+
+export type ExtendedTask = Infer<typeof extendedTaskSchema>;
+
+export const getUncompletedExtendedForUserId = authedQuery({
   args: {},
+  returns: v.array(extendedTaskSchema),
   handler: async ({ db, userId }) => {
-    const tasks = await getManyFrom(db, "tasks", "by_userId", userId);
+    const tasks = await db
+      .query("tasks")
+      .withIndex("by_user_status_priority", (q) =>
+        q.eq("userId", userId).eq("completed", false)
+      )
+      .collect();
+
+    const extendedTasks = await Promise.all(
+      tasks.map(async (task) => {
+        const taskType = await db.get(task.taskTypeId);
+        const priorityClass = await db.get(task.priorityClassId);
+        if (!taskType || !priorityClass) {
+          throw new ConvexError({
+            message: "Task or priority class not found",
+          });
+        }
+        let enumOptions: Doc<"taskTypeEnumOptions">[] | undefined;
+        if (taskType.valueKind === "enum") {
+          enumOptions = await getManyFrom(
+            db,
+            "taskTypeEnumOptions",
+            "by_taskTypeId_orderKey",
+            task.taskTypeId,
+            "taskTypeId"
+          );
+        }
+        return {
+          ...task,
+          taskType,
+          priorityClass,
+          ...(enumOptions ? { enumOptions } : {}),
+        };
+      })
+    );
+
+    return extendedTasks;
+  },
+});
+
+export const getRecentlyCompletedExtendedForUserId = authedQuery({
+  args: { completedAfter: v.number() },
+  returns: v.array(extendedTaskSchema),
+  handler: async ({ db, userId }, { completedAfter }) => {
+    const tasks = await db
+      .query("tasks")
+      .withIndex("by_user_status_valueUpdatedAt_priority", (q) =>
+        q
+          .eq("userId", userId)
+          .eq("completed", true)
+          .gte("valueUpdatedAt", completedAfter)
+      )
+      .collect();
 
     const extendedTasks = await Promise.all(
       tasks.map(async (task) => {
@@ -84,8 +145,11 @@ export const create = authedMutation({
     const firstPriorityIndex = (
       await db
         .query("tasks")
-        .withIndex("by_user_priority", (q) =>
-          q.eq("userId", userId).eq("priorityClassId", task.priorityClassId)
+        .withIndex("by_user_status_priority", (q) =>
+          q
+            .eq("userId", userId)
+            .eq("completed", true)
+            .eq("priorityClassId", task.priorityClassId)
         )
         .order("asc")
         .first()
