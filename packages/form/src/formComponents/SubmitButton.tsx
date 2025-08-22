@@ -36,7 +36,7 @@ export function SubmitButton({
         // />
       }
       {
-        showSubmitResponse && submitResponse === "error" && "dismiss"
+        showSubmitResponse && submitResponse === "error" && "error"
         // <DismissCircleRegular
         //   color="red"
         //   fontSize={20}
