@@ -12,12 +12,11 @@ import {
   authedQuery,
   AuthedQueryCtx,
 } from "./utils/authedFunctions";
-import { rateLimit } from "./utils/rateLimiter";
 
-const tasksSchema = doc(schema, "tasks").fields;
+const taskSchema = doc(schema, "tasks").fields;
 
 const extendedTaskSchema = v.object({
-  ...tasksSchema,
+  ...taskSchema,
   taskType: doc(schema, "taskTypes"),
   priorityClass: doc(schema, "priorityClasses"),
   enumOptions: v.optional(v.array(doc(schema, "taskTypeEnumOptions"))),
@@ -70,7 +69,7 @@ export const getRecentlyCompletedExtendedForUserId = authedQuery({
 
 export const getExtendedById = authedQuery({
   args: {
-    taskId: tasksSchema._id,
+    taskId: taskSchema._id,
   },
   returns: extendedTaskSchema,
   handler: async (ctx, { taskId }) => {
@@ -80,7 +79,7 @@ export const getExtendedById = authedQuery({
 });
 
 const createSchema = v.object(
-  pick(tasksSchema, [
+  pick(taskSchema, [
     "title",
     "description",
     "taskTypeId",
@@ -96,8 +95,8 @@ export type CreateTaskArgs = Infer<typeof createSchema>;
 
 export const create = authedMutation({
   args: createSchema,
+  rateLimit: { name: "createTask" },
   handler: async (ctx, task) => {
-    await rateLimit(ctx, "createTask");
     const taskType = await ctx.db.get(task.taskTypeId);
     if (!taskType) {
       throw new ConvexError({ message: "Task type not found" });
@@ -133,9 +132,9 @@ export const create = authedMutation({
 });
 
 const updateSchema = v.object({
-  taskId: tasksSchema._id,
+  taskId: taskSchema._id,
   ...partial(
-    pick(tasksSchema, [
+    pick(taskSchema, [
       "title",
       "description",
       "priorityClassId",
@@ -152,8 +151,8 @@ export type UpdateTaskArgs = Infer<typeof updateSchema>;
 
 export const update = authedMutation({
   args: updateSchema,
+  rateLimit: { name: "updateTask" },
   handler: async (ctx, { taskId, ...task }) => {
-    await rateLimit(ctx, "updateTask");
     await checkTask(ctx, taskId);
 
     await ctx.db.patch(taskId, task);
@@ -162,10 +161,10 @@ export const update = authedMutation({
 
 export const archive = authedMutation({
   args: {
-    taskId: tasksSchema._id,
+    taskId: taskSchema._id,
   },
+  rateLimit: { name: "archiveTask" },
   handler: async (ctx, { taskId }) => {
-    await rateLimit(ctx, "deleteTask");
     await checkTask(ctx, taskId);
 
     await ctx.db.patch(taskId, { archived: true });

@@ -7,7 +7,6 @@ import { Doc, Id } from "./_generated/dataModel";
 import schema from "./schema";
 import { checkTask } from "./tasks";
 import { authedMutation } from "./utils/authedFunctions";
-import { rateLimit } from "./utils/rateLimiter";
 
 const taskActionsSchema = doc(schema, "taskActions").fields;
 
@@ -25,10 +24,9 @@ export type AddTaskActionArgs = Infer<typeof addSchema>;
 
 export const add = authedMutation({
   args: addSchema,
+  rateLimit: { name: "addTaskAction" },
   handler: async (ctx, input) => {
     const { taskId, ...action } = input;
-
-    await rateLimit(ctx, "addTaskAction");
     const task = await checkTask(ctx, taskId);
     const taskType = await ctx.db.get(task.taskTypeId);
     if (!taskType) {
