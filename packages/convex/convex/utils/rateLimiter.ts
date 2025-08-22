@@ -1,4 +1,5 @@
 import { MINUTE, RateLimiter } from "@convex-dev/rate-limiter";
+import { ConvexError } from "convex/values";
 
 import type { RateLimitArgs } from "@convex-dev/rate-limiter";
 import { components } from "../_generated/api";
@@ -16,7 +17,7 @@ export async function rateLimit(
   const { userId } = ctx;
   const { config = {}, ...rest } = opts;
 
-  await rateLimiter.limit(ctx, name, {
+  const result = await rateLimiter.limit(ctx, name, {
     key: userId,
     config: {
       kind: "token bucket",
@@ -25,7 +26,12 @@ export async function rateLimit(
       capacity: 20,
       ...config,
     },
-    throws: true,
     ...rest,
   });
+
+  if (!result.ok) {
+    throw new ConvexError({
+      message: `Rate limit for action ${name} exceeded`,
+    });
+  }
 }

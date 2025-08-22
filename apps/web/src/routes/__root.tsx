@@ -19,17 +19,13 @@ import {
   ClerkLoading,
   ClerkProvider,
   getAuth,
-  SignedIn,
-  SignedOut,
-  SignInButton,
   useAuth,
-  UserButton,
 } from "@gc/auth";
 import { ConvexProviderWithClerk, ConvexReactClient } from "@gc/convex";
 import { m } from "@gc/i18n/messages";
 import { getLocale } from "@gc/i18n/runtime";
 import { ErrorSuspense } from "@gc/react-kit";
-import { ModeToggle, ThemeProvider } from "@gc/ui";
+import { ThemeProvider } from "@gc/ui";
 
 import { clerkLocalizations } from "@/utils/clerkLocalizations";
 import appCss from "../styles/app.css?url";
@@ -121,23 +117,10 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
         <HeadContent />
       </head>
       <body>
-        <div>
-          <div>
-            <ModeToggle />
-            <ClerkLoading>{m.auth_loading()}</ClerkLoading>
-            <ClerkLoaded>
-              <SignedIn>
-                <UserButton />
-              </SignedIn>
-              <SignedOut>
-                <SignInButton mode="modal">
-                  {m.auth_signIn_button_label()}
-                </SignInButton>
-              </SignedOut>
-            </ClerkLoaded>
-          </div>
-          {children}
-        </div>
+        <ClerkLoading>
+          <div>{m.auth_loading()}</div>
+        </ClerkLoading>
+        <ClerkLoaded>{children}</ClerkLoaded>
         <TanStackRouterDevtools />
         <ReactQueryDevtools initialIsOpen={false} />
         <Scripts />
