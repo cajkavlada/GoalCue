@@ -4,7 +4,6 @@ import { useMutation } from "@tanstack/react-query";
 
 import { ExtendedTask } from "@gc/convex";
 import { api } from "@gc/convex/api";
-import { Id } from "@gc/convex/types";
 import { Input } from "@gc/ui";
 
 import { makeAddActionUpdater } from "./utils/task-action-optimistic-update";
@@ -16,7 +15,7 @@ export function NumberTaskActionInput({
   task: ExtendedTask;
   completedAfter?: number;
 }) {
-  const [value, setValue] = useState(task.currentNumValue ?? 0);
+  const [value, setValue] = useState(`${task.currentNumValue ?? 0}`);
 
   const { mutate: addTaskAction } = useMutation({
     mutationFn: useConvexMutation(api.taskActions.add).withOptimisticUpdate(
@@ -24,16 +23,12 @@ export function NumberTaskActionInput({
     ),
   });
 
-  function handleNumAction({
-    taskId,
-    value,
-  }: {
-    taskId: Id<"tasks">;
-    value: number;
-  }) {
+  function handleNumAction() {
+    const numValue = Number(value);
+    if (isNaN(numValue)) return;
     addTaskAction({
-      taskId,
-      numValue: value,
+      taskId: task._id,
+      numValue,
     });
   }
 
@@ -41,11 +36,11 @@ export function NumberTaskActionInput({
     <Input
       type="number"
       value={value}
-      onChange={(e) => setValue(Number(e.target.value))}
-      onBlur={() => handleNumAction({ taskId: task._id, value })}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={() => handleNumAction()}
       onKeyDown={(e) => {
         if (e.key === "Enter") {
-          handleNumAction({ taskId: task._id, value });
+          handleNumAction();
         }
       }}
     />

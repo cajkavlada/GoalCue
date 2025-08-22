@@ -31,15 +31,9 @@ export function EnumTaskActionSelect({
       value: option._id,
     })) ?? [];
 
-  function handleEnumAction({
-    taskId,
-    value,
-  }: {
-    taskId: Id<"tasks">;
-    value: Id<"taskTypeEnumOptions">;
-  }) {
+  function handleEnumAction(value: Id<"taskTypeEnumOptions">) {
     addTaskAction({
-      taskId,
+      taskId: task._id,
       enumOptionId: value,
     });
   }
@@ -48,7 +42,7 @@ export function EnumTaskActionSelect({
     <Select
       options={enumOptions}
       value={task.currentEnumOptionId}
-      onValueChange={(value) => handleEnumAction({ taskId: task._id, value })}
+      onValueChange={(value) => handleEnumAction(value)}
     />
   );
 }

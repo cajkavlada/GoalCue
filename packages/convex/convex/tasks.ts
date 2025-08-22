@@ -28,42 +28,19 @@ export type ExtendedTask = Infer<typeof extendedTaskSchema>;
 export const getUncompletedExtendedForUserId = authedQuery({
   args: {},
   returns: v.array(extendedTaskSchema),
-  handler: async ({ db, userId }) => {
-    const tasks = await db
+  handler: async (ctx) => {
+    const tasks = await ctx.db
       .query("tasks")
       .withIndex("by_user_status_priority", (q) =>
-        q.eq("userId", userId).eq("completed", false)
+        q.eq("userId", ctx.userId).eq("completed", false)
       )
       .collect();
 
     const extendedTasks = await Promise.all(
       tasks.map(async (task) => {
-        const taskType = await db.get(task.taskTypeId);
-        const priorityClass = await db.get(task.priorityClassId);
-        if (!taskType || !priorityClass) {
-          throw new ConvexError({
-            message: "Task or priority class not found",
-          });
-        }
-        let enumOptions: Doc<"taskTypeEnumOptions">[] | undefined;
-        if (taskType.valueKind === "enum") {
-          enumOptions = await getManyFrom(
-            db,
-            "taskTypeEnumOptions",
-            "by_taskTypeId_orderKey",
-            task.taskTypeId,
-            "taskTypeId"
-          );
-        }
-        return {
-          ...task,
-          taskType,
-          priorityClass,
-          ...(enumOptions ? { enumOptions } : {}),
-        };
+        return await getExtendedTaskInfo(ctx, task);
       })
     );
-
     return extendedTasks;
   },
 });
@@ -71,12 +48,12 @@ export const getUncompletedExtendedForUserId = authedQuery({
 export const getRecentlyCompletedExtendedForUserId = authedQuery({
   args: { completedAfter: v.number() },
   returns: v.array(extendedTaskSchema),
-  handler: async ({ db, userId }, { completedAfter }) => {
-    const tasks = await db
+  handler: async (ctx, { completedAfter }) => {
+    const tasks = await ctx.db
       .query("tasks")
       .withIndex("by_user_status_valueUpdatedAt_priority", (q) =>
         q
-          .eq("userId", userId)
+          .eq("userId", ctx.userId)
           .eq("completed", true)
           .gte("valueUpdatedAt", completedAfter)
       )
@@ -84,32 +61,9 @@ export const getRecentlyCompletedExtendedForUserId = authedQuery({
 
     const extendedTasks = await Promise.all(
       tasks.map(async (task) => {
-        const taskType = await db.get(task.taskTypeId);
-        const priorityClass = await db.get(task.priorityClassId);
-        if (!taskType || !priorityClass) {
-          throw new ConvexError({
-            message: "Task or priority class not found",
-          });
-        }
-        let enumOptions: Doc<"taskTypeEnumOptions">[] | undefined;
-        if (taskType.valueKind === "enum") {
-          enumOptions = await getManyFrom(
-            db,
-            "taskTypeEnumOptions",
-            "by_taskTypeId_orderKey",
-            task.taskTypeId,
-            "taskTypeId"
-          );
-        }
-        return {
-          ...task,
-          taskType,
-          priorityClass,
-          ...(enumOptions ? { enumOptions } : {}),
-        };
+        return await getExtendedTaskInfo(ctx, task);
       })
     );
-
     return extendedTasks;
   },
 });
@@ -118,17 +72,15 @@ export const getExtendedById = authedQuery({
   args: {
     taskId: tasksSchema._id,
   },
+  returns: extendedTaskSchema,
   handler: async (ctx, { taskId }) => {
     const task = await checkTask(ctx, taskId);
-
-    const taskType = await ctx.db.get(task.taskTypeId);
-    const priorityClass = await ctx.db.get(task.priorityClassId);
-    return { ...task, taskType, priorityClass };
+    return await getExtendedTaskInfo(ctx, task);
   },
 });
 
-export const create = authedMutation({
-  args: pick(tasksSchema, [
+const createSchema = v.object(
+  pick(tasksSchema, [
     "title",
     "description",
     "taskTypeId",
@@ -137,35 +89,40 @@ export const create = authedMutation({
     "dueAt",
     "initialNumValue",
     "completedNumValue",
-  ]),
+  ])
+);
+
+export type CreateTaskArgs = Infer<typeof createSchema>;
+
+export const create = authedMutation({
+  args: createSchema,
   handler: async (ctx, task) => {
-    const { db, userId } = ctx;
     await rateLimit(ctx, "createTask");
-
-    const firstPriorityIndex = (
-      await db
-        .query("tasks")
-        .withIndex("by_user_status_priority", (q) =>
-          q
-            .eq("userId", userId)
-            .eq("completed", true)
-            .eq("priorityClassId", task.priorityClassId)
-        )
-        .order("asc")
-        .first()
-    )?.priorityIndex;
-
     const taskType = await ctx.db.get(task.taskTypeId);
     if (!taskType) {
       throw new ConvexError({ message: "Task type not found" });
     }
 
+    if (
+      taskType.valueKind === "number" &&
+      (task.initialNumValue === undefined ||
+        task.completedNumValue === undefined)
+    ) {
+      throw new ConvexError({
+        message:
+          "Initial and completed number values are required for number tasks",
+      });
+    }
+
     return await ctx.db.insert("tasks", {
       ...task,
-      userId,
+      userId: ctx.userId,
       archived: false,
       valueKind: taskType.valueKind,
-      priorityIndex: generateKeyBetween(null, firstPriorityIndex),
+      priorityIndex: generateKeyBetween(
+        null,
+        await getFirstPriorityIndexInClass(ctx, task.priorityClassId)
+      ),
       completed: false,
       initialNumValue: task.initialNumValue ?? taskType.initialNumValue,
       currentNumValue: task.initialNumValue ?? taskType.initialNumValue,
@@ -175,25 +132,29 @@ export const create = authedMutation({
   },
 });
 
+const updateSchema = v.object({
+  taskId: tasksSchema._id,
+  ...partial(
+    pick(tasksSchema, [
+      "title",
+      "description",
+      "priorityClassId",
+      "priorityIndex",
+      "repetitionId",
+      "dueAt",
+      "initialNumValue",
+      "completedNumValue",
+    ])
+  ),
+});
+
+export type UpdateTaskArgs = Infer<typeof updateSchema>;
+
 export const update = authedMutation({
-  args: {
-    taskId: tasksSchema._id,
-    ...partial(
-      pick(tasksSchema, [
-        "title",
-        "description",
-        "priorityClassId",
-        "priorityIndex",
-        "repetitionId",
-        "dueAt",
-        "initialNumValue",
-        "completedNumValue",
-      ])
-    ),
-  },
+  args: updateSchema,
   handler: async (ctx, { taskId, ...task }) => {
-    await checkTask(ctx, taskId);
     await rateLimit(ctx, "updateTask");
+    await checkTask(ctx, taskId);
 
     await ctx.db.patch(taskId, task);
   },
@@ -204,12 +165,38 @@ export const archive = authedMutation({
     taskId: tasksSchema._id,
   },
   handler: async (ctx, { taskId }) => {
-    await checkTask(ctx, taskId);
     await rateLimit(ctx, "deleteTask");
+    await checkTask(ctx, taskId);
 
     await ctx.db.patch(taskId, { archived: true });
   },
 });
+
+async function getExtendedTaskInfo(ctx: AuthedQueryCtx, task: Doc<"tasks">) {
+  const taskType = await ctx.db.get(task.taskTypeId);
+  const priorityClass = await ctx.db.get(task.priorityClassId);
+  if (!taskType || !priorityClass) {
+    throw new ConvexError({
+      message: "Task type or priority class not found",
+    });
+  }
+  let enumOptions: Doc<"taskTypeEnumOptions">[] | undefined;
+  if (taskType.valueKind === "enum") {
+    enumOptions = await getManyFrom(
+      ctx.db,
+      "taskTypeEnumOptions",
+      "by_taskTypeId_orderKey",
+      task.taskTypeId,
+      "taskTypeId"
+    );
+  }
+  return {
+    ...task,
+    taskType,
+    priorityClass,
+    ...(enumOptions ? { enumOptions } : {}),
+  };
+}
 
 export async function checkTask(
   ctx: AuthedMutationCtx | AuthedQueryCtx,
@@ -224,4 +211,22 @@ export async function checkTask(
     throw new ConvexError({ message: "Not authorized for this task" });
   }
   return task;
+}
+
+async function getFirstPriorityIndexInClass(
+  ctx: AuthedMutationCtx,
+  priorityClassId: Id<"priorityClasses">
+) {
+  return (
+    await ctx.db
+      .query("tasks")
+      .withIndex("by_user_status_priority", (q) =>
+        q
+          .eq("userId", ctx.userId)
+          .eq("completed", true)
+          .eq("priorityClassId", priorityClassId)
+      )
+      .order("asc")
+      .first()
+  )?.priorityIndex;
 }

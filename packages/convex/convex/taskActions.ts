@@ -1,6 +1,6 @@
 import { pick } from "convex-helpers";
 import { doc } from "convex-helpers/validators";
-import { ConvexError } from "convex/values";
+import { ConvexError, Infer, v } from "convex/values";
 import z from "zod";
 
 import { Doc, Id } from "./_generated/dataModel";
@@ -11,16 +11,24 @@ import { rateLimit } from "./utils/rateLimiter";
 
 const taskActionsSchema = doc(schema, "taskActions").fields;
 
-export const add = authedMutation({
-  args: pick(taskActionsSchema, [
+const addSchema = v.object(
+  pick(taskActionsSchema, [
     "taskId",
     "boolValue",
     "numValue",
     "enumOptionId",
     "note",
-  ]),
+  ])
+);
+
+export type AddTaskActionArgs = Infer<typeof addSchema>;
+
+export const add = authedMutation({
+  args: addSchema,
   handler: async (ctx, input) => {
     const { taskId, ...action } = input;
+
+    await rateLimit(ctx, "addTaskAction");
     const task = await checkTask(ctx, taskId);
     const taskType = await ctx.db.get(task.taskTypeId);
     if (!taskType) {
@@ -42,8 +50,6 @@ export const add = authedMutation({
         ? { completedEnumOptionId: taskType.completedEnumOptionId }
         : {}),
     });
-
-    await rateLimit(ctx, "addTaskAction");
 
     await ctx.db.patch(taskId, {
       ...checkedNewTaskValues,

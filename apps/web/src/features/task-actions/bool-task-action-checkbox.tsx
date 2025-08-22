@@ -3,7 +3,6 @@ import { useMutation } from "@tanstack/react-query";
 
 import { ExtendedTask } from "@gc/convex";
 import { api } from "@gc/convex/api";
-import { Id } from "@gc/convex/types";
 import { Checkbox, CheckedState } from "@gc/ui";
 
 import { makeAddActionUpdater } from "./utils/task-action-optimistic-update";
@@ -21,15 +20,9 @@ export function BoolTaskActionCheckbox({
     ),
   });
 
-  function handleBoolAction({
-    taskId,
-    value,
-  }: {
-    taskId: Id<"tasks">;
-    value: CheckedState;
-  }) {
+  function handleBoolAction(value: CheckedState) {
     addTaskAction({
-      taskId,
+      taskId: task._id,
       boolValue: !!value,
     });
   }
@@ -37,7 +30,7 @@ export function BoolTaskActionCheckbox({
   return (
     <Checkbox
       checked={task.completed}
-      onCheckedChange={(value) => handleBoolAction({ taskId: task._id, value })}
+      onCheckedChange={(value) => handleBoolAction(value)}
     />
   );
 }

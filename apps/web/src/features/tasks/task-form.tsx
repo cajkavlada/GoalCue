@@ -22,13 +22,13 @@ export function TaskForm({ editedTask }: { editedTask?: Task }) {
   const priorityClasses = usePriorityClasses();
   const taskTypes = useTaskTypes();
 
-  const createTask = useMutation({
+  const createMutation = useMutation({
     mutationFn: useConvexMutation(api.tasks.create),
     onSuccess: () => {
       closeDialog();
     },
   });
-  const updateTask = useMutation({
+  const updateMutation = useMutation({
     mutationFn: useConvexMutation(api.tasks.update),
     onSuccess: () => {
       closeDialog();
@@ -46,11 +46,11 @@ export function TaskForm({ editedTask }: { editedTask?: Task }) {
       completedNumValue:
         editedTask?.completedNumValue ?? taskTypes[0]?.completedNumValue,
     },
-    onSubmit: ({ value }) => {
+    onSubmit: async ({ value }) => {
       if (editedTask) {
-        updateTask.mutate({ taskId: editedTask._id, ...value });
+        await updateMutation.mutateAsync({ taskId: editedTask._id, ...value });
       } else {
-        createTask.mutate(value);
+        await createMutation.mutateAsync(value);
       }
     },
   });
@@ -95,6 +95,63 @@ export function TaskForm({ editedTask }: { editedTask?: Task }) {
                 />
               )}
             </form.AppField>
+            <form.Subscribe selector={(state) => state.values.taskTypeId}>
+              {(taskTypeId) => {
+                function isNumberTaskType(taskTypeId: string) {
+                  const taskType = taskTypes.find((t) => t._id === taskTypeId);
+                  const isNumber = taskType?.valueKind === "number";
+                  form.setFieldValue(
+                    "initialNumValue",
+                    isNumber ? (taskType?.initialNumValue ?? 0) : undefined
+                  );
+                  form.setFieldValue(
+                    "completedNumValue",
+                    isNumber ? (taskType?.completedNumValue ?? 10) : undefined
+                  );
+                  return isNumber;
+                }
+                return (
+                  isNumberTaskType(taskTypeId) && (
+                    <>
+                      <form.AppField
+                        name="initialNumValue"
+                        validators={{
+                          onBlur: z
+                            .number(
+                              m.tasks_form_field_initialNumValue_validation_number()
+                            )
+                            .optional(),
+                        }}
+                      >
+                        {(field) => (
+                          <field.Input
+                            type="number"
+                            label={m.tasks_form_field_initialNumValue_label()}
+                          />
+                        )}
+                      </form.AppField>
+                      <form.AppField
+                        name="completedNumValue"
+                        validators={{
+                          onBlur: z
+                            .number(
+                              m.tasks_form_field_completedNumValue_validation_number()
+                            )
+                            .optional(),
+                        }}
+                      >
+                        {(field) => (
+                          <field.Input
+                            type="number"
+                            label={m.tasks_form_field_completedNumValue_label()}
+                          />
+                        )}
+                      </form.AppField>
+                    </>
+                  )
+                );
+              }}
+            </form.Subscribe>
             <form.AppField name="priorityClassId">
               {(field) => (
                 <field.Select
