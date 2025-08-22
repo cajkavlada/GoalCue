@@ -3,6 +3,7 @@ import {
   customMutation,
   customQuery,
 } from "convex-helpers/server/customFunctions";
+import { ConvexError } from "convex/values";
 
 import {
   action,
@@ -12,13 +13,14 @@ import {
   query,
   QueryCtx,
 } from "../_generated/server";
+import { rateLimit as rateLimitFn, RateLimitOpts } from "./rateLimiter";
 
 export const authedQuery = customQuery(query, {
   args: {},
   input: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (identity === null) {
-      throw new Error("Not authenticated in middleware");
+      throw new ConvexError({ message: "Not authenticated" });
     }
     return {
       ctx: { userId: identity.subject },
@@ -33,10 +35,18 @@ export type AuthedQueryCtx = QueryCtx & {
 
 export const authedMutation = customMutation(mutation, {
   args: {},
-  input: async (ctx) => {
+  input: async (
+    ctx,
+    _args,
+    { rateLimit }: { rateLimit?: { name: string; opts?: RateLimitOpts } }
+  ) => {
     const identity = await ctx.auth.getUserIdentity();
     if (identity === null) {
-      throw new Error("Not authenticated in middleware");
+      throw new ConvexError({ message: "Not authenticated" });
+    }
+    if (rateLimit) {
+      const ctxWithUserId = { ...ctx, userId: identity.subject };
+      await rateLimitFn(ctxWithUserId, rateLimit.name, rateLimit.opts);
     }
     return {
       ctx: { userId: identity.subject },
@@ -54,7 +64,7 @@ export const authedAction = customAction(action, {
   input: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (identity === null) {
-      throw new Error("Not authenticated in middleware");
+      throw new ConvexError({ message: "Not authenticated" });
     }
     return {
       ctx: { userId: identity.subject },

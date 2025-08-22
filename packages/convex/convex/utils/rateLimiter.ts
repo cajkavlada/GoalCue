@@ -6,7 +6,7 @@ import { AuthedMutationCtx } from "./authedFunctions";
 
 export const rateLimiter = new RateLimiter(components.rateLimiter, {});
 
-type RateLimitOpts = Omit<Partial<RateLimitArgs>, "name">;
+export type RateLimitOpts = Omit<Partial<RateLimitArgs>, "name">;
 
 export async function rateLimit(
   ctx: AuthedMutationCtx,
