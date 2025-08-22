@@ -121,23 +121,10 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
         <HeadContent />
       </head>
       <body>
-        <div>
-          <div>
-            <ModeToggle />
-            <ClerkLoading>{m.auth_loading()}</ClerkLoading>
-            <ClerkLoaded>
-              <SignedIn>
-                <UserButton />
-              </SignedIn>
-              <SignedOut>
-                <SignInButton mode="modal">
-                  {m.auth_signIn_button_label()}
-                </SignInButton>
-              </SignedOut>
-            </ClerkLoaded>
-          </div>
-          {children}
-        </div>
+        <ClerkLoading>
+          <div>{m.auth_loading()}</div>
+        </ClerkLoading>
+        <ClerkLoaded>{children}</ClerkLoaded>
         <TanStackRouterDevtools />
         <ReactQueryDevtools initialIsOpen={false} />
         <Scripts />
