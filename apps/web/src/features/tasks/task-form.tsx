@@ -117,9 +117,10 @@ export function TaskForm({ editedTask }: { editedTask?: Task }) {
                         name="initialNumValue"
                         validators={{
                           onBlur: z
-                            .number(
-                              m.tasks_form_field_initialNumValue_validation_number()
-                            )
+                            .number({
+                              message:
+                                m.tasks_form_field_initialNumValue_validation_number(),
+                            })
                             .optional(),
                         }}
                       >
@@ -134,9 +135,10 @@ export function TaskForm({ editedTask }: { editedTask?: Task }) {
                         name="completedNumValue"
                         validators={{
                           onBlur: z
-                            .number(
-                              m.tasks_form_field_completedNumValue_validation_number()
-                            )
+                            .number({
+                              message:
+                                m.tasks_form_field_completedNumValue_validation_number(),
+                            })
                             .optional(),
                         }}
                       >
