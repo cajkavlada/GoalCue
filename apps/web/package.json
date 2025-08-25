@@ -26,6 +26,7 @@
     "@gc/react-kit": "workspace:*",
     "@gc/ui": "workspace:*",
     "@gc/utils": "workspace:*",
+    "@gc/validators": "workspace:*",
     "@tanstack/react-query": "^5.83.0",
     "@tanstack/react-router": "^1.129.3",
     "@tanstack/react-router-with-query": "^1.129.3",

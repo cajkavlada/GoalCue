@@ -17,7 +17,7 @@ export function NumberTaskActionInput({
 }) {
   const [value, setValue] = useState(`${task.currentNumValue ?? 0}`);
 
-  const { mutate: addTaskAction } = useMutation({
+  const addActionMutation = useMutation({
     mutationFn: useConvexMutation(api.taskActions.add).withOptimisticUpdate(
       makeAddActionUpdater(task, completedAfter)
     ),
@@ -26,7 +26,7 @@ export function NumberTaskActionInput({
   function handleNumAction() {
     const numValue = Number(value);
     if (isNaN(numValue)) return;
-    addTaskAction({
+    addActionMutation.mutate({
       taskId: task._id,
       numValue,
     });

@@ -15,7 +15,7 @@ export function EnumTaskActionSelect({
   task: ExtendedTask;
   completedAfter?: number;
 }) {
-  const { mutate: addTaskAction } = useMutation({
+  const addTaskActionMutation = useMutation({
     mutationFn: useConvexMutation(api.taskActions.add).withOptimisticUpdate(
       makeAddActionUpdater(task, completedAfter)
     ),
@@ -32,7 +32,7 @@ export function EnumTaskActionSelect({
     })) ?? [];
 
   function handleEnumAction(value: Id<"taskTypeEnumOptions">) {
-    addTaskAction({
+    addTaskActionMutation.mutate({
       taskId: task._id,
       enumOptionId: value,
     });

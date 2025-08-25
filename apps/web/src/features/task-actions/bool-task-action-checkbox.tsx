@@ -14,14 +14,14 @@ export function BoolTaskActionCheckbox({
   task: ExtendedTask;
   completedAfter?: number;
 }) {
-  const { mutate: addTaskAction } = useMutation({
+  const addTaskActionMutation = useMutation({
     mutationFn: useConvexMutation(api.taskActions.add).withOptimisticUpdate(
       makeAddActionUpdater(task, completedAfter)
     ),
   });
 
   function handleBoolAction(value: CheckedState) {
-    addTaskAction({
+    addTaskActionMutation.mutate({
       taskId: task._id,
       boolValue: !!value,
     });
