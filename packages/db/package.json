@@ -1,27 +1,23 @@
 {
-  "name": "@gc/convex",
-  "version": "0.0.1",
+  "name": "@gc/db",
+ "version": "0.0.1",
   "type": "module",
+  "files": [
+    "dist"
+  ],
   "exports": {
-    ".": "./src/index.ts",
-    "./api": "./convex/_generated/api.js",
-    "./types": "./convex/_generated/dataModel.d.ts"
+    ".": "./dist/index.js"
   },
   "scripts": {
+    "build": "tsc",
     "check-types": "tsc --noEmit",
-    "dev": "pnpx convex dev",
+    "dev": "tsc --watch",
     "lint": "eslint src --max-warnings=0",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+    "format": "prettier --write \"**/*.{ts,md}\""
   },
   "dependencies": {
-    "@convex-dev/rate-limiter": "catalog:convex",
-    "@gc/auth": "workspace:*",
-    "@gc/db": "workspace:*",
-    "@gc/validators": "workspace:*",
     "convex": "catalog:convex",
-    "convex-helpers": "catalog:convex",
-    "fractional-indexing": "^3.2.0",
-    "zod": "catalog:common"
+    "convex-helpers": "catalog:convex"
   },
   "devDependencies": {
     "@gc/eslint-config": "workspace:*",

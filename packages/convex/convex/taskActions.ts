@@ -1,31 +1,20 @@
-import { pick } from "convex-helpers";
-import { doc } from "convex-helpers/validators";
-import { ConvexError, Infer, v } from "convex/values";
-import z from "zod";
+import { ConvexError } from "convex/values";
+
+import {
+  addTaskActionAdvancedSchema,
+  addTaskActionConvexSchema,
+  taskActionWithValuesSchema,
+} from "@gc/validators";
 
 import { Doc, Id } from "./_generated/dataModel";
-import schema from "./schema";
 import { checkTask } from "./tasks";
 import { authedMutation } from "./utils/authedFunctions";
-
-const taskActionsSchema = doc(schema, "taskActions").fields;
-
-const addSchema = v.object(
-  pick(taskActionsSchema, [
-    "taskId",
-    "boolValue",
-    "numValue",
-    "enumOptionId",
-    "note",
-  ])
-);
-
-export type AddTaskActionArgs = Infer<typeof addSchema>;
+import { parsedHandler } from "./utils/parsedHandler";
 
 export const add = authedMutation({
-  args: addSchema,
+  args: addTaskActionConvexSchema,
   rateLimit: { name: "addTaskAction" },
-  handler: async (ctx, input) => {
+  handler: parsedHandler(addTaskActionAdvancedSchema, async (ctx, input) => {
     const { taskId, ...action } = input;
     const task = await checkTask(ctx, taskId);
     const taskType = await ctx.db.get(task.taskTypeId);
@@ -54,32 +43,8 @@ export const add = authedMutation({
       valueUpdatedAt: Date.now(),
     });
     return await ctx.db.insert("taskActions", input);
-  },
+  }),
 });
-
-const taskValuesSchema = z.discriminatedUnion("valueKind", [
-  z
-    .object({
-      valueKind: z.literal("boolean"),
-      boolValue: z.boolean(),
-    })
-    .strict(),
-  z
-    .object({
-      valueKind: z.literal("number"),
-      numValue: z.number(),
-      initialNumValue: z.number(),
-      completedNumValue: z.number(),
-    })
-    .strict(),
-  z
-    .object({
-      valueKind: z.literal("enum"),
-      enumOptionId: z.string(),
-      completedEnumOptionId: z.string(),
-    })
-    .strict(),
-]);
 
 function checkTaskValues(
   data: Pick<Doc<"taskActions">, "boolValue" | "numValue" | "enumOptionId"> &
@@ -89,7 +54,7 @@ function checkTaskValues(
   const parseValuesError = new ConvexError({
     message: `Provide correct value for a task action. Value kind is ${data.valueKind}.`,
   });
-  const parsed = taskValuesSchema.safeParse(data);
+  const parsed = taskActionWithValuesSchema.safeParse(data);
 
   if (parsed.error) {
     throw parseValuesError;
