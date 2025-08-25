@@ -8,6 +8,7 @@
     "./types": "./convex/_generated/dataModel.d.ts"
   },
   "scripts": {
+    "build": "tsc",
     "check-types": "tsc --noEmit",
     "dev": "pnpx convex dev",
     "lint": "eslint src --max-warnings=0",
