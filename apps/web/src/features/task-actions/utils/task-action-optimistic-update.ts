@@ -1,8 +1,8 @@
 import { useConvexMutation } from "@convex-dev/react-query";
 
-import { ExtendedTask } from "@gc/convex";
 import { api } from "@gc/convex/api";
 import { Id } from "@gc/convex/types";
+import { ExtendedTask } from "@gc/validators";
 
 type WithOptimisticUpdate = ReturnType<
   typeof useConvexMutation<typeof api.taskActions.add>
