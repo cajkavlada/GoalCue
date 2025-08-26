@@ -1,7 +1,7 @@
 import { MINUTE, RateLimiter } from "@convex-dev/rate-limiter";
 import { ConvexError } from "convex/values";
 
-import type { RateLimitArgs } from "@convex-dev/rate-limiter";
+import type { RateLimitArgs, RateLimitConfig } from "@convex-dev/rate-limiter";
 import { components } from "../_generated/api";
 import { AuthedMutationCtx } from "./authedFunctions";
 
@@ -9,13 +9,18 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {});
 
 export type RateLimitOpts = Omit<Partial<RateLimitArgs>, "name">;
 
-export async function rateLimit(
-  ctx: AuthedMutationCtx,
-  name: string,
-  opts: RateLimitOpts = {}
-) {
+export async function rateLimit({
+  ctx,
+  name,
+  opts,
+  config,
+}: {
+  ctx: AuthedMutationCtx;
+  name: string;
+  opts?: Omit<RateLimitOpts, "config">;
+  config?: Partial<RateLimitConfig>;
+}) {
   const { userId } = ctx;
-  const { config = {}, ...rest } = opts;
 
   const result = await rateLimiter.limit(ctx, name, {
     key: userId,
@@ -25,8 +30,8 @@ export async function rateLimit(
       period: MINUTE,
       capacity: 20,
       ...config,
-    },
-    ...rest,
+    } as RateLimitConfig,
+    ...opts,
   });
 
   if (!result.ok) {

@@ -1,3 +1,4 @@
+import { RateLimitConfig } from "@convex-dev/rate-limiter";
 import {
   customAction,
   customMutation,
@@ -38,7 +39,15 @@ export const authedMutation = customMutation(mutation, {
   input: async (
     ctx,
     _args,
-    { rateLimit }: { rateLimit?: { name: string; opts?: RateLimitOpts } }
+    {
+      rateLimit,
+    }: {
+      rateLimit?: {
+        name: string;
+        opts?: Omit<RateLimitOpts, "config">;
+        config?: Partial<RateLimitConfig>;
+      };
+    }
   ) => {
     const identity = await ctx.auth.getUserIdentity();
     if (identity === null) {
@@ -46,7 +55,12 @@ export const authedMutation = customMutation(mutation, {
     }
     if (rateLimit) {
       const ctxWithUserId = { ...ctx, userId: identity.subject };
-      await rateLimitFn(ctxWithUserId, rateLimit.name, rateLimit.opts);
+      await rateLimitFn({
+        ctx: ctxWithUserId,
+        name: rateLimit.name,
+        opts: rateLimit.opts,
+        config: rateLimit.config,
+      });
     }
     return {
       ctx: { userId: identity.subject },
