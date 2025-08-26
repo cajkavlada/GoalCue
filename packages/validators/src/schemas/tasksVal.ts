@@ -2,7 +2,6 @@ import { pick } from "convex-helpers";
 import { Infer, v } from "convex/values";
 import z from "zod";
 
-import { convexToZod } from "../utils/convexToZod";
 import { convexSchemaFromTable } from "../utils/dbSchemaHelpers";
 
 export const taskConvexSchema = convexSchemaFromTable("tasks").fields;
@@ -40,7 +39,18 @@ export const createTaskConvexSchema = v.object(
 export type CreateTaskArgs = Infer<typeof createTaskConvexSchema>;
 
 // zod schema for numValues when task type is number
-export const createTaskZodSchema = convexToZod(createTaskConvexSchema);
+
+// TODO: infer from convex schema when convexToZod supports zod v4
+export const createTaskZodSchema = z.object({
+  title: z.string(),
+  description: z.string().optional(),
+  taskTypeId: z.string(),
+  priorityClassId: z.string(),
+  repetitionId: z.string().optional(),
+  dueAt: z.string().optional(),
+  initialNumValue: z.number().optional(),
+  completedNumValue: z.number().optional(),
+});
 
 // zod schema for task with correct values
 const taskWithoutNumValues = createTaskZodSchema.omit({
@@ -59,7 +69,7 @@ export const taskWithCorrectValuesSchema = z.union([
     .strict()
     .refine((data) => data.initialNumValue !== data.completedNumValue, {
       message: "initialNumValue and completedNumValue cannot be the same",
-      path: ["completedNumValue"], // or ["initialNumValue"], whichever makes more sense
+      path: ["completedNumValue"],
     }),
   z
     .object({
