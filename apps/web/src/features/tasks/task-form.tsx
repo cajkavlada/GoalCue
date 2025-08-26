@@ -7,6 +7,7 @@ import { Doc } from "@gc/convex/types";
 import { useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
 import { Dialog, useDialog } from "@gc/ui";
+import { CreateTaskArgs, createTaskZodSchema } from "@gc/validators";
 
 import { usePriorityClasses } from "../priority-classes/use-priority-classes";
 import { useTaskTypes } from "../task-types/use-task-types";
@@ -35,16 +36,21 @@ export function TaskForm({ editedTask }: { editedTask?: Task }) {
     },
   });
 
+  const defaultValues: CreateTaskArgs = {
+    title: editedTask?.title ?? "",
+    description: editedTask?.description,
+    taskTypeId: editedTask?.taskTypeId ?? taskTypes[0]!._id,
+    priorityClassId: editedTask?.priorityClassId ?? priorityClasses[0]!._id,
+    initialNumValue:
+      editedTask?.initialNumValue ?? taskTypes[0]?.initialNumValue,
+    completedNumValue:
+      editedTask?.completedNumValue ?? taskTypes[0]?.completedNumValue,
+  };
+
   const form = useAppForm({
-    defaultValues: {
-      title: editedTask?.title ?? "",
-      description: editedTask?.description ?? "",
-      taskTypeId: editedTask?.taskTypeId ?? taskTypes[0]!._id,
-      priorityClassId: editedTask?.priorityClassId ?? priorityClasses[0]!._id,
-      initialNumValue:
-        editedTask?.initialNumValue ?? taskTypes[0]?.initialNumValue,
-      completedNumValue:
-        editedTask?.completedNumValue ?? taskTypes[0]?.completedNumValue,
+    defaultValues,
+    validators: {
+      onBlur: createTaskZodSchema,
     },
     onSubmit: async ({ value }) => {
       if (editedTask) {

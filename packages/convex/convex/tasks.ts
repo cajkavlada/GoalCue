@@ -1,11 +1,17 @@
 import { pick } from "convex-helpers";
 import { getManyFrom } from "convex-helpers/server/relationships";
-import { doc, partial } from "convex-helpers/validators";
+import { partial } from "convex-helpers/validators";
 import { ConvexError, Infer, v } from "convex/values";
 import { generateKeyBetween } from "fractional-indexing";
 
+import {
+  createTaskConvexSchema,
+  extendedTaskConvexSchema,
+  taskConvexSchema,
+  taskWithCorrectValuesSchema,
+} from "@gc/validators";
+
 import { Doc, Id } from "./_generated/dataModel";
-import schema from "./schema";
 import {
   authedMutation,
   AuthedMutationCtx,
@@ -13,20 +19,9 @@ import {
   AuthedQueryCtx,
 } from "./utils/authedFunctions";
 
-const taskSchema = doc(schema, "tasks").fields;
-
-const extendedTaskSchema = v.object({
-  ...taskSchema,
-  taskType: doc(schema, "taskTypes"),
-  priorityClass: doc(schema, "priorityClasses"),
-  enumOptions: v.optional(v.array(doc(schema, "taskTypeEnumOptions"))),
-});
-
-export type ExtendedTask = Infer<typeof extendedTaskSchema>;
-
 export const getUncompletedExtendedForUserId = authedQuery({
   args: {},
-  returns: v.array(extendedTaskSchema),
+  returns: v.array(extendedTaskConvexSchema),
   handler: async (ctx) => {
     const tasks = await ctx.db
       .query("tasks")
@@ -46,7 +41,7 @@ export const getUncompletedExtendedForUserId = authedQuery({
 
 export const getRecentlyCompletedExtendedForUserId = authedQuery({
   args: { completedAfter: v.number() },
-  returns: v.array(extendedTaskSchema),
+  returns: v.array(extendedTaskConvexSchema),
   handler: async (ctx, { completedAfter }) => {
     const tasks = await ctx.db
       .query("tasks")
@@ -69,32 +64,17 @@ export const getRecentlyCompletedExtendedForUserId = authedQuery({
 
 export const getExtendedById = authedQuery({
   args: {
-    taskId: taskSchema._id,
+    taskId: taskConvexSchema._id,
   },
-  returns: extendedTaskSchema,
+  returns: extendedTaskConvexSchema,
   handler: async (ctx, { taskId }) => {
     const task = await checkTask(ctx, taskId);
     return await getExtendedTaskInfo(ctx, task);
   },
 });
 
-const createSchema = v.object(
-  pick(taskSchema, [
-    "title",
-    "description",
-    "taskTypeId",
-    "priorityClassId",
-    "repetitionId",
-    "dueAt",
-    "initialNumValue",
-    "completedNumValue",
-  ])
-);
-
-export type CreateTaskArgs = Infer<typeof createSchema>;
-
 export const create = authedMutation({
-  args: createSchema,
+  args: createTaskConvexSchema,
   rateLimit: { name: "createTask" },
   handler: async (ctx, task) => {
     const taskType = await ctx.db.get(task.taskTypeId);
@@ -102,11 +82,12 @@ export const create = authedMutation({
       throw new ConvexError({ message: "Task type not found" });
     }
 
-    if (
-      taskType.valueKind === "number" &&
-      (task.initialNumValue === undefined ||
-        task.completedNumValue === undefined)
-    ) {
+    const taskWithCorrectValues = taskWithCorrectValuesSchema.safeParse({
+      ...task,
+      valueKind: taskType.valueKind,
+    });
+
+    if (taskWithCorrectValues.error) {
       throw new ConvexError({
         message:
           "Initial and completed number values are required for number tasks",
@@ -132,9 +113,9 @@ export const create = authedMutation({
 });
 
 const updateSchema = v.object({
-  taskId: taskSchema._id,
+  taskId: taskConvexSchema._id,
   ...partial(
-    pick(taskSchema, [
+    pick(taskConvexSchema, [
       "title",
       "description",
       "priorityClassId",
@@ -161,7 +142,7 @@ export const update = authedMutation({
 
 export const archive = authedMutation({
   args: {
-    taskId: taskSchema._id,
+    taskId: taskConvexSchema._id,
   },
   rateLimit: { name: "archiveTask" },
   handler: async (ctx, { taskId }) => {

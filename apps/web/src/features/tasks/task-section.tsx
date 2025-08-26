@@ -1,4 +1,4 @@
-import { ExtendedTask } from "@gc/convex";
+import { ExtendedTask } from "@gc/validators";
 
 import { BoolTaskActionCheckbox } from "../task-actions/bool-task-action-checkbox";
 import { EnumTaskActionSelect } from "../task-actions/enum-task-action-select";
