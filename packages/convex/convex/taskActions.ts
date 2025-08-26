@@ -13,7 +13,10 @@ import { parsedHandler } from "./utils/parsedHandler";
 
 export const add = authedMutation({
   args: addTaskActionConvexSchema,
-  rateLimit: { name: "addTaskAction" },
+  rateLimit: {
+    name: "addTaskAction",
+    config: { rate: 60, capacity: 60 },
+  },
   handler: parsedHandler(addTaskActionAdvancedSchema, async (ctx, input) => {
     const { taskId, ...action } = input;
     const task = await checkTask(ctx, taskId);
