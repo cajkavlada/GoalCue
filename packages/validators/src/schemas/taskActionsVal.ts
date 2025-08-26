@@ -1,10 +1,7 @@
 import { omit } from "convex-helpers";
 import z from "zod";
 
-import {
-  convexSchemaFromTable,
-  zodSchemaFromTable,
-} from "../utils/dbSchemaHelpers";
+import { convexSchemaFromTable } from "../utils/dbSchemaHelpers";
 
 // convex schema for task action
 const taskActionConvexSchema = convexSchemaFromTable("taskActions");
@@ -15,16 +12,24 @@ export const addTaskActionConvexSchema = omit(taskActionConvexSchema.fields, [
 ]);
 
 // zod advanced schema for task action
-const taskActionZodSchema = zodSchemaFromTable("taskActions");
 
-const commonAddFields = taskActionZodSchema.pick({
+// TODO: infer from convex schema when convexToZod supports zod v4
+const addTaskActionZodSchema = z.object({
+  taskId: z.string(),
+  note: z.string().optional(),
+  boolValue: z.boolean().optional(),
+  numValue: z.number().optional(),
+  enumOptionId: z.string().optional(),
+});
+
+const commonAddFields = addTaskActionZodSchema.pick({
   taskId: true,
   note: true,
 });
 
-const boolValue = taskActionZodSchema.shape.boolValue;
-const numValue = taskActionZodSchema.shape.numValue;
-const enumOptionId = taskActionZodSchema.shape.enumOptionId;
+const boolValue = addTaskActionZodSchema.shape.boolValue;
+const numValue = addTaskActionZodSchema.shape.numValue;
+const enumOptionId = addTaskActionZodSchema.shape.enumOptionId;
 
 export const addTaskActionAdvancedSchema = z.union([
   commonAddFields.extend({ boolValue }).strict(),
@@ -35,20 +40,29 @@ export const addTaskActionAdvancedSchema = z.union([
 export type AddTaskActionArgs = z.infer<typeof addTaskActionAdvancedSchema>;
 
 // zod schema for task action for corresponding task and task type
-const taskZodSchema = zodSchemaFromTable("tasks");
-const taskTypeZodSchema = zodSchemaFromTable("taskTypes");
+
+// TODO: infer from convex schema when convexToZod supports zod v4
+const taskZodSchema = z.object({
+  initialNumValue: z.number().optional(),
+  completedNumValue: z.number().optional(),
+});
+
+// TODO: infer from convex schema when convexToZod supports zod v4
+const taskTypeZodSchema = z.object({
+  completedEnumOptionId: z.string().optional(),
+});
 
 export const taskActionWithValuesSchema = z.discriminatedUnion("valueKind", [
   z
     .object({
       valueKind: z.literal("boolean"),
-      boolValue: taskActionZodSchema.required().shape.boolValue,
+      boolValue: addTaskActionZodSchema.required().shape.boolValue,
     })
     .strict(),
   z
     .object({
       valueKind: z.literal("number"),
-      numValue: taskActionZodSchema.required().shape.numValue,
+      numValue: addTaskActionZodSchema.required().shape.numValue,
       initialNumValue: taskZodSchema.required().shape.initialNumValue,
       completedNumValue: taskZodSchema.required().shape.completedNumValue,
     })
@@ -56,7 +70,7 @@ export const taskActionWithValuesSchema = z.discriminatedUnion("valueKind", [
   z
     .object({
       valueKind: z.literal("enum"),
-      enumOptionId: taskActionZodSchema.required().shape.enumOptionId,
+      enumOptionId: addTaskActionZodSchema.required().shape.enumOptionId,
       completedEnumOptionId:
         taskTypeZodSchema.required().shape.completedEnumOptionId,
     })
