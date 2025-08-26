@@ -3,6 +3,7 @@ import { Infer, v } from "convex/values";
 import z from "zod";
 
 import { convexSchemaFromTable } from "../utils/dbSchemaHelpers";
+import { zid } from "../utils/zodv4Helpers";
 
 export const taskConvexSchema = convexSchemaFromTable("tasks").fields;
 
@@ -44,9 +45,9 @@ export type CreateTaskArgs = Infer<typeof createTaskConvexSchema>;
 export const createTaskZodSchema = z.object({
   title: z.string(),
   description: z.string().optional(),
-  taskTypeId: z.string(),
-  priorityClassId: z.string(),
-  repetitionId: z.string().optional(),
+  taskTypeId: zid("taskTypes"),
+  priorityClassId: zid("priorityClasses"),
+  repetitionId: zid("repetitions").optional(),
   dueAt: z.string().optional(),
   initialNumValue: z.number().optional(),
   completedNumValue: z.number().optional(),
@@ -63,8 +64,10 @@ export const taskWithCorrectValuesSchema = z.union([
     .object({
       valueKind: z.literal("number"),
       ...taskWithoutNumValues,
-      initialNumValue: z.number(),
-      completedNumValue: z.number(),
+      ...createTaskZodSchema.required().pick({
+        initialNumValue: true,
+        completedNumValue: true,
+      }).shape,
     })
     .strict()
     .refine((data) => data.initialNumValue !== data.completedNumValue, {

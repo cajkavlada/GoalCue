@@ -9,7 +9,6 @@ import {
 import { Doc, Id } from "./_generated/dataModel";
 import { checkTask } from "./tasks";
 import { authedMutation } from "./utils/authedFunctions";
-import { parsedHandler } from "./utils/parsedHandler";
 
 export const add = authedMutation({
   args: addTaskActionConvexSchema,
@@ -17,8 +16,14 @@ export const add = authedMutation({
     name: "addTaskAction",
     config: { rate: 60, capacity: 60 },
   },
-  handler: parsedHandler(addTaskActionAdvancedSchema, async (ctx, input) => {
+  handler: async (ctx, input) => {
     const { taskId, ...action } = input;
+
+    const result = addTaskActionAdvancedSchema.safeParse(input);
+    if (!result.success) {
+      throw new ConvexError({ message: result.error.message });
+    }
+
     const task = await checkTask(ctx, taskId);
     const taskType = await ctx.db.get(task.taskTypeId);
     if (!taskType) {
@@ -46,7 +51,7 @@ export const add = authedMutation({
       valueUpdatedAt: Date.now(),
     });
     return await ctx.db.insert("taskActions", input);
-  }),
+  },
 });
 
 function checkTaskValues(
