@@ -2,6 +2,7 @@ import { pick } from "convex-helpers";
 import { Infer, v } from "convex/values";
 import z from "zod";
 
+import { CUSTOM_ERROR_REASONS } from "../utils/customErrorReasons";
 import { convexSchemaFromTable } from "../utils/dbSchemaHelpers";
 import { zid } from "../utils/zodv4Helpers";
 
@@ -42,16 +43,32 @@ export type CreateTaskArgs = Infer<typeof createTaskConvexSchema>;
 // zod schema for numValues when task type is number
 
 // TODO: infer from convex schema when convexToZod supports zod v4
-export const createTaskZodSchema = z.object({
-  title: z.string(),
-  description: z.string().optional(),
-  taskTypeId: zid("taskTypes"),
-  priorityClassId: zid("priorityClasses"),
-  repetitionId: zid("repetitions").optional(),
-  dueAt: z.string().optional(),
-  initialNumValue: z.number().optional(),
-  completedNumValue: z.number().optional(),
-});
+export const createTaskZodSchema = z
+  .object({
+    title: z.string().min(1),
+    description: z.string().optional(),
+    taskTypeId: zid("taskTypes"),
+    priorityClassId: zid("priorityClasses"),
+    repetitionId: zid("repetitions").optional(),
+    dueAt: z.string().optional(),
+    initialNumValue: z.number().optional(),
+    completedNumValue: z.number().optional(),
+  })
+  .superRefine(({ initialNumValue, completedNumValue }, ctx) => {
+    if (
+      initialNumValue !== undefined &&
+      completedNumValue !== undefined &&
+      initialNumValue === completedNumValue
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["completedNumValue"],
+        params: {
+          reason: CUSTOM_ERROR_REASONS.EQUAL_INITIAL_AND_COMPLETED_NUM_VALUES,
+        },
+      });
+    }
+  });
 
 // zod schema for task with correct values
 const taskWithoutNumValues = createTaskZodSchema.omit({
@@ -69,11 +86,7 @@ export const taskWithCorrectValuesSchema = z.union([
         completedNumValue: true,
       }).shape,
     })
-    .strict()
-    .refine((data) => data.initialNumValue !== data.completedNumValue, {
-      message: "initialNumValue and completedNumValue cannot be the same",
-      path: ["completedNumValue"],
-    }),
+    .strict(),
   z
     .object({
       valueKind: z.literal("boolean"),

@@ -7,6 +7,7 @@ import {
 import { routerWithQueryClient } from "@tanstack/react-router-with-query";
 
 import { ConvexError, ConvexProvider, ConvexReactClient } from "@gc/convex";
+import { m } from "@gc/i18n/messages";
 import { ErrorBoundary } from "@gc/react-kit";
 import { DialogProvider, toast, Toaster } from "@gc/ui";
 
@@ -32,11 +33,21 @@ export function createRouter() {
       },
       mutations: {
         onError: (error) => {
-          const errorMessage =
-            error instanceof ConvexError
-              ? (error.data as { message: string }).message
-              : "Unexpected error occurred";
-          toast.error(errorMessage);
+          if (error instanceof ConvexError) {
+            if (error.data.code === "zod_error") {
+              toast.error(m.toast_error_validation(), {
+                description: error.data.message,
+              });
+            } else {
+              toast.error(m.toast_generic_error(), {
+                description: error.data.message,
+              });
+            }
+          } else {
+            toast.error(m.toast_error_unexpected(), {
+              description: error.message,
+            });
+          }
         },
       },
     },

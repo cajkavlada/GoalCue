@@ -4,6 +4,7 @@ import {
   addTaskActionAdvancedSchema,
   addTaskActionConvexSchema,
   taskActionWithValuesSchema,
+  zodParse,
 } from "@gc/validators";
 
 import { Doc, Id } from "./_generated/dataModel";
@@ -19,10 +20,7 @@ export const add = authedMutation({
   handler: async (ctx, input) => {
     const { taskId, ...action } = input;
 
-    const result = addTaskActionAdvancedSchema.safeParse(input);
-    if (!result.success) {
-      throw new ConvexError({ message: result.error.message });
-    }
+    await zodParse(addTaskActionAdvancedSchema, input);
 
     const task = await checkTask(ctx, taskId);
     const taskType = await ctx.db.get(task.taskTypeId);
