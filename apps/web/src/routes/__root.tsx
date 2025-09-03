@@ -28,7 +28,10 @@ import { ErrorSuspense } from "@gc/react-kit";
 import { ThemeProvider } from "@gc/ui";
 
 import { clerkLocalizations } from "@/utils/clerkLocalizations";
+import { configureGlobalZodErrorMap } from "@/utils/globalZodErrorMap";
 import appCss from "../styles/app.css?url";
+
+configureGlobalZodErrorMap();
 
 const fetchClerkAuth = createServerFn({ method: "GET" }).handler(async () => {
   const auth = await getAuth(getWebRequest());

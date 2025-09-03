@@ -6,9 +6,11 @@ import { generateKeyBetween } from "fractional-indexing";
 
 import {
   createTaskConvexSchema,
+  createTaskZodSchema,
   extendedTaskConvexSchema,
   taskConvexSchema,
   taskWithCorrectValuesSchema,
+  zodParse,
 } from "@gc/validators";
 
 import { Doc, Id } from "./_generated/dataModel";
@@ -77,22 +79,16 @@ export const create = authedMutation({
   args: createTaskConvexSchema,
   rateLimit: { name: "createTask" },
   handler: async (ctx, task) => {
+    await zodParse(createTaskZodSchema, task);
     const taskType = await ctx.db.get(task.taskTypeId);
     if (!taskType) {
       throw new ConvexError({ message: "Task type not found" });
     }
 
-    const taskWithCorrectValues = taskWithCorrectValuesSchema.safeParse({
+    await zodParse(taskWithCorrectValuesSchema, {
       ...task,
       valueKind: taskType.valueKind,
     });
-
-    if (taskWithCorrectValues.error) {
-      throw new ConvexError({
-        message:
-          "Initial and completed number values are required for number tasks",
-      });
-    }
 
     return await ctx.db.insert("tasks", {
       ...task,

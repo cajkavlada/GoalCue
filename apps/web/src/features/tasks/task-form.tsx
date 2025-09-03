@@ -1,6 +1,5 @@
 import { useConvexMutation } from "@convex-dev/react-query";
 import { useMutation } from "@tanstack/react-query";
-import z from "zod";
 
 import { api } from "@gc/convex/api";
 import { Doc } from "@gc/convex/types";
@@ -73,14 +72,7 @@ export function TaskForm({ editedTask }: { editedTask?: Task }) {
       <div>
         <form.AppForm>
           <form.FormRoot>
-            <form.AppField
-              name="title"
-              validators={{
-                onChange: z
-                  .string()
-                  .min(1, m.tasks_form_field_title_validation_required()),
-              }}
-            >
+            <form.AppField name="title">
               {(field) => (
                 <field.Input label={m.tasks_form_field_title_label()} />
               )}
@@ -119,17 +111,7 @@ export function TaskForm({ editedTask }: { editedTask?: Task }) {
                 return (
                   isNumberTaskType(taskTypeId) && (
                     <>
-                      <form.AppField
-                        name="initialNumValue"
-                        validators={{
-                          onBlur: z
-                            .number({
-                              message:
-                                m.tasks_form_field_initialNumValue_validation_number(),
-                            })
-                            .optional(),
-                        }}
-                      >
+                      <form.AppField name="initialNumValue">
                         {(field) => (
                           <field.Input
                             type="number"
@@ -137,17 +119,7 @@ export function TaskForm({ editedTask }: { editedTask?: Task }) {
                           />
                         )}
                       </form.AppField>
-                      <form.AppField
-                        name="completedNumValue"
-                        validators={{
-                          onBlur: z
-                            .number({
-                              message:
-                                m.tasks_form_field_completedNumValue_validation_number(),
-                            })
-                            .optional(),
-                        }}
-                      >
+                      <form.AppField name="completedNumValue">
                         {(field) => (
                           <field.Input
                             type="number"
