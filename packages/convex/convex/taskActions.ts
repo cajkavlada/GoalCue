@@ -44,10 +44,7 @@ export const add = authedMutation({
         : {}),
     });
 
-    await ctx.db.patch(taskId, {
-      ...checkedNewTaskValues,
-      valueUpdatedAt: Date.now(),
-    });
+    await ctx.db.patch(taskId, checkedNewTaskValues);
     return await ctx.db.insert("taskActions", input);
   },
 });
@@ -68,22 +65,26 @@ function checkTaskValues(
   const values = parsed.data;
   if (values.valueKind === "boolean") {
     return {
-      completed: values.boolValue,
+      completedAt: values.boolValue ? Date.now() : undefined,
     };
   }
   if (values.valueKind === "number") {
+    const completed =
+      (values.completedNumValue >= values.initialNumValue &&
+        values.numValue >= values.completedNumValue) ||
+      (values.completedNumValue <= values.initialNumValue &&
+        values.numValue <= values.completedNumValue);
     return {
-      completed:
-        (values.completedNumValue >= values.initialNumValue &&
-          values.numValue >= values.completedNumValue) ||
-        (values.completedNumValue <= values.initialNumValue &&
-          values.numValue <= values.completedNumValue),
+      completedAt: completed ? Date.now() : undefined,
       currentNumValue: values.numValue,
     };
   }
   if (values.valueKind === "enum") {
     return {
-      completed: values.enumOptionId === values.completedEnumOptionId,
+      completedAt:
+        values.enumOptionId === values.completedEnumOptionId
+          ? Date.now()
+          : undefined,
       currentEnumOptionId: values.enumOptionId as Id<"taskTypeEnumOptions">,
     };
   }

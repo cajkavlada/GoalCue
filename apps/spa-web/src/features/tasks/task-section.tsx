@@ -21,7 +21,7 @@ export function TasksSection({
           className="flex items-center gap-2"
         >
           {task.title}
-          {task.completed ? "Done" : "Not done"}
+          {task.completedAt ? "Done" : "Not done"}
           {task.valueKind === "boolean" && (
             <BoolTaskActionCheckbox
               task={task}

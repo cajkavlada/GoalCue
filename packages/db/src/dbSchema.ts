@@ -19,28 +19,21 @@ export const dbSchema = defineSchema({
     priorityIndex: v.string(),
     repetitionId: v.optional(v.id("repetitions")),
     dueAt: v.optional(v.string()),
-    archived: v.boolean(),
+    archivedAt: v.optional(v.number()),
     valueKind: literals("boolean", "number", "enum"),
-    completed: v.boolean(),
+    completedAt: v.optional(v.number()),
     initialNumValue: v.optional(v.number()),
     currentNumValue: v.optional(v.number()),
     completedNumValue: v.optional(v.number()),
     currentEnumOptionId: v.optional(v.id("taskTypeEnumOptions")),
-    valueUpdatedAt: v.optional(v.number()),
   })
     .index("by_user_status_priority", [
       "userId",
-      "completed",
+      "completedAt",
       "priorityClassId",
       "priorityIndex",
     ])
-    .index("by_user_status_valueUpdatedAt_priority", [
-      "userId",
-      "completed",
-      "valueUpdatedAt",
-      "priorityClassId",
-      "priorityIndex",
-    ]),
+    .index("by_user_priority", ["userId", "priorityClassId", "priorityIndex"]),
 
   taskTypes: defineTable({
     name: v.string(),
