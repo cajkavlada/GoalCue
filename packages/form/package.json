@@ -23,7 +23,7 @@
     "@gc/i18n": "workspace:*",
     "@gc/ui": "workspace:*",
     "@gc/utils": "workspace:*",
-    "@tanstack/react-form": "1.14.1",
+    "@tanstack/react-form": "1.23.5",
     "lucide-react": "^0.525.0"
   },
   "peerDependencies": {

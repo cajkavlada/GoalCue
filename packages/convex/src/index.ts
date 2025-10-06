@@ -1,4 +1,11 @@
-export { ConvexProvider, ConvexReactClient } from "convex/react";
+export {
+  ConvexProvider,
+  ConvexReactClient,
+  Authenticated,
+  Unauthenticated,
+  AuthLoading,
+  useQuery,
+} from "convex/react";
 
 export { ConvexError } from "convex/values";
 
