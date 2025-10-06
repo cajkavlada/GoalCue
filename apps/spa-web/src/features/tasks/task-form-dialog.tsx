@@ -25,6 +25,11 @@ export function TaskFormDialog({ editedTask }: { editedTask?: Task }) {
           ? m.tasks_update_dialog_title()
           : m.tasks_create_dialog_title()
       }
+      description={
+        editedTask
+          ? m.tasks_update_dialog_description()
+          : m.tasks_create_dialog_description()
+      }
       customFooter
     >
       <ErrorSuspense>
@@ -102,6 +107,18 @@ function TaskForm({ editedTask }: { editedTask?: Task }) {
                 label: taskType.name,
                 value: taskType._id,
               }))}
+              onValueChange={(taskTypeId) => {
+                const taskType = taskTypes.find((t) => t._id === taskTypeId);
+                const isNumber = taskType?.valueKind === "number";
+                form.setFieldValue(
+                  "initialNumValue",
+                  isNumber ? (taskType?.initialNumValue ?? 0) : undefined
+                );
+                form.setFieldValue(
+                  "completedNumValue",
+                  isNumber ? (taskType?.completedNumValue ?? 10) : undefined
+                );
+              }}
             />
           )}
         </form.AppField>
@@ -109,16 +126,7 @@ function TaskForm({ editedTask }: { editedTask?: Task }) {
           {(taskTypeId) => {
             function isNumberTaskType(taskTypeId: string) {
               const taskType = taskTypes.find((t) => t._id === taskTypeId);
-              const isNumber = taskType?.valueKind === "number";
-              form.setFieldValue(
-                "initialNumValue",
-                isNumber ? (taskType?.initialNumValue ?? 0) : undefined
-              );
-              form.setFieldValue(
-                "completedNumValue",
-                isNumber ? (taskType?.completedNumValue ?? 10) : undefined
-              );
-              return isNumber;
+              return taskType?.valueKind === "number";
             }
             return (
               isNumberTaskType(taskTypeId) && (
