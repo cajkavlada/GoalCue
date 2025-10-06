@@ -6,9 +6,6 @@ export const dbSchema = defineSchema({
   users: defineTable({
     userId: v.string(),
   }).index("by_user", ["userId"]),
-  test: defineTable({
-    name: v.string(),
-  }),
   tasks: defineTable({
     title: v.string(),
     description: v.optional(v.string()),
