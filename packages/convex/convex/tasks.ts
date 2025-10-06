@@ -28,7 +28,7 @@ export const getUncompletedExtendedForUserId = authedQuery({
     const tasks = await ctx.db
       .query("tasks")
       .withIndex("by_user_status_priority", (q) =>
-        q.eq("userId", ctx.userId).eq("completed", false)
+        q.eq("userId", ctx.userId).eq("completedAt", undefined)
       )
       .collect();
 
@@ -47,11 +47,8 @@ export const getRecentlyCompletedExtendedForUserId = authedQuery({
   handler: async (ctx, { completedAfter }) => {
     const tasks = await ctx.db
       .query("tasks")
-      .withIndex("by_user_status_valueUpdatedAt_priority", (q) =>
-        q
-          .eq("userId", ctx.userId)
-          .eq("completed", true)
-          .gte("valueUpdatedAt", completedAfter)
+      .withIndex("by_user_status_priority", (q) =>
+        q.eq("userId", ctx.userId).gte("completedAt", completedAfter)
       )
       .collect();
 
@@ -93,13 +90,11 @@ export const create = authedMutation({
     return await ctx.db.insert("tasks", {
       ...task,
       userId: ctx.userId,
-      archived: false,
       valueKind: taskType.valueKind,
       priorityIndex: generateKeyBetween(
         null,
         await getFirstPriorityIndexInClass(ctx, task.priorityClassId)
       ),
-      completed: false,
       initialNumValue: task.initialNumValue ?? taskType.initialNumValue,
       currentNumValue: task.initialNumValue ?? taskType.initialNumValue,
       completedNumValue: task.completedNumValue ?? taskType.completedNumValue,
@@ -144,7 +139,7 @@ export const archive = authedMutation({
   handler: async (ctx, { taskId }) => {
     await checkTask(ctx, taskId);
 
-    await ctx.db.patch(taskId, { archived: true });
+    await ctx.db.patch(taskId, { archivedAt: Date.now() });
   },
 });
 
@@ -196,11 +191,8 @@ async function getFirstPriorityIndexInClass(
   return (
     await ctx.db
       .query("tasks")
-      .withIndex("by_user_status_priority", (q) =>
-        q
-          .eq("userId", ctx.userId)
-          .eq("completed", true)
-          .eq("priorityClassId", priorityClassId)
+      .withIndex("by_user_priority", (q) =>
+        q.eq("userId", ctx.userId).eq("priorityClassId", priorityClassId)
       )
       .order("asc")
       .first()
