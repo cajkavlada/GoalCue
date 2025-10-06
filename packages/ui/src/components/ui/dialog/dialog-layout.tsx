@@ -20,7 +20,7 @@ export function Dialog({
   ...props
 }: {
   children: React.ReactNode;
-  title: string;
+  title?: string;
   description?: string;
   onSubmit?: () => void;
   onCancel?: () => void;
