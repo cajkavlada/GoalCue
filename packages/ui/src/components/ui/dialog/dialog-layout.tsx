@@ -3,6 +3,7 @@ import { m } from "@gc/i18n/messages";
 import { Button } from "../button";
 import {
   DialogContent,
+  DialogContentProps,
   DialogDescription,
   DialogFooter,
   DialogHeader,
@@ -17,11 +18,12 @@ export function Dialog({
   className,
   onInteractOutside,
   customFooter,
+  showDescription,
   ...props
 }: {
   children: React.ReactNode;
   title?: string;
-  description?: string;
+  description: string;
   onSubmit?: () => void;
   onCancel?: () => void;
   cancelLabel?: string;
@@ -29,16 +31,20 @@ export function Dialog({
   onInteractOutside?: () => void;
   className?: string;
   customFooter?: boolean;
-}) {
+  showDescription?: boolean;
+} & DialogContentProps) {
   return (
     <DialogContent
       className={className}
       onInteractOutside={onInteractOutside}
+      {...props}
     >
       <DialogHeader>
         <DialogTitle>{title}</DialogTitle>
         {description && (
-          <DialogDescription>{description ?? ""}</DialogDescription>
+          <DialogDescription className={showDescription ? "" : "sr-only"}>
+            {description ?? ""}
+          </DialogDescription>
         )}
       </DialogHeader>
       {children}
