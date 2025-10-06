@@ -409,6 +409,9 @@ importers:
       '@gc/i18n':
         specifier: workspace:*
         version: link:../i18n
+      '@gc/react-kit':
+        specifier: workspace:*
+        version: link:../react-kit
       '@gc/utils':
         specifier: workspace:*
         version: link:../utils

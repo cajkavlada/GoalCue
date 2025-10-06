@@ -1,5 +1,7 @@
 import { createContext, useCallback, useMemo, useState } from "react";
 
+import { ErrorSuspense } from "@gc/react-kit";
+
 import { Dialog } from "./dialog";
 
 export const DialogContext = createContext<{
@@ -52,7 +54,7 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
               open={!!dialogContent}
               onOpenChange={closeDialog}
             >
-              {dialogContent}
+              <ErrorSuspense>{dialogContent}</ErrorSuspense>
             </Dialog>
           </div>
         );

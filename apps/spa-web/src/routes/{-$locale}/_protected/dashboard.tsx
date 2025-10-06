@@ -2,9 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { m } from "@gc/i18n/messages";
 import { ErrorSuspense } from "@gc/react-kit";
-import { Button, useDialog } from "@gc/ui";
+import { DialogButton } from "@gc/ui";
 
-import { TaskForm } from "@/features/tasks/task-form";
+import { TaskFormDialog } from "@/features/tasks/task-form-dialog";
 import { TaskList } from "@/features/tasks/task-list";
 
 export const Route = createFileRoute("/{-$locale}/_protected/dashboard")({
@@ -12,12 +12,11 @@ export const Route = createFileRoute("/{-$locale}/_protected/dashboard")({
 });
 
 function RouteComponent() {
-  const { openDialog } = useDialog();
   return (
     <>
-      <Button onClick={() => openDialog(<TaskForm />)}>
+      <DialogButton dialogContent={<TaskFormDialog />}>
         {m.tasks_create_button_label()}
-      </Button>
+      </DialogButton>
       <ErrorSuspense>
         <TaskList />
       </ErrorSuspense>

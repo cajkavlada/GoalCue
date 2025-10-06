@@ -14,7 +14,7 @@ import {
 } from "@gc/convex";
 import { m } from "@gc/i18n/messages";
 import { getLocale } from "@gc/i18n/runtime";
-import { ErrorBoundary } from "@gc/react-kit";
+import { ErrorBoundary, ErrorSuspense } from "@gc/react-kit";
 import { ThemeProvider, toast } from "@gc/ui";
 
 import { NotFoundRoute } from "./components/NotFoundRoute";
@@ -92,7 +92,9 @@ export function App() {
             >
               <ClerkLoading>{m.auth_loading()}</ClerkLoading>
               <ClerkLoaded>
-                <RouterwithContext />
+                <ErrorSuspense>
+                  <RouterwithContext />
+                </ErrorSuspense>
               </ClerkLoaded>
             </ThemeProvider>
           </QueryClientProvider>
