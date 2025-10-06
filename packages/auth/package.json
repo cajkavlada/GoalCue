@@ -16,7 +16,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "dependencies": {
-    "@clerk/tanstack-react-start": "^0.21.0"
+    "@clerk/clerk-react": "^5.50.0"
   },
   "peerDependencies": {
     "react": "catalog:react"
