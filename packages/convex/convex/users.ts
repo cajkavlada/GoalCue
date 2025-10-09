@@ -8,7 +8,10 @@ const priorityClassDefaultKeys = generateNKeysBetween(null, null, 3);
 const articleWorkflowEnumDefaultKeys = generateNKeysBetween(null, null, 6);
 
 type PriorityClass = Required<
-  Omit<Doc<"priorityClasses">, "_id" | "_creationTime" | "userId">
+  Omit<
+    Doc<"priorityClasses">,
+    "_id" | "_creationTime" | "userId" | "archivedAt"
+  >
 >;
 
 const initPriorityClasses: PriorityClass[] = [

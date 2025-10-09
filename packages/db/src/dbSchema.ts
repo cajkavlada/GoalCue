@@ -26,6 +26,7 @@ export const dbSchema = defineSchema({
   })
     .index("by_user_status_priority", [
       "userId",
+      "archivedAt",
       "completedAt",
       "priorityClassId",
       "priorityIndex",
@@ -42,12 +43,14 @@ export const dbSchema = defineSchema({
     initialEnumOptionId: v.optional(v.id("taskTypeEnumOptions")),
     completedEnumOptionId: v.optional(v.id("taskTypeEnumOptions")),
     userId: v.string(),
+    archivedAt: v.optional(v.number()),
   }).index("by_userId", ["userId"]),
   taskTypeEnumOptions: defineTable({
     taskTypeId: v.id("taskTypes"),
     name: v.string(),
     i18nKey: v.optional(v.string()),
     orderKey: v.string(),
+    archivedAt: v.optional(v.number()),
   }).index("by_taskTypeId_orderKey", ["taskTypeId", "orderKey"]),
   units: defineTable({
     name: v.string(),
@@ -80,6 +83,7 @@ export const dbSchema = defineSchema({
     i18nKey: v.optional(v.string()),
     color: v.optional(v.string()),
     orderKey: v.string(),
+    archivedAt: v.optional(v.number()),
   }).index("by_userId", ["userId"]),
   events: defineTable({
     title: v.string(),
@@ -90,5 +94,6 @@ export const dbSchema = defineSchema({
     endTime: v.string(),
     priorityClassId: v.id("priorityClasses"),
     priorityScore: v.number(),
+    archivedAt: v.optional(v.number()),
   }),
 });

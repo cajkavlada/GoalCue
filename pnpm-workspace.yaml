@@ -16,6 +16,7 @@ catalogs:
     "@convex-dev/rate-limiter": ^0.2.10
 
   common:
+    lucide-react: ^0.545.0
     zod: ^4.1.3
 
   prettier:
@@ -28,3 +29,10 @@ catalogs:
 
   typescript:
     typescript: ^5.8.3
+
+  tanstack:
+    "@tanstack/react-query": ^5.90.2
+    "@tanstack/react-router": ^1.132.37
+    "@tanstack/react-query-devtools": ^5.90.2
+    "@tanstack/react-router-devtools": ^1.132.37
+    "@tanstack/react-form": ^1.23.5
