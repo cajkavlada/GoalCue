@@ -28,7 +28,10 @@ export const getUncompletedExtendedForUserId = authedQuery({
     const tasks = await ctx.db
       .query("tasks")
       .withIndex("by_user_status_priority", (q) =>
-        q.eq("userId", ctx.userId).eq("completedAt", undefined)
+        q
+          .eq("userId", ctx.userId)
+          .eq("archivedAt", undefined)
+          .eq("completedAt", undefined)
       )
       .collect();
 
@@ -48,7 +51,10 @@ export const getRecentlyCompletedExtendedForUserId = authedQuery({
     const tasks = await ctx.db
       .query("tasks")
       .withIndex("by_user_status_priority", (q) =>
-        q.eq("userId", ctx.userId).gte("completedAt", completedAfter)
+        q
+          .eq("userId", ctx.userId)
+          .eq("archivedAt", undefined)
+          .gte("completedAt", completedAfter)
       )
       .collect();
 

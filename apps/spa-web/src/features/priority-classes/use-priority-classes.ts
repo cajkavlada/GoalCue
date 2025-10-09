@@ -9,7 +9,8 @@ export function usePriorityClasses() {
     convexQuery(api.priorityClasses.getAllForUserId, {})
   );
   return priorityClasses.map(({ i18nKey, name, ...rest }) => ({
-    name: i18nKey ? (m[i18nKey as keyof typeof m]() ?? name) : name,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    name: i18nKey ? ((m as Record<string, any>)[i18nKey]?.() ?? name) : name,
     ...rest,
   }));
 }

@@ -1,10 +1,22 @@
+import { EllipsisVerticalIcon } from "lucide-react";
+
+import { m } from "@gc/i18n/messages";
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  useDialog,
+} from "@gc/ui";
 import { ExtendedTask } from "@gc/validators";
 
 import { BoolTaskActionCheckbox } from "../task-actions/bool-task-action-checkbox";
 import { EnumTaskActionSelect } from "../task-actions/enum-task-action-select";
 import { NumberTaskActionInput } from "../task-actions/number-task-action-input";
+import { TaskDeleteDialog } from "./task-delete-dialog";
 
-export function TasksSection({
+export function TaskListSection({
   tasks,
   completedAfter,
   emptyMessage,
@@ -13,6 +25,7 @@ export function TasksSection({
   completedAfter?: number;
   emptyMessage?: string;
 }) {
+  const { openDialog } = useDialog();
   return (
     <div>
       {tasks.map((task) => (
@@ -40,6 +53,24 @@ export function TasksSection({
               completedAfter={completedAfter}
             />
           )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+              >
+                <EllipsisVerticalIcon className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem disabled>{m.edit()}</DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => openDialog(<TaskDeleteDialog task={task} />)}
+              >
+                {m.delete()}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ))}
       {tasks.length === 0 && emptyMessage && (

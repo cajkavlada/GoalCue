@@ -2,22 +2,20 @@ import { useConvexMutation } from "@convex-dev/react-query";
 import { useMutation } from "@tanstack/react-query";
 
 import { api } from "@gc/convex/api";
-import { Doc } from "@gc/convex/types";
 import { useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
 import { ErrorSuspense } from "@gc/react-kit";
 import { Dialog, useDialog } from "@gc/ui";
-import { CreateTaskArgs, createTaskZodSchema } from "@gc/validators";
+import {
+  CreateTaskArgs,
+  createTaskZodSchema,
+  ExtendedTask,
+} from "@gc/validators";
 
 import { usePriorityClasses } from "../priority-classes/use-priority-classes";
 import { useTaskTypes } from "../task-types/use-task-types";
 
-export type Task = Doc<"tasks"> & {
-  taskType: Doc<"taskTypes">;
-  priorityClass: Doc<"priorityClasses">;
-};
-
-export function TaskFormDialog({ editedTask }: { editedTask?: Task }) {
+export function TaskFormDialog({ editedTask }: { editedTask?: ExtendedTask }) {
   return (
     <Dialog
       title={
@@ -39,7 +37,7 @@ export function TaskFormDialog({ editedTask }: { editedTask?: Task }) {
   );
 }
 
-function TaskForm({ editedTask }: { editedTask?: Task }) {
+function TaskForm({ editedTask }: { editedTask?: ExtendedTask }) {
   const { closeDialog } = useDialog();
 
   const priorityClasses = usePriorityClasses();
