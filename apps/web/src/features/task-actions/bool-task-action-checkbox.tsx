@@ -29,7 +29,7 @@ export function BoolTaskActionCheckbox({
 
   return (
     <Checkbox
-      checked={task.completed}
+      checked={!!task.completedAt}
       onCheckedChange={(value) => handleBoolAction(value)}
     />
   );
