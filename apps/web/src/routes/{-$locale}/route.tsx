@@ -11,7 +11,7 @@ export const Route = createFileRoute("/{-$locale}")({
 
 function RouteComponent() {
   return (
-    <>
+    <div className="flex h-full flex-col">
       <div className="flex justify-end gap-2 pr-4 pt-2">
         {locales.map((locale) => (
           <button
@@ -34,7 +34,9 @@ function RouteComponent() {
           </SignInButton>
         </SignedOut>
       </div>
-      <Outlet />
-    </>
+      <div className="flex-1 overflow-hidden">
+        <Outlet />
+      </div>
+    </div>
   );
 }

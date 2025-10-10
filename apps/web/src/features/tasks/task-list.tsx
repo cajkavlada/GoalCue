@@ -21,7 +21,7 @@ export function TaskList() {
   );
 
   return (
-    <div>
+    <>
       <TaskListSection
         tasks={uncompletedTasks}
         emptyMessage={m.tasks_section_uncompleted_empty_message()}
@@ -33,6 +33,6 @@ export function TaskList() {
         tasks={recentlyCompletedTasks}
         completedAfter={yesterdayTimestamp}
       />
-    </div>
+    </>
   );
 }

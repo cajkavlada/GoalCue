@@ -6,3 +6,4 @@ export * from "./dialog";
 export * from "./sonner";
 export * from "./checkbox";
 export * from "./dropdown-menu";
+export * from "./list";
