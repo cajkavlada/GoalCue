@@ -8,13 +8,13 @@ import tsConfigPaths from "vite-tsconfig-paths";
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
+    tsConfigPaths(),
+    tanstackRouter({ target: "react", autoCodeSplitting: true }),
     react({
       babel: {
         plugins: ["babel-plugin-react-compiler"],
       },
     }),
-    tsConfigPaths(),
-    tanstackRouter({ target: "react", autoCodeSplitting: true }),
     tailwindcss(),
   ],
   resolve: {

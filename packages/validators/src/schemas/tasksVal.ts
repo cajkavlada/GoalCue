@@ -1,4 +1,5 @@
 import { pick } from "convex-helpers";
+import { partial } from "convex-helpers/validators";
 import { Infer, v } from "convex/values";
 import z from "zod";
 
@@ -54,21 +55,32 @@ export const createTaskZodSchema = z
     initialNumValue: z.number().optional(),
     completedNumValue: z.number().optional(),
   })
-  .superRefine(({ initialNumValue, completedNumValue }, ctx) => {
-    if (
-      initialNumValue !== undefined &&
-      completedNumValue !== undefined &&
-      initialNumValue === completedNumValue
-    ) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["completedNumValue"],
-        params: {
-          reason: CUSTOM_ERROR_REASONS.EQUAL_INITIAL_AND_COMPLETED_NUM_VALUES,
-        },
-      });
-    }
-  });
+  .superRefine(checkEqualInitialAndCompletedNumValues);
+
+function checkEqualInitialAndCompletedNumValues(
+  {
+    initialNumValue,
+    completedNumValue,
+  }: {
+    initialNumValue?: ExtendedTask["initialNumValue"];
+    completedNumValue?: ExtendedTask["completedNumValue"];
+  },
+  ctx: z.RefinementCtx
+) {
+  if (
+    initialNumValue !== undefined &&
+    completedNumValue !== undefined &&
+    initialNumValue === completedNumValue
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["completedNumValue"],
+      params: {
+        reason: CUSTOM_ERROR_REASONS.EQUAL_INITIAL_AND_COMPLETED_NUM_VALUES,
+      },
+    });
+  }
+}
 
 // zod schema for task with correct values
 const taskWithoutNumValues = createTaskZodSchema.omit({
@@ -100,3 +112,34 @@ export const taskWithCorrectValuesSchema = z.union([
     })
     .strict(),
 ]);
+
+export const updateSchema = v.object({
+  taskId: taskConvexSchema._id,
+  ...partial(
+    pick(taskConvexSchema, [
+      "title",
+      "description",
+      "priorityClassId",
+      "priorityIndex",
+      "repetitionId",
+      "dueAt",
+      "initialNumValue",
+      "completedNumValue",
+    ])
+  ),
+});
+
+export type UpdateTaskArgs = Infer<typeof updateSchema>;
+
+export const updateTaskZodSchema = z
+  .object({
+    title: z.string(),
+    description: z.string(),
+    priorityClassId: zid("priorityClasses"),
+    repetitionId: zid("repetitions"),
+    dueAt: z.string(),
+    initialNumValue: z.number(),
+    completedNumValue: z.number(),
+  })
+  .partial()
+  .superRefine(checkEqualInitialAndCompletedNumValues);

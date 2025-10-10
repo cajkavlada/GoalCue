@@ -15,6 +15,7 @@ import { BoolTaskActionCheckbox } from "../task-actions/bool-task-action-checkbo
 import { EnumTaskActionSelect } from "../task-actions/enum-task-action-select";
 import { NumberTaskActionInput } from "../task-actions/number-task-action-input";
 import { TaskDeleteDialog } from "./task-delete-dialog";
+import { TaskEditDialog } from "./task-edit-dialog";
 
 export function TaskListSection({
   tasks,
@@ -63,7 +64,11 @@ export function TaskListSection({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem disabled>{m.edit()}</DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => openDialog(<TaskEditDialog editedTask={task} />)}
+              >
+                {m.edit()}
+              </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => openDialog(<TaskDeleteDialog task={task} />)}
               >
