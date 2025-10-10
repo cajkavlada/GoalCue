@@ -15,7 +15,7 @@ export function makeAddActionUpdater(
   completedAfter?: number
 ): AddActionUpdater {
   return (localStore, args) => {
-    if (!task.completed) {
+    if (!task.completedAt) {
       const apiRef = api.tasks.getUncompletedExtendedForUserId;
       const tasks = localStore.getQuery(apiRef);
 
@@ -44,7 +44,7 @@ function updateTaskInListByAction(
 ) {
   if (!tasks) return tasks;
 
-  return tasks.map((task) => {
+  return tasks.map((task): ExtendedTask => {
     if (task._id !== action.taskId) return task;
 
     if (
@@ -53,26 +53,30 @@ function updateTaskInListByAction(
       task.initialNumValue !== undefined &&
       action.numValue !== undefined
     ) {
+      const completed =
+        (task.completedNumValue >= task.initialNumValue &&
+          action.numValue >= task.completedNumValue) ||
+        (task.completedNumValue <= task.initialNumValue &&
+          action.numValue <= task.completedNumValue);
       return {
         ...task,
-        completed:
-          (task.completedNumValue >= task.initialNumValue &&
-            action.numValue >= task.completedNumValue) ||
-          (task.completedNumValue <= task.initialNumValue &&
-            action.numValue <= task.completedNumValue),
+        completedAt: completed ? Date.now() : undefined,
         currentNumValue: action.numValue,
       };
     }
     if (task.valueKind === "boolean" && action.boolValue !== undefined) {
       return {
         ...task,
-        completed: action.boolValue,
+        completedAt: action.boolValue ? Date.now() : undefined,
       };
     }
     if (task.valueKind === "enum") {
       return {
         ...task,
-        completed: action.enumOptionId === task.taskType.completedEnumOptionId,
+        completedAt:
+          action.enumOptionId === task.taskType.completedEnumOptionId
+            ? Date.now()
+            : undefined,
         currentEnumOptionId: action.enumOptionId,
       };
     }

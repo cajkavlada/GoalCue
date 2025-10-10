@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as Char123LocaleChar125RouteRouteImport } from './routes/{-$locale}/route'
 import { Route as Char123LocaleChar125IndexRouteImport } from './routes/{-$locale}/index'
 import { Route as Char123LocaleChar125ProtectedRouteRouteImport } from './routes/{-$locale}/_protected/route'
+import { Route as Char123LocaleChar125ProtectedTaskTypesRouteImport } from './routes/{-$locale}/_protected/task-types'
 import { Route as Char123LocaleChar125ProtectedDashboardRouteImport } from './routes/{-$locale}/_protected/dashboard'
 
 const Char123LocaleChar125RouteRoute =
@@ -31,6 +32,12 @@ const Char123LocaleChar125ProtectedRouteRoute =
     id: '/_protected',
     getParentRoute: () => Char123LocaleChar125RouteRoute,
   } as any)
+const Char123LocaleChar125ProtectedTaskTypesRoute =
+  Char123LocaleChar125ProtectedTaskTypesRouteImport.update({
+    id: '/task-types',
+    path: '/task-types',
+    getParentRoute: () => Char123LocaleChar125ProtectedRouteRoute,
+  } as any)
 const Char123LocaleChar125ProtectedDashboardRoute =
   Char123LocaleChar125ProtectedDashboardRouteImport.update({
     id: '/dashboard',
@@ -42,10 +49,12 @@ export interface FileRoutesByFullPath {
   '/{-$locale}': typeof Char123LocaleChar125ProtectedRouteRouteWithChildren
   '/{-$locale}/': typeof Char123LocaleChar125IndexRoute
   '/{-$locale}/dashboard': typeof Char123LocaleChar125ProtectedDashboardRoute
+  '/{-$locale}/task-types': typeof Char123LocaleChar125ProtectedTaskTypesRoute
 }
 export interface FileRoutesByTo {
   '/{-$locale}': typeof Char123LocaleChar125IndexRoute
   '/{-$locale}/dashboard': typeof Char123LocaleChar125ProtectedDashboardRoute
+  '/{-$locale}/task-types': typeof Char123LocaleChar125ProtectedTaskTypesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,18 +62,24 @@ export interface FileRoutesById {
   '/{-$locale}/_protected': typeof Char123LocaleChar125ProtectedRouteRouteWithChildren
   '/{-$locale}/': typeof Char123LocaleChar125IndexRoute
   '/{-$locale}/_protected/dashboard': typeof Char123LocaleChar125ProtectedDashboardRoute
+  '/{-$locale}/_protected/task-types': typeof Char123LocaleChar125ProtectedTaskTypesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/{-$locale}' | '/{-$locale}/' | '/{-$locale}/dashboard'
+  fullPaths:
+    | '/{-$locale}'
+    | '/{-$locale}/'
+    | '/{-$locale}/dashboard'
+    | '/{-$locale}/task-types'
   fileRoutesByTo: FileRoutesByTo
-  to: '/{-$locale}' | '/{-$locale}/dashboard'
+  to: '/{-$locale}' | '/{-$locale}/dashboard' | '/{-$locale}/task-types'
   id:
     | '__root__'
     | '/{-$locale}'
     | '/{-$locale}/_protected'
     | '/{-$locale}/'
     | '/{-$locale}/_protected/dashboard'
+    | '/{-$locale}/_protected/task-types'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -94,6 +109,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char123LocaleChar125ProtectedRouteRouteImport
       parentRoute: typeof Char123LocaleChar125RouteRoute
     }
+    '/{-$locale}/_protected/task-types': {
+      id: '/{-$locale}/_protected/task-types'
+      path: '/task-types'
+      fullPath: '/{-$locale}/task-types'
+      preLoaderRoute: typeof Char123LocaleChar125ProtectedTaskTypesRouteImport
+      parentRoute: typeof Char123LocaleChar125ProtectedRouteRoute
+    }
     '/{-$locale}/_protected/dashboard': {
       id: '/{-$locale}/_protected/dashboard'
       path: '/dashboard'
@@ -106,12 +128,15 @@ declare module '@tanstack/react-router' {
 
 interface Char123LocaleChar125ProtectedRouteRouteChildren {
   Char123LocaleChar125ProtectedDashboardRoute: typeof Char123LocaleChar125ProtectedDashboardRoute
+  Char123LocaleChar125ProtectedTaskTypesRoute: typeof Char123LocaleChar125ProtectedTaskTypesRoute
 }
 
 const Char123LocaleChar125ProtectedRouteRouteChildren: Char123LocaleChar125ProtectedRouteRouteChildren =
   {
     Char123LocaleChar125ProtectedDashboardRoute:
       Char123LocaleChar125ProtectedDashboardRoute,
+    Char123LocaleChar125ProtectedTaskTypesRoute:
+      Char123LocaleChar125ProtectedTaskTypesRoute,
   }
 
 const Char123LocaleChar125ProtectedRouteRouteWithChildren =

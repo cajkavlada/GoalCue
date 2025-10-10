@@ -5,7 +5,7 @@ import { api } from "@gc/convex/api";
 import { m } from "@gc/i18n/messages";
 
 import { getYesterdayTimestamp } from "@/utils/time";
-import { TasksSection } from "./task-section";
+import { TaskListSection } from "./task-list-section";
 
 export function TaskList() {
   const { data: uncompletedTasks } = useSuspenseQuery(
@@ -22,14 +22,14 @@ export function TaskList() {
 
   return (
     <div>
-      <TasksSection
+      <TaskListSection
         tasks={uncompletedTasks}
         emptyMessage={m.tasks_section_uncompleted_empty_message()}
       />
       {recentlyCompletedTasks.length > 0 && (
         <div>{m.tasks_section_completed_title()}</div>
       )}
-      <TasksSection
+      <TaskListSection
         tasks={recentlyCompletedTasks}
         completedAfter={yesterdayTimestamp}
       />

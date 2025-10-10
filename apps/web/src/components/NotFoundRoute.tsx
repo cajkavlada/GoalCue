@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+// import { Link } from "@tanstack/react-router";
 
 import { m } from "@gc/i18n/messages";
 import { Button } from "@gc/ui";
@@ -16,12 +16,12 @@ export function NotFoundRoute() {
         >
           {m.not_found_goBack()}
         </Button>
-        <Link
+        {/* <Link
           to="/{-$locale}"
           className="uppercase"
         >
           <Button>{m.not_found_startOver()}</Button>
-        </Link>
+        </Link> */}
       </p>
     </div>
   );

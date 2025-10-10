@@ -3,8 +3,8 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { m } from "@gc/i18n/messages";
 
 export const Route = createFileRoute("/{-$locale}/")({
-  beforeLoad: async ({ context: { userId, token } }) => {
-    if (userId && token) {
+  beforeLoad: async ({ context: { auth } }) => {
+    if (auth.isSignedIn) {
       throw redirect({ to: "/{-$locale}/dashboard" });
     }
   },
