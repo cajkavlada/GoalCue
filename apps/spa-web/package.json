@@ -24,6 +24,7 @@
     "@t3-oss/env-core": "^0.13.8",
     "@tanstack/react-query": "catalog:tanstack",
     "@tanstack/react-router": "catalog:tanstack",
+    "babel-plugin-react-compiler": "catalog:react",
     "lucide-react": "catalog:common",
     "react": "catalog:react",
     "react-dom": "catalog:react",
