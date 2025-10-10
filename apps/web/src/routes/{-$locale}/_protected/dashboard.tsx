@@ -13,13 +13,15 @@ export const Route = createFileRoute("/{-$locale}/_protected/dashboard")({
 
 function RouteComponent() {
   return (
-    <>
-      <DialogButton dialogContent={<TaskCreateDialog />}>
-        {m.tasks_create_button_label()}
-      </DialogButton>
+    <div className="flex h-full flex-col">
+      <div>
+        <DialogButton dialogContent={<TaskCreateDialog />}>
+          {m.tasks_create_button_label()}
+        </DialogButton>
+      </div>
       <ErrorSuspense>
         <TaskList />
       </ErrorSuspense>
-    </>
+    </div>
   );
 }

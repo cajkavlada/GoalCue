@@ -1,3 +1,9 @@
 @import "@gc/tailwind-config";
 @import "@gc/react-kit/styles.css";
 @import "@gc/ui/styles.css";
+
+#root {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}

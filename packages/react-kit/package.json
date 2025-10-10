@@ -23,6 +23,8 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "dependencies": {
+    "@gc/utils": "workspace:*",
+    "@tanstack/react-virtual": "catalog:tanstack",
     "react-error-boundary": "^6.0.0"
   },
   "peerDependencies": {
