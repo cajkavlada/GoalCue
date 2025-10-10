@@ -29,11 +29,10 @@ function customErrorMap(issue: z.core.$ZodRawIssue) {
   if (issue.code !== "custom") {
     return undefined;
   }
-  if (
-    issue.params?.reason ===
-    CUSTOM_ERROR_REASONS.EQUAL_INITIAL_AND_COMPLETED_NUM_VALUES
-  ) {
-    return m.tasks_form_field_initialCompletedNumValue_validation_equal();
+  switch (issue.params?.reason) {
+    case CUSTOM_ERROR_REASONS.EQUAL_INITIAL_AND_COMPLETED_NUM_VALUES:
+      return m.tasks_form_field_initialCompletedNumValue_validation_equal();
+    default:
+      return undefined;
   }
-  return undefined;
 }

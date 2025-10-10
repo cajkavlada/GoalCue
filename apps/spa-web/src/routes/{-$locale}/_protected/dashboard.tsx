@@ -4,7 +4,7 @@ import { m } from "@gc/i18n/messages";
 import { ErrorSuspense } from "@gc/react-kit";
 import { DialogButton } from "@gc/ui";
 
-import { TaskFormDialog } from "@/features/tasks/task-form-dialog";
+import { TaskCreateDialog } from "@/features/tasks/task-create-dialog";
 import { TaskList } from "@/features/tasks/task-list";
 
 export const Route = createFileRoute("/{-$locale}/_protected/dashboard")({
@@ -14,7 +14,7 @@ export const Route = createFileRoute("/{-$locale}/_protected/dashboard")({
 function RouteComponent() {
   return (
     <>
-      <DialogButton dialogContent={<TaskFormDialog />}>
+      <DialogButton dialogContent={<TaskCreateDialog />}>
         {m.tasks_create_button_label()}
       </DialogButton>
       <ErrorSuspense>

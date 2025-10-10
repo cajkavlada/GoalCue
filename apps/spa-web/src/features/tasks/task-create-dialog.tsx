@@ -6,38 +6,26 @@ import { useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
 import { ErrorSuspense } from "@gc/react-kit";
 import { Dialog, useDialog } from "@gc/ui";
-import {
-  CreateTaskArgs,
-  createTaskZodSchema,
-  ExtendedTask,
-} from "@gc/validators";
+import { CreateTaskArgs, createTaskZodSchema } from "@gc/validators";
 
 import { usePriorityClasses } from "../priority-classes/use-priority-classes";
 import { useTaskTypes } from "../task-types/use-task-types";
 
-export function TaskFormDialog({ editedTask }: { editedTask?: ExtendedTask }) {
+export function TaskCreateDialog() {
   return (
     <Dialog
-      title={
-        editedTask
-          ? m.tasks_update_dialog_title()
-          : m.tasks_create_dialog_title()
-      }
-      description={
-        editedTask
-          ? m.tasks_update_dialog_description()
-          : m.tasks_create_dialog_description()
-      }
+      title={m.tasks_create_dialog_title()}
+      description={m.tasks_create_dialog_description()}
       customFooter
     >
       <ErrorSuspense>
-        <TaskForm editedTask={editedTask} />
+        <TaskCreateForm />
       </ErrorSuspense>
     </Dialog>
   );
 }
 
-function TaskForm({ editedTask }: { editedTask?: ExtendedTask }) {
+function TaskCreateForm() {
   const { closeDialog } = useDialog();
 
   const priorityClasses = usePriorityClasses();
@@ -49,22 +37,13 @@ function TaskForm({ editedTask }: { editedTask?: ExtendedTask }) {
       closeDialog();
     },
   });
-  const updateMutation = useMutation({
-    mutationFn: useConvexMutation(api.tasks.update),
-    onSuccess: () => {
-      closeDialog();
-    },
-  });
 
   const defaultValues: CreateTaskArgs = {
-    title: editedTask?.title ?? "",
-    description: editedTask?.description,
-    taskTypeId: editedTask?.taskTypeId ?? taskTypes[0]!._id,
-    priorityClassId: editedTask?.priorityClassId ?? priorityClasses[0]!._id,
-    initialNumValue:
-      editedTask?.initialNumValue ?? taskTypes[0]?.initialNumValue,
-    completedNumValue:
-      editedTask?.completedNumValue ?? taskTypes[0]?.completedNumValue,
+    title: "",
+    taskTypeId: taskTypes[0]!._id,
+    priorityClassId: priorityClasses[0]!._id,
+    initialNumValue: taskTypes[0]?.initialNumValue,
+    completedNumValue: taskTypes[0]?.completedNumValue,
   };
 
   const form = useAppForm({
@@ -72,13 +51,7 @@ function TaskForm({ editedTask }: { editedTask?: ExtendedTask }) {
     validators: {
       onBlur: createTaskZodSchema,
     },
-    onSubmit: async ({ value }) => {
-      if (editedTask) {
-        await updateMutation.mutateAsync({ taskId: editedTask._id, ...value });
-      } else {
-        await createMutation.mutateAsync(value);
-      }
-    },
+    onSubmit: async ({ value }) => await createMutation.mutateAsync(value),
   });
 
   return (

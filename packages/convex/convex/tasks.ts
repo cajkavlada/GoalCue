@@ -1,7 +1,5 @@
-import { pick } from "convex-helpers";
 import { getManyFrom } from "convex-helpers/server/relationships";
-import { partial } from "convex-helpers/validators";
-import { ConvexError, Infer, v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { generateKeyBetween } from "fractional-indexing";
 
 import {
@@ -10,6 +8,8 @@ import {
   extendedTaskConvexSchema,
   taskConvexSchema,
   taskWithCorrectValuesSchema,
+  updateSchema,
+  updateTaskZodSchema,
   zodParse,
 } from "@gc/validators";
 
@@ -109,29 +109,12 @@ export const create = authedMutation({
   },
 });
 
-const updateSchema = v.object({
-  taskId: taskConvexSchema._id,
-  ...partial(
-    pick(taskConvexSchema, [
-      "title",
-      "description",
-      "priorityClassId",
-      "priorityIndex",
-      "repetitionId",
-      "dueAt",
-      "initialNumValue",
-      "completedNumValue",
-    ])
-  ),
-});
-
-export type UpdateTaskArgs = Infer<typeof updateSchema>;
-
 export const update = authedMutation({
   args: updateSchema,
   rateLimit: { name: "updateTask" },
   handler: async (ctx, { taskId, ...task }) => {
     await checkTask(ctx, taskId);
+    await zodParse(updateTaskZodSchema, task);
 
     await ctx.db.patch(taskId, task);
   },
