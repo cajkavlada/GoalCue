@@ -14,7 +14,6 @@
   "tasks_form_field_priorityClass_label": "Priority Class",
   "tasks_form_field_initialCompletedNumValue_validation_equal": "Initial Value and Completed Value cannot be the same",
   "tasks_delete_dialog_title": "Delete Task",
-  "tasks_delete_dialog_description": "Are you sure you want to delete task {title}?",
   "form_field_validation_string_not_empty": "This field cannot be empty",
   "form_field_validation_number": "This field must be a number",
   "toast_generic_error": "Error",
@@ -47,5 +46,20 @@
   "taskTypes_articleWorkflow": "Article Workflow",
   "select_placeholder": "Select an option",
   "tasks_section_uncompleted_empty_message": "No uncompleted tasks",
-  "tasks_section_completed_title": "Completed tasks"
+  "tasks_section_completed_title": "Completed tasks",
+  "tasks_delete_single_dialog_description": "Are you sure you want to delete task {title}?",
+  "tasks_delete_multiple_dialog_description": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Are you sure you want to delete selected task?",
+        "countPlural=other": "Are you sure you want to delete {count} selected tasks?"
+      }
+    }
+  ],
+  "tasks_bulk_mark_as_completed_label": "Mark as Completed",
+  "tasks_bulk_mark_as_completed_tooltip": "Change the status of the selected tasks to completed status depending on the task type.",
+  "tasks_bulk_mark_as_initial_label": "Mark as Uncompleted",
+  "tasks_bulk_mark_as_initial_tooltip": "Change the status of the selected tasks to initial status depending on the task type."
 }

@@ -1,13 +1,13 @@
 import { EllipsisVerticalIcon } from "lucide-react";
 
-import { Button } from "../button";
+import { Button } from "./button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from "../dropdown-menu";
+} from "./dropdown-menu";
 
-export function ListItemMenu({ children }: { children: React.ReactNode }) {
+export function ActionMenu({ children }: { children: React.ReactNode }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

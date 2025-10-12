@@ -122,13 +122,15 @@ export const update = authedMutation({
 
 export const archive = authedMutation({
   args: {
-    taskId: taskConvexSchema._id,
+    taskIds: v.array(taskConvexSchema._id),
   },
   rateLimit: { name: "archiveTask" },
-  handler: async (ctx, { taskId }) => {
-    await checkTask(ctx, taskId);
-
-    await ctx.db.patch(taskId, { archivedAt: Date.now() });
+  handler: async (ctx, { taskIds }) => {
+    await Promise.all(taskIds.map((taskId) => checkTask(ctx, taskId)));
+    const now = Date.now();
+    for (const taskId of taskIds) {
+      await ctx.db.patch(taskId, { archivedAt: now });
+    }
   },
 });
 
