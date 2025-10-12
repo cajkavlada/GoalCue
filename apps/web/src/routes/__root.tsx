@@ -1,8 +1,10 @@
 import { UseAuthReturn } from "@clerk/types";
+import { TanStackDevtools } from "@tanstack/react-devtools";
+import { FormDevtoolsPlugin } from "@tanstack/react-form-devtools";
 import { QueryClient } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools";
 import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 
 import { ConvexReactClient } from "@gc/convex";
 import { DialogProvider, Toaster } from "@gc/ui";
@@ -22,8 +24,19 @@ function RootComponent() {
         <Outlet />
       </DialogProvider>
       <Toaster />
-      <TanStackRouterDevtools />
-      <ReactQueryDevtools initialIsOpen={false} />
+      <TanStackDevtools
+        plugins={[
+          {
+            name: "TanStack Query",
+            render: <ReactQueryDevtoolsPanel />,
+          },
+          {
+            name: "TanStack Router",
+            render: <TanStackRouterDevtoolsPanel />,
+          },
+          FormDevtoolsPlugin(),
+        ]}
+      />
     </>
   );
 }

@@ -32,9 +32,13 @@ catalogs:
     typescript: ^5.8.3
 
   tanstack:
-    "@tanstack/react-query": ^5.90.2
     "@tanstack/react-router": ^1.132.37
-    "@tanstack/react-query-devtools": ^5.90.2
-    "@tanstack/react-router-devtools": ^1.132.37
+    "@tanstack/react-query": ^5.90.2
     "@tanstack/react-form": ^1.23.5
     "@tanstack/react-virtual": ^3.13.12
+    "@tanstack/router-plugin": ^1.132.37
+    "@tanstack/react-devtools": ^0.7.6
+    "@tanstack/devtools-vite": ^0.3.6
+    "@tanstack/react-router-devtools": ^1.132.37
+    "@tanstack/react-query-devtools": ^5.90.2
+    "@tanstack/react-form-devtools": ^0.1.7
