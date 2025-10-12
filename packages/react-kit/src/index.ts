@@ -1,2 +1,2 @@
 export * from "./ErrorSuspense";
-export * from "./virtual-list";
+export * from "./list";

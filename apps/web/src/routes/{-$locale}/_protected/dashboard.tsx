@@ -5,7 +5,7 @@ import { ErrorSuspense } from "@gc/react-kit";
 import { DialogButton } from "@gc/ui";
 
 import { TaskCreateDialog } from "@/features/tasks/task-create-dialog";
-import { TaskList } from "@/features/tasks/task-list";
+import { TasksView } from "@/features/tasks/tasks-view";
 
 export const Route = createFileRoute("/{-$locale}/_protected/dashboard")({
   component: RouteComponent,
@@ -20,7 +20,7 @@ function RouteComponent() {
         </DialogButton>
       </div>
       <ErrorSuspense>
-        <TaskList />
+        <TasksView />
       </ErrorSuspense>
     </div>
   );

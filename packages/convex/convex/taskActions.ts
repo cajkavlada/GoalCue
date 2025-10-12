@@ -1,15 +1,16 @@
-import { ConvexError } from "convex/values";
+import { ConvexError, v } from "convex/values";
 
 import {
   addTaskActionAdvancedSchema,
   addTaskActionConvexSchema,
   taskActionWithValuesSchema,
+  taskConvexSchema,
   zodParse,
 } from "@gc/validators";
 
 import { Doc, Id } from "./_generated/dataModel";
 import { checkTask } from "./tasks";
-import { authedMutation } from "./utils/authedFunctions";
+import { authedMutation, AuthedMutationCtx } from "./utils/authedFunctions";
 
 export const add = authedMutation({
   args: addTaskActionConvexSchema,
@@ -90,3 +91,115 @@ function checkTaskValues(
   }
   throw parseValuesError;
 }
+
+type TaskWithBorderValues = Doc<"tasks"> &
+  (
+    | {
+        valueKind: "enum";
+        completedEnumOptionId: Id<"taskTypeEnumOptions">;
+        initialEnumOptionId: Id<"taskTypeEnumOptions">;
+      }
+    | { valueKind: "number" }
+    | { valueKind: "boolean" }
+  );
+
+async function checkTasksAndGetBorderValues(
+  ctx: AuthedMutationCtx,
+  taskIds: Id<"tasks">[]
+) {
+  return await Promise.all(
+    taskIds.map(async (taskId) => {
+      const task = await checkTask(ctx, taskId);
+      if (task.valueKind === "enum") {
+        const taskType = await ctx.db.get(task.taskTypeId);
+        if (!taskType) {
+          throw new ConvexError({
+            message: `Task type not found.`,
+          });
+        }
+        return {
+          ...task,
+          completedEnumOptionId: taskType.completedEnumOptionId,
+          initialEnumOptionId: taskType.initialEnumOptionId,
+        };
+      }
+      return task as TaskWithBorderValues;
+    })
+  );
+}
+
+export const addToCompleted = authedMutation({
+  args: { taskIds: v.array(taskConvexSchema._id) },
+  rateLimit: {
+    name: "addBulkToCompletedTaskAction",
+    config: { rate: 60, capacity: 60 },
+  },
+  handler: async (ctx, { taskIds }) => {
+    const extendedTasks = await checkTasksAndGetBorderValues(ctx, taskIds);
+    for (const task of extendedTasks) {
+      if (task.valueKind === "boolean") {
+        await ctx.db.patch(task._id, { completedAt: Date.now() });
+        await ctx.db.insert("taskActions", {
+          taskId: task._id,
+          boolValue: true,
+        });
+      } else if (task.valueKind === "number") {
+        await ctx.db.patch(task._id, {
+          completedAt: Date.now(),
+          currentNumValue: task.completedNumValue,
+        });
+        await ctx.db.insert("taskActions", {
+          taskId: task._id,
+          numValue: task.completedNumValue,
+        });
+      } else if (task.valueKind === "enum") {
+        await ctx.db.patch(task._id, {
+          completedAt: Date.now(),
+          currentEnumOptionId: task.completedEnumOptionId,
+        });
+        await ctx.db.insert("taskActions", {
+          taskId: task._id,
+          enumOptionId: task.completedEnumOptionId,
+        });
+      }
+    }
+  },
+});
+
+export const addToInitial = authedMutation({
+  args: { taskIds: v.array(taskConvexSchema._id) },
+  rateLimit: {
+    name: "addBulkToInitialTaskAction",
+    config: { rate: 60, capacity: 60 },
+  },
+  handler: async (ctx, { taskIds }) => {
+    const extendedTasks = await checkTasksAndGetBorderValues(ctx, taskIds);
+    for (const task of extendedTasks) {
+      if (task.valueKind === "boolean") {
+        await ctx.db.patch(task._id, { completedAt: undefined });
+        await ctx.db.insert("taskActions", {
+          taskId: task._id,
+          boolValue: false,
+        });
+      } else if (task.valueKind === "number") {
+        await ctx.db.patch(task._id, {
+          completedAt: undefined,
+          currentNumValue: task.initialNumValue,
+        });
+        await ctx.db.insert("taskActions", {
+          taskId: task._id,
+          numValue: task.initialNumValue,
+        });
+      } else if (task.valueKind === "enum") {
+        await ctx.db.patch(task._id, {
+          completedAt: undefined,
+          currentEnumOptionId: task.initialEnumOptionId,
+        });
+        await ctx.db.insert("taskActions", {
+          taskId: task._id,
+          enumOptionId: task.initialEnumOptionId,
+        });
+      }
+    }
+  },
+});
