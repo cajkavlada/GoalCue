@@ -1,2 +1,2 @@
+export * from "./error-boundary";
 export * from "./error-suspense";
-export * from "./list";

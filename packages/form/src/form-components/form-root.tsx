@@ -1,6 +1,6 @@
 import type { FormHTMLAttributes } from "react";
 
-import { useFormContext } from "../useAppForm";
+import { useFormContext } from "../use-app-form";
 
 export function FormRoot({
   children,

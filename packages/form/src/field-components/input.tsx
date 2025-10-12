@@ -1,7 +1,7 @@
 import { Label, Input as UIInput } from "@gc/ui";
 import { cn } from "@gc/utils";
 
-import { useFieldContext } from "../useAppForm";
+import { useFieldContext } from "../use-app-form";
 import { FieldErrors } from "./field-errors";
 
 export function Input({

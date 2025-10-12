@@ -3,7 +3,7 @@ import {
   ErrorBoundary as ReactErrorBoundary,
 } from "react-error-boundary";
 
-import { DefaultErrorFallback } from "./DefaultErrorFallback";
+import { DefaultErrorFallback } from "./default-error-fallback";
 
 export function ErrorBoundary({
   children,

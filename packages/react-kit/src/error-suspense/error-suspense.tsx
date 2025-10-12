@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { ErrorBoundary, FallbackProps } from "react-error-boundary";
 
-import { DefaultErrorFallback } from "./DefaultErrorFallback";
-import { DefaultLoadingFallback } from "./DefaultLoadingFallback";
+import { DefaultErrorFallback } from "./default-error-fallback";
+import { DefaultLoadingFallback } from "./default-loading-fallback";
 
 export function ErrorSuspense({
   children,
