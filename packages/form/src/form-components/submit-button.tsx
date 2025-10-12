@@ -5,8 +5,8 @@ import { Button } from "@gc/ui";
 
 // import { CheckmarkCircleRegular, DismissCircleRegular } from "@nnlib/ui/icons";
 
-import { useFormContext } from "../useAppForm";
-import { useSubmitResponse } from "./useSubmitResponse";
+import { useFormContext } from "../use-app-form";
+import { useSubmitResponse } from "./use-submit-response";
 
 export function SubmitButton({
   children = m.save(),
