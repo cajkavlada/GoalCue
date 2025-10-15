@@ -8,3 +8,5 @@ export * from "./checkbox";
 export * from "./dropdown-menu";
 export * from "./action-menu";
 export * from "./tooltip";
+export * from "./spinner";
+export * from "./status-spinner";

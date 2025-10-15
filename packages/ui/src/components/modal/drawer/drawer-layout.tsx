@@ -1,10 +1,11 @@
 import { useEffect } from "react";
-import { UseMutationResult } from "@tanstack/react-query";
 
 import { m } from "@gc/i18n/messages";
+import { SubmitStatus } from "@gc/react-kit";
 import { cn } from "@gc/utils";
 
 import { Button } from "../../button";
+import { StatusSpinner } from "../../status-spinner";
 import {
   DrawerContent,
   DrawerContentProps,
@@ -16,13 +17,6 @@ import {
 } from "./drawer";
 import { useDrawerId, useDrawerInternal } from "./drawer-context";
 import { useDrawerContext as useVaulDrawerContext } from "./vaul";
-
-type SubmitStatus = UseMutationResult<
-  unknown,
-  unknown,
-  unknown,
-  unknown
->["status"];
 
 export function Drawer({
   children,
@@ -100,7 +94,7 @@ Drawer.Footer = function Footer({
   onCancel,
   onSubmit,
   children,
-  submitStatus,
+  submitStatus = "idle",
 }: {
   cancelLabel?: string;
   submitLabel?: string;
@@ -141,9 +135,7 @@ Drawer.Footer = function Footer({
           disabled={submitStatus === "pending"}
         >
           {submitLabel}
-          {submitStatus === "pending" && "spinner"}
-          {submitStatus === "success" && "success"}
-          {submitStatus === "error" && "error"}
+          <StatusSpinner status={submitStatus} />
         </Button>
       )}
     </DrawerFooter>

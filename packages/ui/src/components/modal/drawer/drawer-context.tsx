@@ -1,6 +1,7 @@
 import { createContext, useContext, useState } from "react";
 import { nanoid } from "nanoid";
 
+import { MODAL_AFTER_CLOSE_LIFE_TIME } from "../constants";
 import { Drawer } from "./drawer";
 import { useDrawerContext as useVaulDrawerContext } from "./vaul";
 
@@ -59,14 +60,14 @@ export function DrawerProvider({ children }: { children: React.ReactNode }) {
     setActiveDrawerCount((prev) => Math.max(prev - 1, 0));
     setTimeout(() => {
       setDrawerContentStack((prev) => prev.slice(0, -1));
-    }, 1000);
+    }, MODAL_AFTER_CLOSE_LIFE_TIME);
   }
 
   function closeAllDrawers() {
     setActiveDrawerCount(0);
     setTimeout(() => {
       setDrawerContentStack([]);
-    }, 1000);
+    }, MODAL_AFTER_CLOSE_LIFE_TIME);
   }
 
   const providerValue = {

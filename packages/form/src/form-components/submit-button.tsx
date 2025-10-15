@@ -1,19 +1,18 @@
 import { useStore } from "@tanstack/react-form";
 
+import type { SubmitStatus } from "@gc/react-kit";
 import { m } from "@gc/i18n/messages";
-import { Button } from "@gc/ui";
-
-// import { CheckmarkCircleRegular, DismissCircleRegular } from "@nnlib/ui/icons";
+import { Button, StatusSpinner } from "@gc/ui";
 
 import { useFormContext } from "../use-app-form";
 import { useSubmitResponse } from "./use-submit-response";
 
 export function SubmitButton({
   children = m.save(),
-  showSubmitResponse,
+  hideSubmitStatus,
 }: {
   children?: React.ReactNode;
-  showSubmitResponse?: boolean;
+  hideSubmitStatus?: boolean;
 }) {
   const form = useFormContext();
 
@@ -21,27 +20,21 @@ export function SubmitButton({
 
   const submitResponse = useSubmitResponse();
 
+  const submitStatus: SubmitStatus = isSubmitting
+    ? "pending"
+    : submitResponse === "success"
+      ? "success"
+      : submitResponse === "error"
+        ? "error"
+        : "idle";
+
   return (
     <Button
       disabled={isSubmitting}
       type="submit"
     >
       {children}
-      {isSubmitting && "spinner"}
-      {
-        showSubmitResponse && submitResponse === "success" && "success"
-        // <CheckmarkCircleRegular
-        //   color="green"
-        //   fontSize={20}
-        // />
-      }
-      {
-        showSubmitResponse && submitResponse === "error" && "error"
-        // <DismissCircleRegular
-        //   color="red"
-        //   fontSize={20}
-        // />
-      }
+      {!hideSubmitStatus && <StatusSpinner status={submitStatus} />}
     </Button>
   );
 }

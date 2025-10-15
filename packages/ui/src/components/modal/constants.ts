@@ -1,0 +1,1 @@
+export const MODAL_AFTER_CLOSE_LIFE_TIME = 1000;

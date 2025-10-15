@@ -105,7 +105,7 @@ function TaskCreateForm({ editedTask }: { editedTask: ExtendedTask }) {
           )}
         </form.AppField>
         <Drawer.Footer>
-          <form.SubmitButton showSubmitResponse />
+          <form.SubmitButton />
         </Drawer.Footer>
       </form.FormRoot>
     </form.AppForm>
