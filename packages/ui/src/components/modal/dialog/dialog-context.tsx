@@ -1,4 +1,4 @@
-import { createContext, useCallback, useMemo, useState } from "react";
+import { createContext, useContext, useState } from "react";
 
 import { ErrorSuspense } from "@gc/react-kit";
 
@@ -8,38 +8,32 @@ export const DialogContext = createContext<{
   openDialog: (content: React.ReactNode) => void;
   closeDialog: () => void;
   closeAllDialogs: () => void;
-  isDialogOpen: boolean;
 }>({
   openDialog: () => {},
   closeDialog: () => {},
   closeAllDialogs: () => {},
-  isDialogOpen: false,
 });
 
 export function DialogProvider({ children }: { children: React.ReactNode }) {
   const [dialogStack, setDialogStack] = useState<React.ReactNode[]>([]);
 
-  const openDialog = useCallback((Content: React.ReactNode) => {
+  function openDialog(Content: React.ReactNode) {
     setDialogStack((prev) => [...prev, Content]);
-  }, []);
+  }
 
-  const closeDialog = useCallback(() => {
+  function closeDialog() {
     setDialogStack((prev) => prev.slice(0, -1));
-  }, []);
+  }
 
-  const closeAllDialogs = useCallback(() => {
+  function closeAllDialogs() {
     setDialogStack([]);
-  }, []);
+  }
 
-  const providerValue = useMemo(
-    () => ({
-      openDialog,
-      closeDialog,
-      closeAllDialogs,
-      isDialogOpen: dialogStack.length > 0,
-    }),
-    [openDialog, closeDialog, closeAllDialogs, dialogStack.length]
-  );
+  const providerValue = {
+    openDialog,
+    closeDialog,
+    closeAllDialogs,
+  };
 
   return (
     <DialogContext value={providerValue}>
@@ -61,4 +55,8 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
       })}
     </DialogContext>
   );
+}
+
+export function useDialog() {
+  return useContext(DialogContext);
 }

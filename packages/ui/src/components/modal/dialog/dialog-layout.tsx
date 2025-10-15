@@ -2,7 +2,7 @@ import { UseMutationResult } from "@tanstack/react-query";
 
 import { m } from "@gc/i18n/messages";
 
-import { Button } from "../button";
+import { Button } from "../../button";
 import {
   DialogContent,
   DialogContentProps,
@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./dialog";
-import { useDialog } from "./use-dialog";
+import { useDialog } from "./dialog-context";
 
 type SubmitStatus = UseMutationResult<
   unknown,
@@ -24,8 +24,6 @@ export function Dialog({
   children,
   title,
   description,
-  className,
-  onInteractOutside,
   customFooter,
   showDescription,
   onSubmit,
@@ -43,17 +41,11 @@ export function Dialog({
   cancelLabel?: string;
   submitLabel?: string;
   submitStatus?: SubmitStatus;
-  onInteractOutside?: () => void;
-  className?: string;
   customFooter?: boolean;
   showDescription?: boolean;
 } & DialogContentProps) {
   return (
-    <DialogContent
-      className={className}
-      onInteractOutside={onInteractOutside}
-      {...props}
-    >
+    <DialogContent {...props}>
       <DialogHeader>
         <DialogTitle>{title}</DialogTitle>
         {description && (
@@ -106,18 +98,16 @@ Dialog.Footer = function Footer({
         }
       }}
     >
-      {cancelLabel && (
-        <Button
-          variant="ghost"
-          onClick={() => {
-            onCancel?.();
-            closeDialog();
-          }}
-          data-test-id="cancel-button"
-        >
-          {cancelLabel}
-        </Button>
-      )}
+      <Button
+        variant="ghost"
+        onClick={() => {
+          onCancel?.();
+          closeDialog();
+        }}
+        data-test-id="cancel-button"
+      >
+        {cancelLabel}
+      </Button>
       {children}
       {submitLabel && onSubmit && (
         <Button

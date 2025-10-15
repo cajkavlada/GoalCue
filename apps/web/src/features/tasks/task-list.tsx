@@ -10,7 +10,7 @@ import {
   Checkbox,
   DropdownMenuItem,
   Tooltip,
-  useDialog,
+  useModal,
 } from "@gc/ui";
 import { ExtendedTask } from "@gc/validators";
 
@@ -26,9 +26,11 @@ export function TaskList({
   completedAfter?: number;
   emptyMessage?: string;
 }) {
+  const { openDialog } = useModal();
+
   const { isAllSelected, toggleSelectAll, selectedIds } =
     useBulkSelect<ExtendedTask>();
-  const { openDialog } = useDialog();
+
   const addToCompletedMutation = useMutation({
     mutationFn: useConvexMutation(api.taskActions.addToCompleted),
   });

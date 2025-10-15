@@ -5,7 +5,7 @@ import { api } from "@gc/convex/api";
 import { useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
 import { ErrorSuspense } from "@gc/react-kit";
-import { Dialog, useDialog } from "@gc/ui";
+import { Drawer, useModal } from "@gc/ui";
 import {
   ExtendedTask,
   UpdateTaskArgs,
@@ -14,9 +14,9 @@ import {
 
 import { usePriorityClasses } from "../priority-classes/use-priority-classes";
 
-export function TaskEditDialog({ editedTask }: { editedTask: ExtendedTask }) {
+export function TaskEditDrawer({ editedTask }: { editedTask: ExtendedTask }) {
   return (
-    <Dialog
+    <Drawer
       title={m.tasks_update_dialog_title()}
       description={m.tasks_update_dialog_description()}
       customFooter
@@ -24,19 +24,19 @@ export function TaskEditDialog({ editedTask }: { editedTask: ExtendedTask }) {
       <ErrorSuspense>
         <TaskCreateForm editedTask={editedTask} />
       </ErrorSuspense>
-    </Dialog>
+    </Drawer>
   );
 }
 
 function TaskCreateForm({ editedTask }: { editedTask: ExtendedTask }) {
-  const { closeDialog } = useDialog();
+  const { closeDrawer } = useModal();
 
   const priorityClasses = usePriorityClasses();
 
   const updateMutation = useMutation({
     mutationFn: useConvexMutation(api.tasks.update),
     onSuccess: () => {
-      closeDialog();
+      closeDrawer();
     },
   });
 
@@ -104,9 +104,9 @@ function TaskCreateForm({ editedTask }: { editedTask: ExtendedTask }) {
             />
           )}
         </form.AppField>
-        <Dialog.Footer>
+        <Drawer.Footer>
           <form.SubmitButton showSubmitResponse />
-        </Dialog.Footer>
+        </Drawer.Footer>
       </form.FormRoot>
     </form.AppForm>
   );

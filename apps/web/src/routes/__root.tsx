@@ -7,7 +7,7 @@ import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 
 import { ConvexReactClient } from "@gc/convex";
-import { DialogProvider, Toaster } from "@gc/ui";
+import { ModalProvider, Toaster } from "@gc/ui";
 
 export const Route = createRootRouteWithContext<{
   auth: UseAuthReturn;
@@ -20,9 +20,9 @@ export const Route = createRootRouteWithContext<{
 function RootComponent() {
   return (
     <>
-      <DialogProvider>
+      <ModalProvider>
         <Outlet />
-      </DialogProvider>
+      </ModalProvider>
       <Toaster />
       <TanStackDevtools
         plugins={[
