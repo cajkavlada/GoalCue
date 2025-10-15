@@ -37,6 +37,7 @@
     "@gc/typescript-config": "workspace:*",
     "@ianvs/prettier-plugin-sort-imports": "catalog:prettier",
     "@tailwindcss/cli": "^4.1.5",
+    "@tanstack/react-query": "catalog:tanstack",
     "@types/react": "catalog:react",
     "eslint": "catalog:eslint",
     "prettier": "catalog:prettier",

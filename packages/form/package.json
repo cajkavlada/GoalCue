@@ -32,6 +32,7 @@
   "devDependencies": {
     "@gc/eslint-config": "workspace:*",
     "@gc/prettier-config": "workspace:*",
+    "@gc/react-kit": "workspace:*",
     "@gc/tailwind-config": "workspace:*",
     "@gc/typescript-config": "workspace:*",
     "@ianvs/prettier-plugin-sort-imports": "catalog:prettier",

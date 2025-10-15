@@ -1,8 +1,8 @@
-import { UseMutationResult } from "@tanstack/react-query";
-
 import { m } from "@gc/i18n/messages";
+import { SubmitStatus } from "@gc/react-kit";
 
 import { Button } from "../../button";
+import { StatusSpinner } from "../../status-spinner";
 import {
   DialogContent,
   DialogContentProps,
@@ -12,13 +12,6 @@ import {
   DialogTitle,
 } from "./dialog";
 import { useDialog } from "./dialog-context";
-
-type SubmitStatus = UseMutationResult<
-  unknown,
-  unknown,
-  unknown,
-  unknown
->["status"];
 
 export function Dialog({
   children,
@@ -74,7 +67,7 @@ Dialog.Footer = function Footer({
   onCancel,
   onSubmit,
   children,
-  submitStatus,
+  submitStatus = "idle",
 }: {
   cancelLabel?: string;
   submitLabel?: string;
@@ -116,9 +109,7 @@ Dialog.Footer = function Footer({
           disabled={submitStatus === "pending"}
         >
           {submitLabel}
-          {submitStatus === "pending" && "spinner"}
-          {submitStatus === "success" && "success"}
-          {submitStatus === "error" && "error"}
+          <StatusSpinner status={submitStatus} />
         </Button>
       )}
     </DialogFooter>
