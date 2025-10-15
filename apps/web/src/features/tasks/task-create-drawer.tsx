@@ -5,15 +5,15 @@ import { api } from "@gc/convex/api";
 import { useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
 import { ErrorSuspense } from "@gc/react-kit";
-import { Dialog, useDialog } from "@gc/ui";
+import { Drawer, useModal } from "@gc/ui";
 import { CreateTaskArgs, createTaskZodSchema } from "@gc/validators";
 
 import { usePriorityClasses } from "../priority-classes/use-priority-classes";
 import { useTaskTypes } from "../task-types/use-task-types";
 
-export function TaskCreateDialog() {
+export function TaskCreateDrawer() {
   return (
-    <Dialog
+    <Drawer
       title={m.tasks_create_dialog_title()}
       description={m.tasks_create_dialog_description()}
       customFooter
@@ -21,12 +21,12 @@ export function TaskCreateDialog() {
       <ErrorSuspense>
         <TaskCreateForm />
       </ErrorSuspense>
-    </Dialog>
+    </Drawer>
   );
 }
 
 function TaskCreateForm() {
-  const { closeDialog } = useDialog();
+  const { closeDrawer } = useModal();
 
   const priorityClasses = usePriorityClasses();
   const taskTypes = useTaskTypes();
@@ -34,7 +34,7 @@ function TaskCreateForm() {
   const createMutation = useMutation({
     mutationFn: useConvexMutation(api.tasks.create),
     onSuccess: () => {
-      closeDialog();
+      closeDrawer();
     },
   });
 
@@ -134,9 +134,9 @@ function TaskCreateForm() {
             />
           )}
         </form.AppField>
-        <Dialog.Footer>
+        <Drawer.Footer>
           <form.SubmitButton showSubmitResponse />
-        </Dialog.Footer>
+        </Drawer.Footer>
       </form.FormRoot>
     </form.AppForm>
   );

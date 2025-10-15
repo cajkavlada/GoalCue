@@ -1,4 +1,3 @@
-export * from "./dialog-provider";
-export * from "./use-dialog";
+export * from "./dialog-context";
 export * from "./dialog-layout";
 export * from "./dialog-button";

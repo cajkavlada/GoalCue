@@ -4,5 +4,6 @@
     "outDir": "dist",
     "rootDir": "src"
   },
+  "exclude": ["src/components/drawer/vaul/**/*"],
   "files": ["src/index.ts"]
 }

@@ -1,13 +1,13 @@
 import { m } from "@gc/i18n/messages";
 import { useItemSelect } from "@gc/react-kit";
-import { ActionMenu, Checkbox, DropdownMenuItem, useDialog } from "@gc/ui";
+import { ActionMenu, Checkbox, DropdownMenuItem, useModal } from "@gc/ui";
 import { ExtendedTask } from "@gc/validators";
 
 import { BoolTaskActionCheckbox } from "../task-actions/bool-task-action-checkbox";
 import { EnumTaskActionSelect } from "../task-actions/enum-task-action-select";
 import { NumberTaskActionInput } from "../task-actions/number-task-action-input";
 import { TaskDeleteDialog } from "./task-delete-dialog";
-import { TaskEditDialog } from "./task-edit-dialog";
+import { TaskEditDrawer } from "./task-edit-drawer";
 
 export function TaskListItem({
   task,
@@ -16,7 +16,7 @@ export function TaskListItem({
   task: ExtendedTask;
   completedAfter?: number;
 }) {
-  const { openDialog } = useDialog();
+  const { openDialog, openDrawer } = useModal();
   const { isItemSelected, toggleSelectItem } = useItemSelect(task);
 
   return (
@@ -47,7 +47,7 @@ export function TaskListItem({
       )}
       <ActionMenu>
         <DropdownMenuItem
-          onClick={() => openDialog(<TaskEditDialog editedTask={task} />)}
+          onClick={() => openDrawer(<TaskEditDrawer editedTask={task} />)}
         >
           {m.edit()}
         </DropdownMenuItem>

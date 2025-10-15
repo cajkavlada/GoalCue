@@ -2,9 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { m } from "@gc/i18n/messages";
 import { ErrorSuspense } from "@gc/react-kit";
-import { DialogButton } from "@gc/ui";
+import { DrawerButton } from "@gc/ui";
 
-import { TaskCreateDialog } from "@/features/tasks/task-create-dialog";
+import { TaskCreateDrawer } from "@/features/tasks/task-create-drawer";
 import { TasksView } from "@/features/tasks/tasks-view";
 
 export const Route = createFileRoute("/{-$locale}/_protected/dashboard")({
@@ -15,9 +15,9 @@ function RouteComponent() {
   return (
     <div className="flex h-full flex-col">
       <div>
-        <DialogButton dialogContent={<TaskCreateDialog />}>
+        <DrawerButton drawerContent={<TaskCreateDrawer />}>
           {m.tasks_create_button_label()}
-        </DialogButton>
+        </DrawerButton>
       </div>
       <ErrorSuspense>
         <TasksView />

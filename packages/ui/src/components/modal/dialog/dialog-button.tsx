@@ -1,5 +1,5 @@
-import { Button, ButtonProps } from "../button";
-import { useDialog } from "./use-dialog";
+import { Button, ButtonProps } from "../../button";
+import { useDialog } from "./dialog-context";
 
 export function DialogButton({
   dialogContent,

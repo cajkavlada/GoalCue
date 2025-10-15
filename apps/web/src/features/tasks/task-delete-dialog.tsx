@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { api } from "@gc/convex/api";
 import { Id } from "@gc/convex/types";
 import { m } from "@gc/i18n/messages";
-import { Dialog, useDialog } from "@gc/ui";
+import { Dialog, useModal } from "@gc/ui";
 import { ExtendedTask } from "@gc/validators";
 
 type TaskDeleteDialogProps =
@@ -12,7 +12,7 @@ type TaskDeleteDialogProps =
   | { taskIds: Id<"tasks">[]; task?: never };
 
 export function TaskDeleteDialog(props: TaskDeleteDialogProps) {
-  const { closeDialog } = useDialog();
+  const { closeDialog } = useModal();
 
   const archiveMutation = useMutation({
     mutationFn: useConvexMutation(api.tasks.archive),
