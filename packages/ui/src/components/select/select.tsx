@@ -25,7 +25,7 @@ export function Select<T extends string>({
       value={value}
       onValueChange={onValueChange}
     >
-      <SelectTrigger className={cn("w-[280px]", className)}>
+      <SelectTrigger className={cn("w-full", className)}>
         <SelectValue
           placeholder={options[0]?.label ?? m.select_placeholder()}
         />

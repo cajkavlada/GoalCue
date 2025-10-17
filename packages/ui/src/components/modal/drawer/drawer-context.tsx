@@ -85,6 +85,7 @@ export function DrawerProvider({ children }: { children: React.ReactNode }) {
         direction="right"
         open={activeDrawerCount > 0}
         onOpenChange={closeDrawer}
+        autoFocus={activeDrawerCount > 0}
       >
         {drawerContentStack.length > 0 && drawerContentStack[0]?.content}
       </Drawer>

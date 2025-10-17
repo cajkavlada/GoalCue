@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint . --max-warnings=0",
     "format": "prettier --write .",
+    "check-types": "tsc --noEmit",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -25,6 +26,7 @@
     "@tanstack/react-query": "catalog:tanstack",
     "@tanstack/react-router": "catalog:tanstack",
     "babel-plugin-react-compiler": "catalog:react",
+    "date-fns": "catalog:common",
     "lucide-react": "catalog:common",
     "react": "catalog:react",
     "react-dom": "catalog:react",

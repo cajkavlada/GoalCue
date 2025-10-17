@@ -10,3 +10,5 @@ export * from "./action-menu";
 export * from "./tooltip";
 export * from "./spinner";
 export * from "./status-spinner";
+export * from "./date";
+export * from "./switch";

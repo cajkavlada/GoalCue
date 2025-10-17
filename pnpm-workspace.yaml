@@ -17,6 +17,7 @@ catalogs:
     "@convex-dev/rate-limiter": ^0.2.10
 
   common:
+    date-fns: ^4.1.0
     lucide-react: ^0.545.0
     zod: ^4.1.3
 

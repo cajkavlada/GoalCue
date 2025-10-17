@@ -1,4 +1,6 @@
+import { startOfHour, subDays } from "date-fns";
+
 export function getYesterdayTimestamp() {
   const now = Date.now();
-  return now - (now % (1000 * 60 * 60)) - 1000 * 60 * 60 * 24;
+  return subDays(startOfHour(now), 1).getTime();
 }

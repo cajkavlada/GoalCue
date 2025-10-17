@@ -39,8 +39,6 @@ export const createTaskConvexSchema = v.object(
   ])
 );
 
-export type CreateTaskArgs = Infer<typeof createTaskConvexSchema>;
-
 // zod schema for numValues when task type is number
 
 // TODO: infer from convex schema when convexToZod supports zod v4
@@ -51,11 +49,13 @@ export const createTaskZodSchema = z
     taskTypeId: zid("taskTypes"),
     priorityClassId: zid("priorityClasses"),
     repetitionId: zid("repetitions").optional(),
-    dueAt: z.string().optional(),
+    dueAt: z.date().optional(),
     initialNumValue: z.number().optional(),
     completedNumValue: z.number().optional(),
   })
   .superRefine(checkEqualInitialAndCompletedNumValues);
+
+export type CreateTaskArgs = z.infer<typeof createTaskZodSchema>;
 
 function checkEqualInitialAndCompletedNumValues(
   {
@@ -74,7 +74,7 @@ function checkEqualInitialAndCompletedNumValues(
   ) {
     ctx.addIssue({
       code: "custom",
-      path: ["completedNumValue"],
+      path: ["numValues"],
       params: {
         reason: CUSTOM_ERROR_REASONS.EQUAL_INITIAL_AND_COMPLETED_NUM_VALUES,
       },
@@ -113,7 +113,7 @@ export const taskWithCorrectValuesSchema = z.union([
     .strict(),
 ]);
 
-export const updateSchema = v.object({
+export const updateTaskConvexSchema = v.object({
   taskId: taskConvexSchema._id,
   ...partial(
     pick(taskConvexSchema, [
@@ -129,17 +129,17 @@ export const updateSchema = v.object({
   ),
 });
 
-export type UpdateTaskArgs = Infer<typeof updateSchema>;
-
 export const updateTaskZodSchema = z
   .object({
     title: z.string(),
     description: z.string(),
     priorityClassId: zid("priorityClasses"),
     repetitionId: zid("repetitions"),
-    dueAt: z.string(),
+    dueAt: z.date(),
     initialNumValue: z.number(),
     completedNumValue: z.number(),
   })
   .partial()
   .superRefine(checkEqualInitialAndCompletedNumValues);
+
+export type UpdateTaskArgs = z.infer<typeof updateTaskZodSchema>;
