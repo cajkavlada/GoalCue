@@ -50,8 +50,13 @@
   "tasks_delete_single_dialog_description": "Are you sure you want to delete task {title}?",
   "tasks_delete_multiple_dialog_description": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "Are you sure you want to delete selected task?",
         "countPlural=other": "Are you sure you want to delete {count} selected tasks?"
@@ -61,5 +66,9 @@
   "tasks_bulk_mark_as_completed_label": "Mark as Completed",
   "tasks_bulk_mark_as_completed_tooltip": "Change the status of the selected tasks to completed status depending on the task type.",
   "tasks_bulk_mark_as_initial_label": "Mark as Uncompleted",
-  "tasks_bulk_mark_as_initial_tooltip": "Change the status of the selected tasks to initial status depending on the task type."
+  "tasks_bulk_mark_as_initial_tooltip": "Change the status of the selected tasks to initial status depending on the task type.",
+  "form_field_date_placeholder": "Select a date",
+  "form_field_date_invalid_date": "Invalid date",
+  "tasks_form_field_useDueAt_label": "Set a deadline",
+  "tasks_form_field_dueAt_label": "Deadline"
 }

@@ -8,7 +8,7 @@ import {
   extendedTaskConvexSchema,
   taskConvexSchema,
   taskWithCorrectValuesSchema,
-  updateSchema,
+  updateTaskConvexSchema,
   updateTaskZodSchema,
   zodParse,
 } from "@gc/validators";
@@ -82,7 +82,12 @@ export const create = authedMutation({
   args: createTaskConvexSchema,
   rateLimit: { name: "createTask" },
   handler: async (ctx, task) => {
-    await zodParse(createTaskZodSchema, task);
+    const parsedDueAt = task.dueAt ? new Date(task.dueAt) : undefined;
+    await zodParse(createTaskZodSchema, {
+      ...task,
+      dueAt: parsedDueAt,
+    });
+
     const taskType = await ctx.db.get(task.taskTypeId);
     if (!taskType) {
       throw new ConvexError({ message: "Task type not found" });
@@ -91,6 +96,7 @@ export const create = authedMutation({
     await zodParse(taskWithCorrectValuesSchema, {
       ...task,
       valueKind: taskType.valueKind,
+      dueAt: parsedDueAt,
     });
 
     return await ctx.db.insert("tasks", {
@@ -110,13 +116,19 @@ export const create = authedMutation({
 });
 
 export const update = authedMutation({
-  args: updateSchema,
+  args: updateTaskConvexSchema,
   rateLimit: { name: "updateTask" },
   handler: async (ctx, { taskId, ...task }) => {
     await checkTask(ctx, taskId);
-    await zodParse(updateTaskZodSchema, task);
-
-    await ctx.db.patch(taskId, task);
+    const parsedDueAt = task.dueAt ? new Date(task.dueAt) : undefined;
+    await zodParse(updateTaskZodSchema, {
+      ...task,
+      dueAt: parsedDueAt,
+    });
+    await ctx.db.patch(taskId, {
+      ...task,
+      dueAt: task.dueAt ?? undefined,
+    });
   },
 });
 

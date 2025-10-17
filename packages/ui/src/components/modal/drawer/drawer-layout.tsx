@@ -60,7 +60,7 @@ export function Drawer({
     >
       <DrawerHeader>
         <DrawerTitle>{title}</DrawerTitle>
-        {showDescription && (
+        {description && (
           <DrawerDescription className={showDescription ? "" : "sr-only"}>
             {description ?? ""}
           </DrawerDescription>

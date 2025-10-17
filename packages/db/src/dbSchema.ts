@@ -15,7 +15,7 @@ export const dbSchema = defineSchema({
     priorityClassId: v.id("priorityClasses"),
     priorityIndex: v.string(),
     repetitionId: v.optional(v.id("repetitions")),
-    dueAt: v.optional(v.string()),
+    dueAt: v.optional(v.number()),
     archivedAt: v.optional(v.number()),
     valueKind: literals("boolean", "number", "enum"),
     completedAt: v.optional(v.number()),

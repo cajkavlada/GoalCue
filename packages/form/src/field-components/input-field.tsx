@@ -4,7 +4,7 @@ import { cn } from "@gc/utils";
 import { useFieldContext } from "../use-app-form";
 import { FieldErrors } from "./field-errors";
 
-export function Input({
+export function InputField({
   label,
   className,
   inputClassName,

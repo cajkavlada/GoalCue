@@ -50,8 +50,13 @@
   "tasks_delete_single_dialog_description": "Jste si jisti, že chcete smazat úkol {title}?",
   "tasks_delete_multiple_dialog_description": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "Jste si jisti, že chcete smazat vybraný úkol?",
         "countPlural=few": "Jste si jisti, že chcete smazat {count} vybrané úkoly?",
@@ -62,5 +67,9 @@
   "tasks_bulk_mark_as_completed_label": "Označit jako hotové",
   "tasks_bulk_mark_as_completed_tooltip": "Změní status vybraných úkolů na dokončenou hodnotu podle typu úkolu.",
   "tasks_bulk_mark_as_initial_label": "Označit jako nehotové",
-  "tasks_bulk_mark_as_initial_tooltip": "Změní status vybraných úkolů na počáteční hodnotu podle typu úkolu."
+  "tasks_bulk_mark_as_initial_tooltip": "Změní status vybraných úkolů na počáteční hodnotu podle typu úkolu.",
+  "form_field_date_placeholder": "Vyberte datum",
+  "form_field_date_invalid_date": "Neplatné datum",
+  "tasks_form_field_useDueAt_label": "Nastavit deadline",
+  "tasks_form_field_dueAt_label": "Deadline"
 }
