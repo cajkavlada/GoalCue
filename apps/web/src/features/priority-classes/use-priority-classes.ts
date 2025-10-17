@@ -5,12 +5,15 @@ import { api } from "@gc/convex/api";
 import { m } from "@gc/i18n/messages";
 
 export function usePriorityClasses() {
-  const { data: priorityClasses } = useSuspenseQuery(
-    convexQuery(api.priorityClasses.getAllForUserId, {})
-  );
-  return priorityClasses.map(({ i18nKey, name, ...rest }) => ({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    name: i18nKey ? ((m as Record<string, any>)[i18nKey]?.() ?? name) : name,
-    ...rest,
-  }));
+  return useSuspenseQuery({
+    ...convexQuery(api.priorityClasses.getAllForUserId, {}),
+    select: (data) =>
+      data.map(({ i18nKey, name, ...rest }) => ({
+        name: i18nKey
+          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ((m as Record<string, any>)[i18nKey]?.() ?? name)
+          : name,
+        ...rest,
+      })),
+  });
 }

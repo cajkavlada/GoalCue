@@ -70,5 +70,27 @@
   "form_field_date_placeholder": "Select a date",
   "form_field_date_invalid_date": "Invalid date",
   "tasks_form_field_useDueAt_label": "Set a deadline",
-  "tasks_form_field_dueAt_label": "Deadline"
+  "tasks_form_field_dueAt_label": "Deadline",
+  "taskTypes_empty_message": "No task types found",
+  "taskTypes_create_button_label": "Create Task Type",
+  "taskTypes_create_drawer_title": "Create Task Type",
+  "taskTypes_create_drawer_description": "Form to create a task type. Fill in the fields and click on the save button to create the task type.",
+  "taskTypes_form_field_name_label": "Name",
+  "taskTypes_delete_dialog_title": "Delete Task Type",
+  "taskTypes_delete_single_dialog_description": "Are you sure you want to delete task type {name}?",
+  "taskTypes_delete_multiple_dialog_description": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "Are you sure you want to delete selected task type?",
+        "countPlural=other": "Are you sure you want to delete {count} selected task types?"
+      }
+    }
+  ]
 }

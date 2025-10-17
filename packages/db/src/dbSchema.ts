@@ -44,7 +44,7 @@ export const dbSchema = defineSchema({
     completedEnumOptionId: v.optional(v.id("taskTypeEnumOptions")),
     userId: v.string(),
     archivedAt: v.optional(v.number()),
-  }).index("by_userId", ["userId"]),
+  }).index("by_userId", ["userId", "archivedAt"]),
   taskTypeEnumOptions: defineTable({
     taskTypeId: v.id("taskTypes"),
     name: v.string(),
