@@ -80,7 +80,7 @@ Dialog.Footer = function Footer({
 
   return (
     <DialogFooter
-      className="mt-8 p-2 sm:justify-between"
+      className="mt-8 flex flex-row justify-between gap-2 py-2"
       onKeyUp={(e) => {
         if (e.key === "Enter") {
           onSubmit?.();

@@ -71,5 +71,28 @@
   "form_field_date_placeholder": "Vyberte datum",
   "form_field_date_invalid_date": "Neplatné datum",
   "tasks_form_field_useDueAt_label": "Nastavit deadline",
-  "tasks_form_field_dueAt_label": "Deadline"
+  "tasks_form_field_dueAt_label": "Deadline",
+  "taskTypes_empty_message": "Žádné typy úkolů nebyly nalezeny",
+  "taskTypes_create_drawer_title": "Vytvořit typ úkolu",
+  "taskTypes_create_button_label": "Vytvořit typ úkolu",
+  "taskTypes_create_drawer_description": "Formulář pro vytvoření typu úkolu. Vyplňte pole a klikněte na tlačítko Uložit pro vytvoření typu úkolu.",
+  "taskTypes_form_field_name_label": "Název",
+  "taskTypes_delete_dialog_title": "Smazat typ úkolu",
+  "taskTypes_delete_single_dialog_description": "Jste si jisti, že chcete smazat typ úkolu {name}?",
+  "taskTypes_delete_multiple_dialog_description": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "Jste si jisti, že chcete smazat vybraný typ úkolu?",
+        "countPlural=few": "Jste si jisti, že chcete smazat {count} vybrané typy úkolů?",
+        "countPlural=other": "Jste si jisti, že chcete smazat {count} vybraných typů úkolů?"
+      }
+    }
+  ]
 }

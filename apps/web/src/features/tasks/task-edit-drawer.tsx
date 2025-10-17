@@ -39,7 +39,7 @@ export function TaskEditDrawer({ editedTask }: { editedTask: ExtendedTask }) {
 function TaskCreateForm({ editedTask }: { editedTask: ExtendedTask }) {
   const { closeDrawer } = useModal();
 
-  const priorityClasses = usePriorityClasses();
+  const { data: priorityClasses } = usePriorityClasses();
 
   const updateMutation = useMutation({
     mutationFn: useConvexMutation(api.tasks.update),

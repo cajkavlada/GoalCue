@@ -1,3 +1,5 @@
+import { Pencil, Trash2 } from "lucide-react";
+
 import { m } from "@gc/i18n/messages";
 import { useItemSelect } from "@gc/react-kit";
 import { ActionMenu, Checkbox, DropdownMenuItem, useModal } from "@gc/ui";
@@ -49,11 +51,13 @@ export function TaskListItem({
         <DropdownMenuItem
           onClick={() => openDrawer(<TaskEditDrawer editedTask={task} />)}
         >
+          <Pencil />
           {m.edit()}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => openDialog(<TaskDeleteDialog task={task} />)}
         >
+          <Trash2 className="text-red-700" />
           {m.delete()}
         </DropdownMenuItem>
       </ActionMenu>

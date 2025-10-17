@@ -6,15 +6,11 @@ import z from "zod";
 import { CUSTOM_ERROR_REASONS } from "../utils/customErrorReasons";
 import { convexSchemaFromTable } from "../utils/dbSchemaHelpers";
 import { zid } from "../utils/zodv4Helpers";
+import { priorityClassConvexSchema } from "./priorityClassVal";
+import { taskTypeEnumOptionConvexSchema } from "./taskTypeEnumOptionVal";
+import { taskTypeConvexSchema } from "./taskTypeVal";
 
 export const taskConvexSchema = convexSchemaFromTable("tasks").fields;
-
-// extended task convex schema
-const taskTypeConvexSchema = convexSchemaFromTable("taskTypes");
-const priorityClassConvexSchema = convexSchemaFromTable("priorityClasses");
-const taskTypeEnumOptionConvexSchema = convexSchemaFromTable(
-  "taskTypeEnumOptions"
-);
 
 export const extendedTaskConvexSchema = v.object({
   ...taskConvexSchema,
@@ -38,8 +34,6 @@ export const createTaskConvexSchema = v.object(
     "completedNumValue",
   ])
 );
-
-// zod schema for numValues when task type is number
 
 // TODO: infer from convex schema when convexToZod supports zod v4
 export const createTaskZodSchema = z

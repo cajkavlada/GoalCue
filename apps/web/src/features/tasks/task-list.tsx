@@ -94,19 +94,17 @@ export function TaskList({
             )}
           </div>
           <div className="flex-1 overflow-hidden">
-            {tasks.length > 0 && (
-              <VirtualList
-                className="h-full"
-                items={tasks}
-                estimateSize={() => 30}
-                renderItem={(task) => (
-                  <TaskListItem
-                    task={task}
-                    completedAfter={completedAfter}
-                  />
-                )}
-              />
-            )}
+            <VirtualList
+              className="h-full"
+              items={tasks}
+              estimateSize={() => 30}
+              renderItem={(task) => (
+                <TaskListItem
+                  task={task}
+                  completedAfter={completedAfter}
+                />
+              )}
+            />
           </div>
         </>
       )}

@@ -1,9 +1,10 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
+import { Home, Settings } from "lucide-react";
 
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@gc/auth";
 import { m } from "@gc/i18n/messages";
 import { locales, setLocale } from "@gc/i18n/runtime";
-import { ModeToggle } from "@gc/ui";
+import { Button, ModeToggle } from "@gc/ui";
 
 export const Route = createFileRoute("/{-$locale}")({
   component: RouteComponent,
@@ -11,16 +12,24 @@ export const Route = createFileRoute("/{-$locale}")({
 
 function RouteComponent() {
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex justify-end gap-2 pr-4 pt-2">
+    <div className="flex h-full flex-col gap-2">
+      <div className="flex items-center justify-end gap-2 border-b px-4 py-2">
+        <div className="mr-auto flex gap-4">
+          <Link to="/{-$locale}/dashboard">
+            <Home />
+          </Link>
+          <Link to="/{-$locale}/task-types">
+            <Settings />
+          </Link>
+        </div>
         {locales.map((locale) => (
-          <button
+          <Button
             onClick={() => setLocale(locale)}
             key={locale}
-            className={`rounded-sm bg-gray-600 px-2 py-1 font-extrabold uppercase text-white dark:bg-gray-700`}
+            className={`bg-gray-600 text-white dark:bg-gray-700`}
           >
             {locale}
-          </button>
+          </Button>
         ))}
         <div>
           <ModeToggle />

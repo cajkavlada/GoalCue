@@ -36,8 +36,8 @@ export function TaskCreateDrawer() {
 function TaskCreateForm() {
   const { closeDrawer } = useModal();
 
-  const priorityClasses = usePriorityClasses();
-  const taskTypes = useTaskTypes();
+  const { data: priorityClasses } = usePriorityClasses();
+  const { data: taskTypes } = useTaskTypes();
 
   const createMutation = useMutation({
     mutationFn: useConvexMutation(api.tasks.create),
