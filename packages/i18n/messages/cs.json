@@ -94,5 +94,12 @@
         "countPlural=other": "Jste si jisti, že chcete smazat {count} vybraných typů úkolů?"
       }
     }
-  ]
+  ],
+  "taskTypes_form_field_valueKind_label": "Typ sledování",
+  "taskTypes_form_field_valueKind_boolean": "Hotovo/Není hotovo",
+  "taskTypes_form_field_valueKind_number": "Číselné",
+  "taskTypes_form_field_valueKind_enum": "Seznam možných stavů",
+  "taskTypes_form_field_valueKind_boolean_description": "Dva možné stavy: nehotové nebo hotové",
+  "taskTypes_form_field_valueKind_number_description": "Číselná hodnota sledovaná postupně",
+  "taskTypes_form_field_valueKind_enum_description": "Seznam možných stavů, ze kterých lze vybrat."
 }

@@ -7,25 +7,27 @@ import { FieldErrors } from "./field-errors";
 export function SelectField<T extends string>({
   label,
   className,
-  options,
   onValueChange,
+  ...props
 }: {
   label: string;
   className?: string;
-  options: { label: string; value: T }[];
+  options?: { label: string; value: T }[];
   onValueChange?: (value: T) => void;
+  children?: React.ReactNode;
+  placeholder?: string;
 }) {
   const field = useFieldContext<string>();
   return (
     <div className={cn("flex flex-col", className)}>
       <Label htmlFor={field.name}>{label}</Label>
       <UISelect
-        options={options}
         value={field.state.value}
         onValueChange={(val) => {
           field.handleChange(val);
           onValueChange?.(val as T);
         }}
+        {...props}
       />
       <FieldErrors meta={field.state.meta} />
     </div>

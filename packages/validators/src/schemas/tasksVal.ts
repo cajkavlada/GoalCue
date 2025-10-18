@@ -3,12 +3,14 @@ import { partial } from "convex-helpers/validators";
 import { Infer, v } from "convex/values";
 import z from "zod";
 
-import { CUSTOM_ERROR_REASONS } from "../utils/customErrorReasons";
 import { convexSchemaFromTable } from "../utils/dbSchemaHelpers";
 import { zid } from "../utils/zodv4Helpers";
 import { priorityClassConvexSchema } from "./priorityClassVal";
 import { taskTypeEnumOptionConvexSchema } from "./taskTypeEnumOptionVal";
-import { taskTypeConvexSchema } from "./taskTypeVal";
+import {
+  checkEqualInitialAndCompletedNumValues,
+  taskTypeConvexSchema,
+} from "./taskTypeVal";
 
 export const taskConvexSchema = convexSchemaFromTable("tasks").fields;
 
@@ -50,31 +52,6 @@ export const createTaskZodSchema = z
   .superRefine(checkEqualInitialAndCompletedNumValues);
 
 export type CreateTaskArgs = z.infer<typeof createTaskZodSchema>;
-
-function checkEqualInitialAndCompletedNumValues(
-  {
-    initialNumValue,
-    completedNumValue,
-  }: {
-    initialNumValue?: ExtendedTask["initialNumValue"];
-    completedNumValue?: ExtendedTask["completedNumValue"];
-  },
-  ctx: z.RefinementCtx
-) {
-  if (
-    initialNumValue !== undefined &&
-    completedNumValue !== undefined &&
-    initialNumValue === completedNumValue
-  ) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["numValues"],
-      params: {
-        reason: CUSTOM_ERROR_REASONS.EQUAL_INITIAL_AND_COMPLETED_NUM_VALUES,
-      },
-    });
-  }
-}
 
 // zod schema for task with correct values
 const taskWithoutNumValues = createTaskZodSchema.omit({

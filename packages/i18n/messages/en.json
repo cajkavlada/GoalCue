@@ -92,5 +92,12 @@
         "countPlural=other": "Are you sure you want to delete {count} selected task types?"
       }
     }
-  ]
+  ],
+  "taskTypes_form_field_valueKind_label": "Tracking type",
+  "taskTypes_form_field_valueKind_boolean": "Done/Not Done",
+  "taskTypes_form_field_valueKind_number": "Numeric",
+  "taskTypes_form_field_valueKind_enum": "Set of possible statuses",
+  "taskTypes_form_field_valueKind_boolean_description": "Two possible values: not completed or completed",
+  "taskTypes_form_field_valueKind_number_description": "A numeric value tracked continuously",
+  "taskTypes_form_field_valueKind_enum_description": "A set of possible statuses that can be selected from a list."
 }
