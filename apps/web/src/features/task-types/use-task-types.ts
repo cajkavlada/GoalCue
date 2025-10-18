@@ -9,10 +9,10 @@ export function useTaskTypes() {
     ...convexQuery(api.taskTypes.getAllForUserId, {}),
     select: (data) =>
       data.map(({ i18nKey, name, ...rest }) => ({
-        name: i18nKey
+        name: (i18nKey
           ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
             ((m as Record<string, any>)[i18nKey]?.() ?? name)
-          : name,
+          : name) as string,
         ...rest,
       })),
   });

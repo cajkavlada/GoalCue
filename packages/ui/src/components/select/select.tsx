@@ -14,11 +14,15 @@ export function Select<T extends string>({
   options,
   value,
   onValueChange,
+  children,
+  placeholder,
 }: {
   className?: string;
-  options: { label: string; value: T }[];
+  options?: { label: string; value: T }[];
   value: T;
   onValueChange: (value: T) => void;
+  children?: React.ReactNode;
+  placeholder?: string;
 }) {
   return (
     <UISelect
@@ -27,11 +31,13 @@ export function Select<T extends string>({
     >
       <SelectTrigger className={cn("w-full", className)}>
         <SelectValue
-          placeholder={options[0]?.label ?? m.select_placeholder()}
+          placeholder={
+            placeholder ?? options?.[0]?.label ?? m.select_placeholder()
+          }
         />
       </SelectTrigger>
       <SelectContent>
-        {options.map((option) => (
+        {options?.map((option) => (
           <SelectItem
             key={option.value}
             value={option.value}
@@ -39,7 +45,10 @@ export function Select<T extends string>({
             {option.label}
           </SelectItem>
         ))}
+        {children}
       </SelectContent>
     </UISelect>
   );
 }
+
+export { SelectItem };
