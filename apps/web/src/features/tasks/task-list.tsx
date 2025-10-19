@@ -12,6 +12,7 @@ import {
   Tooltip,
   useModal,
 } from "@gc/ui";
+import { cn } from "@gc/utils";
 import { ExtendedTask } from "@gc/validators";
 
 import { TaskDeleteDialog } from "./task-delete-dialog";
@@ -21,10 +22,12 @@ export function TaskList({
   tasks,
   completedAfter,
   emptyMessage,
+  className,
 }: {
   tasks: ExtendedTask[];
   completedAfter?: number;
   emptyMessage?: string;
+  className?: string;
 }) {
   const { openDialog } = useModal();
 
@@ -39,20 +42,20 @@ export function TaskList({
   });
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div className={cn("flex flex-1 flex-col overflow-hidden", className)}>
       {tasks.length === 0 && (
         <div className="text-center text-gray-500">{emptyMessage}</div>
       )}
       {tasks.length > 0 && (
         <>
-          <div className="flex items-center gap-2">
+          <div className="flex h-[36px] items-center gap-2">
             <Checkbox
               checked={isAllSelected}
               onCheckedChange={toggleSelectAll}
             />
             {selectedIds.size > 0 && (
               <>
-                {selectedIds.size}
+                <p className="min-w-[20px]">{selectedIds.size}</p>
                 <ActionMenu>
                   <DropdownMenuItem
                     onClick={() =>

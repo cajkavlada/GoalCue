@@ -12,3 +12,5 @@ export * from "./spinner";
 export * from "./status-spinner";
 export * from "./date";
 export * from "./switch";
+export * from "./card";
+export * from "./separator";

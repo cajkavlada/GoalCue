@@ -26,14 +26,14 @@ export function TaskTypeList({
       )}
       {taskTypes.length > 0 && (
         <>
-          <div className="flex items-center gap-2">
+          <div className="flex h-[36px] items-center gap-2 pr-2">
             <Checkbox
               checked={isAllSelected}
               onCheckedChange={toggleSelectAll}
             />
             {selectedIds.size > 0 && (
               <>
-                {selectedIds.size}
+                <p className="min-w-[20px]">{selectedIds.size}</p>
                 <ActionMenu>
                   <DropdownMenuItem
                     onClick={() =>

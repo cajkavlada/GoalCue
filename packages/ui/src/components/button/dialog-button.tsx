@@ -1,11 +1,11 @@
-import { Button, ButtonProps } from "../../button";
-import { useDialog } from "./dialog-context";
+import { useModal } from "../modal";
+import { Button, ButtonProps } from "./button-with-tooltip";
 
 export function DialogButton({
   dialogContent,
   ...props
 }: { dialogContent: React.ReactNode } & ButtonProps) {
-  const { openDialog } = useDialog();
+  const { openDialog } = useModal();
   return (
     <Button
       onClick={() => openDialog(dialogContent)}

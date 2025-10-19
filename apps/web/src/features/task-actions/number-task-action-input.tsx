@@ -34,6 +34,7 @@ export function NumberTaskActionInput({
 
   return (
     <Input
+      className="w-[80px]"
       type="number"
       value={value}
       onChange={(e) => setValue(e.target.value)}

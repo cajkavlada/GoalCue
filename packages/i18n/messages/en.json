@@ -1,7 +1,6 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "landing_greet": "Hello",
-  "tasks_create_button_label": "Create Task",
   "tasks_create_dialog_title": "Create Task",
   "tasks_create_dialog_description": "Form to create a task. Fill in the fields and click on the save button to create the task.",
   "tasks_update_dialog_title": "Edit Task",
@@ -99,5 +98,8 @@
   "taskTypes_form_field_valueKind_enum": "Set of possible statuses",
   "taskTypes_form_field_valueKind_boolean_description": "Two possible values: not completed or completed",
   "taskTypes_form_field_valueKind_number_description": "A numeric value tracked continuously",
-  "taskTypes_form_field_valueKind_enum_description": "A set of possible statuses that can be selected from a list."
+  "taskTypes_form_field_valueKind_enum_description": "A set of possible statuses that can be selected from a list.",
+  "tasks_heading": "Tasks",
+  "taskTypes_heading": "Task Types",
+  "tasks_create_button_label": "Create Task"
 }

@@ -8,7 +8,7 @@ import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker";
 
 import { cn } from "@gc/utils";
 
-import { Button, buttonVariants } from "../button";
+import { Button, buttonVariants } from "../button/button";
 
 function Calendar({
   className,
