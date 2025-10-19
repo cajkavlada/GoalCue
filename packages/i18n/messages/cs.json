@@ -49,13 +49,8 @@
   "tasks_delete_single_dialog_description": "Jste si jisti, že chcete smazat úkol {title}?",
   "tasks_delete_multiple_dialog_description": [
     {
-      "declarations": [
-        "input count",
-        "local countPlural = count: plural"
-      ],
-      "selectors": [
-        "countPlural"
-      ],
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
       "match": {
         "countPlural=one": "Jste si jisti, že chcete smazat vybraný úkol?",
         "countPlural=few": "Jste si jisti, že chcete smazat {count} vybrané úkoly?",
@@ -80,13 +75,8 @@
   "taskTypes_delete_single_dialog_description": "Jste si jisti, že chcete smazat typ úkolu {name}?",
   "taskTypes_delete_multiple_dialog_description": [
     {
-      "declarations": [
-        "input count",
-        "local countPlural = count: plural"
-      ],
-      "selectors": [
-        "countPlural"
-      ],
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
       "match": {
         "countPlural=one": "Jste si jisti, že chcete smazat vybraný typ úkolu?",
         "countPlural=few": "Jste si jisti, že chcete smazat {count} vybrané typy úkolů?",
@@ -103,5 +93,20 @@
   "taskTypes_form_field_valueKind_enum_description": "Seznam možných stavů, ze kterých lze vybrat.",
   "tasks_heading": "Úkoly",
   "taskTypes_heading": "Typy úkolů",
-  "tasks_create_button_label": "Vytvořit úkol"
+  "tasks_create_button_label": "Vytvořit úkol",
+  "theme_select_label": "Vybrat režim",
+  "locale_select_label": "Vybrat jazyk",
+  "theme_select_light": "Světlý",
+  "theme_select_dark": "Tmavý",
+  "theme_select_system": "Systém",
+  "locale_select_item": [
+    {
+      "declarations": ["input locale"],
+      "selectors": ["locale"],
+      "match": {
+        "locale=en": "Angličtina",
+        "locale=cs": "Čeština"
+      }
+    }
+  ]
 }
