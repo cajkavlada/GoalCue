@@ -3,8 +3,9 @@ import { Home, Settings } from "lucide-react";
 
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@gc/auth";
 import { m } from "@gc/i18n/messages";
-import { locales, setLocale } from "@gc/i18n/runtime";
-import { Button, ModeToggle } from "@gc/ui";
+import { ModeSelector } from "@gc/ui";
+
+import { LocaleSelector } from "@/components/locale-selector";
 
 export const Route = createFileRoute("/{-$locale}")({
   component: RouteComponent,
@@ -22,18 +23,8 @@ function RouteComponent() {
             <Settings />
           </Link>
         </div>
-        {locales.map((locale) => (
-          <Button
-            onClick={() => setLocale(locale)}
-            key={locale}
-            className={`bg-gray-600 text-white dark:bg-gray-700`}
-          >
-            {locale}
-          </Button>
-        ))}
-        <div>
-          <ModeToggle />
-        </div>
+        <LocaleSelector />
+        <ModeSelector />
         <SignedIn>
           <UserButton />
         </SignedIn>

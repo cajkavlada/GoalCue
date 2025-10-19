@@ -49,13 +49,8 @@
   "tasks_delete_single_dialog_description": "Are you sure you want to delete task {title}?",
   "tasks_delete_multiple_dialog_description": [
     {
-      "declarations": [
-        "input count",
-        "local countPlural = count: plural"
-      ],
-      "selectors": [
-        "countPlural"
-      ],
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
       "match": {
         "countPlural=one": "Are you sure you want to delete selected task?",
         "countPlural=other": "Are you sure you want to delete {count} selected tasks?"
@@ -79,13 +74,8 @@
   "taskTypes_delete_single_dialog_description": "Are you sure you want to delete task type {name}?",
   "taskTypes_delete_multiple_dialog_description": [
     {
-      "declarations": [
-        "input count",
-        "local countPlural = count: plural"
-      ],
-      "selectors": [
-        "countPlural"
-      ],
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
       "match": {
         "countPlural=one": "Are you sure you want to delete selected task type?",
         "countPlural=other": "Are you sure you want to delete {count} selected task types?"
@@ -101,5 +91,20 @@
   "taskTypes_form_field_valueKind_enum_description": "A set of possible statuses that can be selected from a list.",
   "tasks_heading": "Tasks",
   "taskTypes_heading": "Task Types",
-  "tasks_create_button_label": "Create Task"
+  "tasks_create_button_label": "Create Task",
+  "theme_select_label": "Select theme",
+  "locale_select_label": "Select locale",
+  "theme_select_light": "Light",
+  "theme_select_dark": "Dark",
+  "theme_select_system": "System",
+  "locale_select_item": [
+    {
+      "declarations": ["input locale"],
+      "selectors": ["locale"],
+      "match": {
+        "locale=en": "English",
+        "locale=cs": "Czech"
+      }
+    }
+  ]
 }
