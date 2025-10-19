@@ -16,7 +16,7 @@ export function TaskTypeListItem({ taskType }: { taskType: TaskType }) {
         checked={isItemSelected}
         onCheckedChange={toggleSelectItem}
       />
-      {taskType.name}
+      <p className="mr-auto truncate">{taskType.name}</p>
       <ActionMenu>
         <DropdownMenuItem disabled>
           <Pencil />

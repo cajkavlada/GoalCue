@@ -18,7 +18,7 @@ function RouteComponent() {
           <Link to="/{-$locale}/dashboard">
             <Home />
           </Link>
-          <Link to="/{-$locale}/task-types">
+          <Link to="/{-$locale}/settings">
             <Settings />
           </Link>
         </div>

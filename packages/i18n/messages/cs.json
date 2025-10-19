@@ -1,7 +1,6 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "landing_greet": "Ahoj",
-  "tasks_create_button_label": "Vytvořit úkol",
   "tasks_create_dialog_title": "Vytvořit úkol",
   "tasks_create_dialog_description": "Formulář pro vytvoření úkolu. Vyplňte pole a klikněte na tlačítko Uložit pro vytvoření úkolu.",
   "tasks_update_dialog_title": "Upravit úkol",
@@ -101,5 +100,8 @@
   "taskTypes_form_field_valueKind_enum": "Seznam možných stavů",
   "taskTypes_form_field_valueKind_boolean_description": "Dva možné stavy: nehotové nebo hotové",
   "taskTypes_form_field_valueKind_number_description": "Číselná hodnota sledovaná postupně",
-  "taskTypes_form_field_valueKind_enum_description": "Seznam možných stavů, ze kterých lze vybrat."
+  "taskTypes_form_field_valueKind_enum_description": "Seznam možných stavů, ze kterých lze vybrat.",
+  "tasks_heading": "Úkoly",
+  "taskTypes_heading": "Typy úkolů",
+  "tasks_create_button_label": "Vytvořit úkol"
 }

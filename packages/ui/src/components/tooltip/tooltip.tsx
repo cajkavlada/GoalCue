@@ -13,7 +13,7 @@ export function Tooltip({
 }) {
   return (
     <UITooltip>
-      <TooltipTrigger>{children}</TooltipTrigger>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
       <TooltipContent>{content}</TooltipContent>
     </UITooltip>
   );

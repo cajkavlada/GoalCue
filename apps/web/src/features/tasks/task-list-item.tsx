@@ -22,13 +22,12 @@ export function TaskListItem({
   const { isItemSelected, toggleSelectItem } = useItemSelect(task);
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 pr-2">
       <Checkbox
         checked={isItemSelected}
         onCheckedChange={toggleSelectItem}
       />
-      {task.title}
-      {task.completedAt ? "Done" : "Not done"}
+      <p className="mr-auto truncate">{task.title}</p>
       {task.valueKind === "boolean" && (
         <BoolTaskActionCheckbox
           task={task}
