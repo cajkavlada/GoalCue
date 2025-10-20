@@ -204,6 +204,7 @@ export const initUser = mutation({
         if (taskTypeEnumOptions) {
           let initialEnumOptionId: Id<"taskTypeEnumOptions"> | undefined;
           let completedEnumOptionId: Id<"taskTypeEnumOptions"> | undefined;
+
           for (const opt of taskTypeEnumOptions) {
             const { initial, completed, ...taskTypeEnumOption } = opt;
             const taskTypeEnumOptionId = await ctx.db.insert(

@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import { generateNKeysBetween } from "fractional-indexing";
 
 import {
   createTaskTypeConvexSchema,
@@ -30,12 +31,47 @@ export const getAllForUserId = authedQuery({
 export const create = authedMutation({
   args: createTaskTypeConvexSchema,
   rateLimit: { name: "createTaskType" },
-  handler: async (ctx, taskType) => {
-    await zodParse(createTaskTypeZodSchema, taskType);
-    return await ctx.db.insert("taskTypes", {
-      ...taskType,
+  handler: async (ctx, taskTypeArgs) => {
+    await zodParse(createTaskTypeZodSchema, taskTypeArgs);
+    const { taskTypeEnumOptions, ...rawTaskType } = taskTypeArgs;
+    const newTaskTypeId = await ctx.db.insert("taskTypes", {
+      ...rawTaskType,
       userId: ctx.userId,
     });
+
+    if (taskTypeEnumOptions) {
+      const orderKeys = generateNKeysBetween(
+        null,
+        null,
+        taskTypeEnumOptions.length
+      );
+
+      let initialEnumOptionId: Id<"taskTypeEnumOptions"> | undefined;
+      let completedEnumOptionId: Id<"taskTypeEnumOptions"> | undefined;
+
+      for (const [index, enumOption] of taskTypeEnumOptions.entries()) {
+        const taskTypeEnumOptionId = await ctx.db.insert(
+          "taskTypeEnumOptions",
+          {
+            taskTypeId: newTaskTypeId,
+            name: enumOption,
+            orderKey: orderKeys[index]!,
+          }
+        );
+        if (index === 0) {
+          initialEnumOptionId = taskTypeEnumOptionId;
+        }
+        if (index === taskTypeEnumOptions.length - 1) {
+          completedEnumOptionId = taskTypeEnumOptionId;
+        }
+      }
+      if (initialEnumOptionId && completedEnumOptionId) {
+        await ctx.db.patch(newTaskTypeId, {
+          initialEnumOptionId,
+          completedEnumOptionId,
+        });
+      }
+    }
   },
 });
 
