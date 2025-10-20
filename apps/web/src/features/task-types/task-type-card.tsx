@@ -30,7 +30,7 @@ export function TaskTypeCard() {
           </DrawerButton>
         </CardAction>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col">
+      <CardContent className="flex flex-1 flex-col overflow-hidden">
         <ErrorSuspense>
           <TaskTypeCardList />
         </ErrorSuspense>

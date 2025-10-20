@@ -100,7 +100,7 @@ export function TaskList({
             <VirtualList
               className="h-full"
               items={tasks}
-              estimateSize={() => 30}
+              estimateSize={() => 36}
               renderItem={(task) => (
                 <TaskListItem
                   task={task}

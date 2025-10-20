@@ -2,7 +2,8 @@ import { Pencil, Trash2 } from "lucide-react";
 
 import { m } from "@gc/i18n/messages";
 import { useItemSelect } from "@gc/react-kit";
-import { ActionMenu, Checkbox, DropdownMenuItem, useModal } from "@gc/ui";
+import { ActionMenu, DropdownMenuItem, useModal } from "@gc/ui";
+import { cn } from "@gc/utils";
 import { TaskType } from "@gc/validators";
 
 import { TaskTypeDeleteDialog } from "./task-type-delete-dialog";
@@ -11,11 +12,13 @@ export function TaskTypeListItem({ taskType }: { taskType: TaskType }) {
   const { openDialog } = useModal();
   const { isItemSelected, toggleSelectItem } = useItemSelect(taskType);
   return (
-    <div className="flex items-center gap-2">
-      <Checkbox
-        checked={isItemSelected}
-        onCheckedChange={toggleSelectItem}
-      />
+    <div
+      className={cn(
+        "flex select-none items-center gap-2 px-2",
+        isItemSelected && "bg-accent text-accent-foreground"
+      )}
+      onClick={toggleSelectItem}
+    >
       <p className="mr-auto truncate">{taskType.name}</p>
       <ActionMenu>
         <DropdownMenuItem disabled>

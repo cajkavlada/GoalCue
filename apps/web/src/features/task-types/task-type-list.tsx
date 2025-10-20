@@ -55,7 +55,7 @@ export function TaskTypeList({
             <VirtualList
               className="h-full"
               items={taskTypes}
-              estimateSize={() => 30}
+              estimateSize={() => 36}
               renderItem={(taskType) => (
                 <TaskTypeListItem taskType={taskType} />
               )}

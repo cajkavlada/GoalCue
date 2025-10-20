@@ -2,7 +2,8 @@ import { Pencil, Trash2 } from "lucide-react";
 
 import { m } from "@gc/i18n/messages";
 import { useItemSelect } from "@gc/react-kit";
-import { ActionMenu, Checkbox, DropdownMenuItem, useModal } from "@gc/ui";
+import { ActionMenu, DropdownMenuItem, useModal } from "@gc/ui";
+import { cn } from "@gc/utils";
 import { ExtendedTask } from "@gc/validators";
 
 import { BoolTaskActionCheckbox } from "../task-actions/bool-task-action-checkbox";
@@ -22,30 +23,34 @@ export function TaskListItem({
   const { isItemSelected, toggleSelectItem } = useItemSelect(task);
 
   return (
-    <div className="flex items-center gap-2 pr-2">
-      <Checkbox
-        checked={isItemSelected}
-        onCheckedChange={toggleSelectItem}
-      />
+    <div
+      className={cn(
+        "flex select-none items-center gap-2 px-2",
+        isItemSelected && "bg-accent text-accent-foreground"
+      )}
+      onClick={toggleSelectItem}
+    >
       <p className="mr-auto truncate">{task.title}</p>
-      {task.valueKind === "boolean" && (
-        <BoolTaskActionCheckbox
-          task={task}
-          completedAfter={completedAfter}
-        />
-      )}
-      {task.valueKind === "number" && (
-        <NumberTaskActionInput
-          task={task}
-          completedAfter={completedAfter}
-        />
-      )}
-      {task.valueKind === "enum" && (
-        <EnumTaskActionSelect
-          task={task}
-          completedAfter={completedAfter}
-        />
-      )}
+      <div onClick={(e) => e.stopPropagation()}>
+        {task.valueKind === "boolean" && (
+          <BoolTaskActionCheckbox
+            task={task}
+            completedAfter={completedAfter}
+          />
+        )}
+        {task.valueKind === "number" && (
+          <NumberTaskActionInput
+            task={task}
+            completedAfter={completedAfter}
+          />
+        )}
+        {task.valueKind === "enum" && (
+          <EnumTaskActionSelect
+            task={task}
+            completedAfter={completedAfter}
+          />
+        )}
+      </div>
       <ActionMenu>
         <DropdownMenuItem
           onClick={() => openDrawer(<TaskEditDrawer editedTask={task} />)}

@@ -40,7 +40,7 @@ export function EnumTaskActionSelect({
 
   return (
     <Select
-      className="w-[150px]"
+      className="max-h-[30px] w-[150px]"
       options={enumOptions}
       value={task.currentEnumOptionId}
       onValueChange={(value) => handleEnumAction(value)}
