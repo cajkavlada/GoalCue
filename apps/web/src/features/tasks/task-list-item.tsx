@@ -2,7 +2,12 @@ import { Pencil, Trash2 } from "lucide-react";
 
 import { m } from "@gc/i18n/messages";
 import { useItemSelect } from "@gc/react-kit";
-import { ActionMenu, DropdownMenuItem, useModal } from "@gc/ui";
+import {
+  ActionMenu,
+  DropdownMenuItem,
+  TruncateWithTooltip,
+  useModal,
+} from "@gc/ui";
 import { cn } from "@gc/utils";
 import { ExtendedTask } from "@gc/validators";
 
@@ -30,7 +35,10 @@ export function TaskListItem({
       )}
       onClick={toggleSelectItem}
     >
-      <p className="mr-auto truncate">{task.title}</p>
+      <TruncateWithTooltip
+        text={task.title}
+        className="mr-auto"
+      />
       <div onClick={(e) => e.stopPropagation()}>
         {task.valueKind === "boolean" && (
           <BoolTaskActionCheckbox
