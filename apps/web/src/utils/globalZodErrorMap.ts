@@ -16,6 +16,9 @@ export function configureGlobalZodErrorMap() {
       if (issue.code === "invalid_type" && issue.expected === "number") {
         return m.form_field_validation_number();
       }
+      if (issue.code === "too_small" && issue.origin === "array") {
+        return m.form_field_validation_array_min({ min: issue.minimum });
+      }
 
       if (issue.code === "custom") {
         return customErrorMap(issue);
@@ -32,6 +35,12 @@ function customErrorMap(issue: z.core.$ZodRawIssue) {
   switch (issue.params?.reason) {
     case CUSTOM_ERROR_REASONS.EQUAL_INITIAL_AND_COMPLETED_NUM_VALUES:
       return m.tasks_form_field_initialCompletedNumValue_validation_equal();
+    // case CUSTOM_ERROR_REASONS.EQUAL_INITIAL_AND_COMPLETED_ENUM_OPTIONS:
+    //   return m.taskTypes_form_field_initialCompletedEnumOption_validation_equal();
+    // case CUSTOM_ERROR_REASONS.INITIAL_ENUM_OPTION_NOT_FOUND:
+    //   return m.taskTypes_form_field_initialEnumOption_validation_not_found();
+    // case CUSTOM_ERROR_REASONS.COMPLETED_ENUM_OPTION_NOT_FOUND:
+    //   return m.taskTypes_form_field_completedEnumOption_validation_not_found();
     default:
       return undefined;
   }

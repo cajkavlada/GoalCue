@@ -23,6 +23,7 @@
     "@gc/utils": "workspace:*",
     "@gc/validators": "workspace:*",
     "@t3-oss/env-core": "^0.13.8",
+    "@tanstack/react-form": "catalog:tanstack",
     "@tanstack/react-query": "catalog:tanstack",
     "@tanstack/react-router": "catalog:tanstack",
     "babel-plugin-react-compiler": "catalog:react",

@@ -81,8 +81,12 @@
   --secondary-foreground: oklch(0.3485 0 0);
   --muted: oklch(0.9158 0 0);
   --muted-foreground: oklch(0.4313 0 0);
-  --accent: oklch(0.9354 0.0456 94.8549);
+  /* --accent: oklch(0.9354 0.0456 94.8549);
   --accent-foreground: oklch(0.4015 0.0436 37.9587);
+  --accent: oklch(0.88 0.01 260);
+  --accent-foreground: oklch(0.3 0.01 260); */
+  --accent: oklch(0.75 0 0);
+  --accent-foreground: oklch(0.25 0 0);
   --destructive: oklch(0.6627 0.0978 20.0041);
   --destructive-foreground: oklch(1 0 0);
   --border: oklch(0.5538 0.0025 17.232);
@@ -142,8 +146,14 @@
   --secondary-foreground: oklch(0.8078 0 0);
   --muted: oklch(0.3904 0 0);
   --muted-foreground: oklch(0.7058 0 0);
-  --accent: oklch(0.9067 0 0);
-  --accent-foreground: oklch(0.3211 0 0);
+  /* --accent: oklch(0.9067 0 0);
+  --accent-foreground: oklch(0.3211 0 0); */
+  /* --accent: oklch(0.45 0.01 260);
+  --accent-foreground: oklch(0.9 0.01 260); */
+  /* --accent: oklch(0.75 0 0);
+  --accent-foreground: oklch(0.25 0 0); */
+  --accent: oklch(0.4 0 0);
+  --accent-foreground: oklch(0.85 0 0);
   --destructive: oklch(0.7915 0.0491 18.241);
   --destructive-foreground: oklch(0.2891 0 0);
   --border: oklch(0.4276 0 0);
@@ -197,5 +207,30 @@
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
     letter-spacing: var(--tracking-normal);
+  }
+
+  /* 🌈 Scrollbar theming */
+  * {
+    /* scrollbar-width: thin; */
+    scrollbar-color: var(--accent) var(--card);
+  }
+
+  /* *::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    } */
+
+  *::-webkit-scrollbar-track {
+    background: var(--background);
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--muted);
+    border-radius: 9999px;
+    border: 2px solid var(--background);
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--muted-foreground);
   }
 }

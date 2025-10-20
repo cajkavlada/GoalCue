@@ -9,6 +9,8 @@ import { ErrorSuspense } from "@gc/react-kit";
 import { Drawer, SelectItem, Tooltip, useModal } from "@gc/ui";
 import { CreateTaskTypeArgs, createTaskTypeZodSchema } from "@gc/validators";
 
+import { TaskTypeEnumOptionsCreator } from "../task-type-enum-options/task-type-enum-options-creator";
+
 export function TaskTypeCreateDrawer() {
   return (
     <Drawer
@@ -33,15 +35,11 @@ function TaskTypeCreateForm() {
     },
   });
 
-  const defaultValues: CreateTaskTypeArgs = {
-    name: "",
-    valueKind: "boolean",
-    initialNumValue: undefined,
-    completedNumValue: undefined,
-  };
-
   const form = useAppForm({
-    defaultValues,
+    defaultValues: {
+      name: "",
+      valueKind: "boolean",
+    } as CreateTaskTypeArgs,
     validators: {
       onBlur: createTaskTypeZodSchema,
     },
@@ -66,14 +64,18 @@ function TaskTypeCreateForm() {
             <field.Select
               label={m.taskTypes_form_field_valueKind_label()}
               onValueChange={(valueKind) => {
-                form.setFieldValue(
-                  "initialNumValue",
-                  valueKind === "number" ? 0 : undefined
-                );
-                form.setFieldValue(
-                  "completedNumValue",
-                  valueKind === "number" ? 10 : undefined
-                );
+                if (valueKind === "number") {
+                  form.setFieldValue("initialNumValue", 0);
+                  form.setFieldValue("completedNumValue", 10);
+                } else {
+                  form.deleteField("initialNumValue");
+                  form.deleteField("completedNumValue");
+                }
+                if (valueKind === "enum") {
+                  form.setFieldValue("taskTypeEnumOptions", []);
+                } else {
+                  form.deleteField("taskTypeEnumOptions");
+                }
               }}
             >
               <SelectItem value="boolean">
@@ -92,43 +94,63 @@ function TaskTypeCreateForm() {
                   <CircleQuestionMark />
                 </Tooltip>
               </SelectItem>
-              {/* <SelectItem value="enum">
+              <SelectItem value="enum">
                 {m.taskTypes_form_field_valueKind_enum()}
                 <Tooltip
                   content={m.taskTypes_form_field_valueKind_enum_description()}
                 >
                   <CircleQuestionMark />
                 </Tooltip>
-              </SelectItem> */}
+              </SelectItem>
             </field.Select>
           )}
         </form.AppField>
         <form.Subscribe selector={(state) => state.values.valueKind}>
-          {(valueKind) =>
-            valueKind === "number" && (
-              <div>
-                <div className="flex gap-2">
-                  <form.AppField name="initialNumValue">
-                    {(field) => (
-                      <field.Input
-                        type="number"
-                        label={m.tasks_form_field_initialNumValue_label()}
-                      />
-                    )}
-                  </form.AppField>
-                  <form.AppField name="completedNumValue">
-                    {(field) => (
-                      <field.Input
-                        type="number"
-                        label={m.tasks_form_field_completedNumValue_label()}
-                      />
-                    )}
-                  </form.AppField>
+          {(valueKind) => {
+            if (valueKind === "number") {
+              return (
+                <div>
+                  <div className="flex gap-2">
+                    <form.AppField name="initialNumValue">
+                      {(field) => (
+                        <field.Input
+                          type="number"
+                          label={m.tasks_form_field_initialNumValue_label()}
+                        />
+                      )}
+                    </form.AppField>
+                    <form.AppField name="completedNumValue">
+                      {(field) => (
+                        <field.Input
+                          type="number"
+                          label={m.tasks_form_field_completedNumValue_label()}
+                        />
+                      )}
+                    </form.AppField>
+                  </div>
+                  <form.FormErrors path="numValues" />
                 </div>
-                <form.FormErrors path="numValues" />
-              </div>
-            )
-          }
+              );
+            }
+            if (valueKind === "enum") {
+              return (
+                <form.AppField name="taskTypeEnumOptions">
+                  {(field) => (
+                    <TaskTypeEnumOptionsCreator
+                      enumOptions={field.state.value}
+                      onAddEnumOption={(option) => {
+                        field.pushValue(option);
+                      }}
+                      onRemoveEnumOption={(index) => {
+                        field.removeValue(index);
+                      }}
+                    />
+                  )}
+                </form.AppField>
+              );
+            }
+            return null;
+          }}
         </form.Subscribe>
         <Drawer.Footer>
           <form.SubmitButton />
