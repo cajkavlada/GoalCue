@@ -2,7 +2,12 @@ import { Pencil, Trash2 } from "lucide-react";
 
 import { m } from "@gc/i18n/messages";
 import { useItemSelect } from "@gc/react-kit";
-import { ActionMenu, DropdownMenuItem, useModal } from "@gc/ui";
+import {
+  ActionMenu,
+  DropdownMenuItem,
+  TruncateWithTooltip,
+  useModal,
+} from "@gc/ui";
 import { cn } from "@gc/utils";
 import { TaskType } from "@gc/validators";
 
@@ -19,7 +24,10 @@ export function TaskTypeListItem({ taskType }: { taskType: TaskType }) {
       )}
       onClick={toggleSelectItem}
     >
-      <p className="mr-auto truncate">{taskType.name}</p>
+      <TruncateWithTooltip
+        text={taskType.name}
+        className="mr-auto"
+      />
       <ActionMenu>
         <DropdownMenuItem disabled>
           <Pencil />
