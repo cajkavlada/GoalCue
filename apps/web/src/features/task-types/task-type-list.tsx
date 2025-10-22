@@ -3,7 +3,7 @@ import { Trash2 } from "lucide-react";
 import { m } from "@gc/i18n/messages";
 import { useBulkSelect, VirtualList } from "@gc/react-kit";
 import { ActionMenu, Checkbox, DropdownMenuItem, useModal } from "@gc/ui";
-import { TaskType } from "@gc/validators";
+import { ExtendedTaskType } from "@gc/validators";
 
 import { TaskTypeDeleteDialog } from "./task-type-delete-dialog";
 import { TaskTypeListItem } from "./task-type-list-item";
@@ -12,12 +12,12 @@ export function TaskTypeList({
   taskTypes,
   emptyMessage,
 }: {
-  taskTypes: TaskType[];
+  taskTypes: ExtendedTaskType[];
   emptyMessage: string;
 }) {
   const { openDialog } = useModal();
   const { isAllSelected, toggleSelectAll, selectedIds } =
-    useBulkSelect<TaskType>();
+    useBulkSelect<ExtendedTaskType>();
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">

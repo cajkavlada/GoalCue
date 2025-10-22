@@ -4,7 +4,10 @@ import { generateNKeysBetween } from "fractional-indexing";
 import {
   createTaskTypeConvexSchema,
   createTaskTypeZodSchema,
+  extendedTaskTypeConvexSchema,
   taskTypeConvexSchema,
+  updateTaskTypeConvexSchema,
+  updateTaskTypeZodSchema,
   zodParse,
 } from "@gc/validators";
 
@@ -18,13 +21,30 @@ import {
 
 export const getAllForUserId = authedQuery({
   args: {},
+  returns: v.array(extendedTaskTypeConvexSchema),
   handler: async ({ db, userId }) => {
-    return await db
+    const taskTypes = await db
       .query("taskTypes")
       .withIndex("by_userId", (q) =>
         q.eq("userId", userId).eq("archivedAt", undefined)
       )
       .collect();
+    const extendedTaskTypes = await Promise.all(
+      taskTypes.map(async (taskType) => {
+        if (taskType.valueKind !== "enum") {
+          return taskType;
+        }
+        const taskTypeEnumOptions = await db
+          .query("taskTypeEnumOptions")
+          .withIndex("by_taskTypeId_orderKey", (q) =>
+            q.eq("taskTypeId", taskType._id)
+          )
+          .filter((q) => q.eq(q.field("archivedAt"), undefined))
+          .collect();
+        return { ...taskType, taskTypeEnumOptions };
+      })
+    );
+    return extendedTaskTypes;
   },
 });
 
@@ -49,20 +69,23 @@ export const create = authedMutation({
       let initialEnumOptionId: Id<"taskTypeEnumOptions"> | undefined;
       let completedEnumOptionId: Id<"taskTypeEnumOptions"> | undefined;
 
-      for (const [index, enumOption] of taskTypeEnumOptions.entries()) {
-        const taskTypeEnumOptionId = await ctx.db.insert(
+      for (const [
+        index,
+        newTaskTypeEnumOption,
+      ] of taskTypeEnumOptions.entries()) {
+        const newTaskTypeEnumOptionId = await ctx.db.insert(
           "taskTypeEnumOptions",
           {
             taskTypeId: newTaskTypeId,
-            name: enumOption,
+            name: newTaskTypeEnumOption,
             orderKey: orderKeys[index]!,
           }
         );
         if (index === 0) {
-          initialEnumOptionId = taskTypeEnumOptionId;
+          initialEnumOptionId = newTaskTypeEnumOptionId;
         }
         if (index === taskTypeEnumOptions.length - 1) {
-          completedEnumOptionId = taskTypeEnumOptionId;
+          completedEnumOptionId = newTaskTypeEnumOptionId;
         }
       }
       if (initialEnumOptionId && completedEnumOptionId) {
@@ -70,6 +93,94 @@ export const create = authedMutation({
           initialEnumOptionId,
           completedEnumOptionId,
         });
+      }
+    }
+  },
+});
+
+export const update = authedMutation({
+  args: updateTaskTypeConvexSchema,
+  rateLimit: { name: "updateTaskType" },
+  handler: async (ctx, { taskTypeId, ...taskTypeArgs }) => {
+    const originalTaskType = await checkTaskType(ctx, taskTypeId);
+
+    await zodParse(updateTaskTypeZodSchema, {
+      ...taskTypeArgs,
+      valueKind: originalTaskType.valueKind,
+    });
+
+    const { taskTypeEnumOptions, archivedTaskTypeEnumOptions, ...rawTaskType } =
+      taskTypeArgs;
+
+    const now = Date.now();
+    for (const archivedTaskTypeEnumOptionId of archivedTaskTypeEnumOptions ??
+      []) {
+      await ctx.db.patch(archivedTaskTypeEnumOptionId, { archivedAt: now });
+    }
+
+    if (taskTypeEnumOptions) {
+      const originalEnumOptions = await ctx.db
+        .query("taskTypeEnumOptions")
+        .withIndex("by_taskTypeId_orderKey", (q) =>
+          q.eq("taskTypeId", taskTypeId)
+        )
+        .filter((q) => q.eq(q.field("archivedAt"), undefined))
+        .collect();
+
+      const orderKeys = generateNKeysBetween(
+        null,
+        null,
+        taskTypeEnumOptions.length
+      );
+
+      let initialEnumOptionId: Id<"taskTypeEnumOptions"> | undefined;
+      let completedEnumOptionId: Id<"taskTypeEnumOptions"> | undefined;
+
+      for (const [index, taskTypeEnumOption] of (
+        taskTypeEnumOptions ?? []
+      ).entries()) {
+        if (taskTypeEnumOption._id) {
+          const originalEnumOption = originalEnumOptions.find(
+            (option) => option._id === taskTypeEnumOption._id
+          );
+          const nameChanged =
+            taskTypeEnumOption.name !== originalEnumOption?.name;
+
+          await ctx.db.patch(taskTypeEnumOption._id, {
+            name: taskTypeEnumOption.name,
+            orderKey: orderKeys[index]!,
+            // remove i18n key if name has changed
+            i18nKey: nameChanged ? undefined : originalEnumOption?.i18nKey,
+          });
+          if (index === 0) {
+            initialEnumOptionId = taskTypeEnumOption._id;
+          }
+          if (index === taskTypeEnumOptions.length - 1) {
+            completedEnumOptionId = taskTypeEnumOption._id;
+          }
+        } else {
+          const newTaskTypeEnumOptionId = await ctx.db.insert(
+            "taskTypeEnumOptions",
+            {
+              taskTypeId,
+              name: taskTypeEnumOption.name,
+              orderKey: orderKeys[index]!,
+            }
+          );
+          if (index === 0) {
+            initialEnumOptionId = newTaskTypeEnumOptionId;
+          }
+          if (index === taskTypeEnumOptions.length - 1) {
+            completedEnumOptionId = newTaskTypeEnumOptionId;
+          }
+        }
+        if (initialEnumOptionId && completedEnumOptionId) {
+          await ctx.db.patch(taskTypeId, {
+            initialEnumOptionId,
+            completedEnumOptionId,
+            ...rawTaskType,
+          });
+        }
       }
     }
   },

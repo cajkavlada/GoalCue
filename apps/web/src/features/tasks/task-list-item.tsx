@@ -39,7 +39,10 @@ export function TaskListItem({
         text={task.title}
         className="mr-auto"
       />
-      <div onClick={(e) => e.stopPropagation()}>
+      <div
+        className="flex items-center gap-2"
+        onClick={(e) => e.stopPropagation()}
+      >
         {task.valueKind === "boolean" && (
           <BoolTaskActionCheckbox
             task={task}
@@ -58,21 +61,22 @@ export function TaskListItem({
             completedAfter={completedAfter}
           />
         )}
+
+        <ActionMenu>
+          <DropdownMenuItem
+            onClick={() => openDrawer(<TaskEditDrawer editedTask={task} />)}
+          >
+            <Pencil />
+            {m.edit()}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => openDialog(<TaskDeleteDialog task={task} />)}
+          >
+            <Trash2 className="text-red-700" />
+            {m.delete()}
+          </DropdownMenuItem>
+        </ActionMenu>
       </div>
-      <ActionMenu>
-        <DropdownMenuItem
-          onClick={() => openDrawer(<TaskEditDrawer editedTask={task} />)}
-        >
-          <Pencil />
-          {m.edit()}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => openDialog(<TaskDeleteDialog task={task} />)}
-        >
-          <Trash2 className="text-red-700" />
-          {m.delete()}
-        </DropdownMenuItem>
-      </ActionMenu>
     </div>
   );
 }
