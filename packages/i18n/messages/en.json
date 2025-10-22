@@ -49,8 +49,13 @@
   "tasks_delete_single_dialog_description": "Are you sure you want to delete task {title}?",
   "tasks_delete_multiple_dialog_description": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "Are you sure you want to delete selected task?",
         "countPlural=other": "Are you sure you want to delete {count} selected tasks?"
@@ -74,8 +79,13 @@
   "taskTypes_delete_single_dialog_description": "Are you sure you want to delete task type {name}?",
   "taskTypes_delete_multiple_dialog_description": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "Are you sure you want to delete selected task type?",
         "countPlural=other": "Are you sure you want to delete {count} selected task types?"
@@ -99,8 +109,12 @@
   "theme_select_system": "System",
   "locale_select_item": [
     {
-      "declarations": ["input locale"],
-      "selectors": ["locale"],
+      "declarations": [
+        "input locale"
+      ],
+      "selectors": [
+        "locale"
+      ],
       "match": {
         "locale=en": "English",
         "locale=cs": "Czech"
@@ -112,8 +126,13 @@
   "taskTypes_form_field_enumOptions_completed_tooltip": "Completed state",
   "form_field_validation_array_min": [
     {
-      "declarations": ["input min", "local minPlural = min: plural"],
-      "selectors": ["minPlural"],
+      "declarations": [
+        "input min",
+        "local minPlural = min: plural"
+      ],
+      "selectors": [
+        "minPlural"
+      ],
       "match": {
         "minPlural=one": "This field must have at least {min} item",
         "minPlural=other": "This field must have at least {min} items"
