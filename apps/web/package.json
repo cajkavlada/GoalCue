@@ -14,6 +14,9 @@
   "dependencies": {
     "@clerk/localizations": "^3.25.6",
     "@convex-dev/react-query": "0.0.0-alpha.11",
+    "@dnd-kit/abstract": "^0.1.21",
+    "@dnd-kit/dom": "^0.1.21",
+    "@dnd-kit/react": "^0.1.21",
     "@gc/auth": "workspace:*",
     "@gc/convex": "workspace:*",
     "@gc/form": "workspace:*",
@@ -29,6 +32,7 @@
     "babel-plugin-react-compiler": "catalog:react",
     "date-fns": "catalog:common",
     "lucide-react": "catalog:common",
+    "nanoid": "^5.1.6",
     "react": "catalog:react",
     "react-dom": "catalog:react",
     "zod": "catalog:common"

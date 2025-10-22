@@ -77,7 +77,7 @@ export const create = authedMutation({
           "taskTypeEnumOptions",
           {
             taskTypeId: newTaskTypeId,
-            name: newTaskTypeEnumOption,
+            name: newTaskTypeEnumOption.name,
             orderKey: orderKeys[index]!,
           }
         );

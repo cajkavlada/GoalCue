@@ -1,6 +1,17 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { RestrictToVerticalAxis } from "@dnd-kit/abstract/modifiers";
+import { RestrictToElement } from "@dnd-kit/dom/modifiers";
+import { DragDropProvider } from "@dnd-kit/react";
+import { isSortable, useSortable } from "@dnd-kit/react/sortable";
 import { useStore } from "@tanstack/react-form";
-import { Plus, SquareCheckBig, SquareDashed, X } from "lucide-react";
+import {
+  GripVertical,
+  Plus,
+  SquareCheckBig,
+  SquareDashed,
+  X,
+} from "lucide-react";
+import { nanoid } from "nanoid";
 import { ZodError } from "zod";
 
 import { Id } from "@gc/convex/types";
@@ -11,15 +22,14 @@ import { Button, InlineEdit, Input, Label, Separator, Tooltip } from "@gc/ui";
 type TaskTypeEnumOption = {
   name: string;
   _id?: Id<"taskTypeEnumOptions">;
+  dndId: string;
 };
 
 export function TaskTypeEnumOptionsEditor({
-  enumOptions,
   onAddEnumOption,
   onRemoveEnumOption,
   onEditEnumOption,
 }: {
-  enumOptions: TaskTypeEnumOption[];
   onAddEnumOption: (option: TaskTypeEnumOption) => void;
   onRemoveEnumOption: (
     index: number,
@@ -28,8 +38,11 @@ export function TaskTypeEnumOptionsEditor({
   onEditEnumOption: (index: number, value: string) => void;
 }) {
   const [newEnumOption, setNewEnumOption] = useState("");
+  const droppableRef = useRef<HTMLDivElement>(null);
+
   const field = useFieldContext<TaskTypeEnumOption[]>();
   const errors = useStore(field.store, (state) => state.meta.errors);
+
   return (
     <div>
       <Label>{m.taskTypes_form_field_enumOptions_label()}</Label>
@@ -44,12 +57,9 @@ export function TaskTypeEnumOptionsEditor({
             type="button"
             variant="outline"
             size="icon"
-            disabled={
-              newEnumOption.trim() === "" ||
-              enumOptions.some((option) => option.name === newEnumOption)
-            }
+            disabled={newEnumOption.trim() === ""}
             onClick={() => {
-              onAddEnumOption({ name: newEnumOption });
+              onAddEnumOption({ name: newEnumOption, dndId: nanoid() });
               setNewEnumOption("");
               field.handleBlur();
             }}
@@ -57,52 +67,36 @@ export function TaskTypeEnumOptionsEditor({
             <Plus />
           </Button>
         </div>
-        {enumOptions.length > 0 && (
+        {field.state.value.length > 0 && (
           <>
             <Separator className="my-2" />
-            <ol className="flex flex-col gap-2">
-              {enumOptions.map((option, index) => (
-                <li
-                  key={index}
-                  className="flex items-center gap-2 pl-1"
-                >
-                  <InlineEdit
-                    className="mr-auto flex-1 truncate"
-                    defaultValue={option.name}
-                    saveOnBlur
-                    onSave={(value) => {
-                      onEditEnumOption(index, value);
-                    }}
-                  />
-                  {index === 0 && enumOptions.length > 1 && (
-                    <Tooltip
-                      content={m.taskTypes_form_field_enumOptions_initial_tooltip()}
-                    >
-                      <SquareDashed className="text-muted-foreground" />
-                    </Tooltip>
-                  )}
-                  {index === enumOptions.length - 1 &&
-                    enumOptions.length > 1 && (
-                      <Tooltip
-                        content={m.taskTypes_form_field_enumOptions_completed_tooltip()}
-                      >
-                        <SquareCheckBig className="text-muted-foreground" />
-                      </Tooltip>
-                    )}
-                  <Button
-                    className="size-7"
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      onRemoveEnumOption(index, option._id);
-                      field.handleBlur();
-                    }}
-                  >
-                    <X />
-                  </Button>
-                </li>
-              ))}
-            </ol>
+            <div ref={droppableRef}>
+              <DragDropProvider
+                onDragEnd={(event) => {
+                  if (isSortable(event.operation.source)) {
+                    const sortable = event.operation.source.sortable;
+                    field.moveValue(sortable.initialIndex, sortable.index);
+                  }
+                }}
+              >
+                <ol className="flex flex-col gap-2">
+                  {field.state.value.map((option, index) => (
+                    <SortableEnumOption
+                      key={option.dndId}
+                      index={index}
+                      option={option}
+                      onEditEnumOption={onEditEnumOption}
+                      onRemoveEnumOption={(index, optionId) => {
+                        onRemoveEnumOption(index, optionId);
+                        field.handleBlur();
+                      }}
+                      optionsCount={field.state.value.length}
+                      droppableRef={droppableRef}
+                    />
+                  ))}
+                </ol>
+              </DragDropProvider>
+            </div>
           </>
         )}
       </div>
@@ -117,5 +111,76 @@ export function TaskTypeEnumOptionsEditor({
         </p>
       ))}
     </div>
+  );
+}
+
+function SortableEnumOption({
+  index,
+  option,
+  onEditEnumOption,
+  onRemoveEnumOption,
+  optionsCount,
+  droppableRef,
+}: {
+  index: number;
+  option: TaskTypeEnumOption;
+  onEditEnumOption: (index: number, value: string) => void;
+  onRemoveEnumOption: (
+    index: number,
+    optionId?: Id<"taskTypeEnumOptions">
+  ) => void;
+  optionsCount: number;
+  droppableRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  const { ref, handleRef } = useSortable({
+    id: option.dndId,
+    index,
+    transition: { idle: true },
+    modifiers: [
+      RestrictToVerticalAxis,
+      RestrictToElement.configure({ element: droppableRef.current }),
+    ],
+  });
+
+  return (
+    <li
+      ref={ref}
+      className="flex items-center gap-2 pl-1"
+    >
+      <div
+        ref={handleRef}
+        className="cursor-grab"
+      >
+        <GripVertical />
+      </div>
+      <InlineEdit
+        className="mr-auto flex-1 truncate"
+        defaultValue={option.name}
+        saveOnBlur
+        onSave={(value) => {
+          onEditEnumOption(index, value);
+        }}
+      />
+      {index === 0 && optionsCount > 1 && (
+        <Tooltip content={m.taskTypes_form_field_enumOptions_initial_tooltip()}>
+          <SquareDashed className="text-muted-foreground" />
+        </Tooltip>
+      )}
+      {index === optionsCount - 1 && optionsCount > 1 && (
+        <Tooltip
+          content={m.taskTypes_form_field_enumOptions_completed_tooltip()}
+        >
+          <SquareCheckBig className="text-muted-foreground" />
+        </Tooltip>
+      )}
+      <Button
+        className="size-7"
+        type="button"
+        variant="ghost"
+        onClick={() => onRemoveEnumOption(index, option._id)}
+      >
+        <X />
+      </Button>
+    </li>
   );
 }

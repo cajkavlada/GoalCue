@@ -8,7 +8,7 @@ import { m } from "@gc/i18n/messages";
 import { Drawer, SelectItem, Tooltip, useModal } from "@gc/ui";
 import { CreateTaskTypeArgs, createTaskTypeZodSchema } from "@gc/validators";
 
-import { TaskTypeEnumOptionsCreator } from "../task-type-enum-options/task-type-enum-options-creator";
+import { TaskTypeEnumOptionsEditor } from "../task-type-enum-options/task-type-enum-options-editor";
 
 export function TaskTypeCreateDrawer() {
   const { closeDrawer } = useModal();
@@ -29,6 +29,12 @@ export function TaskTypeCreateDrawer() {
       onBlur: createTaskTypeZodSchema,
     },
     onSubmit: async ({ value }) => {
+      // strip dndId from enum options
+      if (value.valueKind === "enum") {
+        value.taskTypeEnumOptions = value.taskTypeEnumOptions.map((option) => ({
+          name: option.name,
+        }));
+      }
       await createMutation.mutateAsync(value);
     },
   });
@@ -126,8 +132,7 @@ export function TaskTypeCreateDrawer() {
                 return (
                   <form.AppField name="taskTypeEnumOptions">
                     {(field) => (
-                      <TaskTypeEnumOptionsCreator
-                        enumOptions={field.state.value}
+                      <TaskTypeEnumOptionsEditor
                         onAddEnumOption={(option) => {
                           field.pushValue(option);
                         }}
@@ -135,7 +140,10 @@ export function TaskTypeCreateDrawer() {
                           field.removeValue(index);
                         }}
                         onEditEnumOption={(index, option) => {
-                          field.replaceValue(index, option);
+                          field.replaceValue(index, {
+                            ...field.state.value[index],
+                            name: option,
+                          });
                         }}
                       />
                     )}
