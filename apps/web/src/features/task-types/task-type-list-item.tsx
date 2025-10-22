@@ -9,12 +9,13 @@ import {
   useModal,
 } from "@gc/ui";
 import { cn } from "@gc/utils";
-import { TaskType } from "@gc/validators";
+import { ExtendedTaskType } from "@gc/validators";
 
 import { TaskTypeDeleteDialog } from "./task-type-delete-dialog";
+import { TaskTypeEditDrawer } from "./task-type-edit-drawer";
 
-export function TaskTypeListItem({ taskType }: { taskType: TaskType }) {
-  const { openDialog } = useModal();
+export function TaskTypeListItem({ taskType }: { taskType: ExtendedTaskType }) {
+  const { openDialog, openDrawer } = useModal();
   const { isItemSelected, toggleSelectItem } = useItemSelect(taskType);
   return (
     <div
@@ -28,20 +29,26 @@ export function TaskTypeListItem({ taskType }: { taskType: TaskType }) {
         text={taskType.name}
         className="mr-auto"
       />
-      <ActionMenu>
-        <DropdownMenuItem disabled>
-          <Pencil />
-          {m.edit()}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() =>
-            openDialog(<TaskTypeDeleteDialog taskType={taskType} />)
-          }
-        >
-          <Trash2 className="text-red-700" />
-          {m.delete()}
-        </DropdownMenuItem>
-      </ActionMenu>
+      <div onClick={(e) => e.stopPropagation()}>
+        <ActionMenu>
+          <DropdownMenuItem
+            onClick={() =>
+              openDrawer(<TaskTypeEditDrawer editedTaskType={taskType} />)
+            }
+          >
+            <Pencil />
+            {m.edit()}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() =>
+              openDialog(<TaskTypeDeleteDialog taskType={taskType} />)
+            }
+          >
+            <Trash2 className="text-red-700" />
+            {m.delete()}
+          </DropdownMenuItem>
+        </ActionMenu>
+      </div>
     </div>
   );
 }

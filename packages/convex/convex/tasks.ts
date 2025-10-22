@@ -1,4 +1,3 @@
-import { getManyFrom } from "convex-helpers/server/relationships";
 import { ConvexError, v } from "convex/values";
 import { generateKeyBetween } from "fractional-indexing";
 
@@ -156,13 +155,13 @@ async function getExtendedTaskInfo(ctx: AuthedQueryCtx, task: Doc<"tasks">) {
   }
   let enumOptions: Doc<"taskTypeEnumOptions">[] | undefined;
   if (taskType.valueKind === "enum") {
-    enumOptions = await getManyFrom(
-      ctx.db,
-      "taskTypeEnumOptions",
-      "by_taskTypeId_orderKey",
-      task.taskTypeId,
-      "taskTypeId"
-    );
+    enumOptions = await ctx.db
+      .query("taskTypeEnumOptions")
+      .withIndex("by_taskTypeId_orderKey", (q) =>
+        q.eq("taskTypeId", task.taskTypeId)
+      )
+      .filter((q) => q.eq(q.field("archivedAt"), undefined))
+      .collect();
   }
   return {
     ...task,

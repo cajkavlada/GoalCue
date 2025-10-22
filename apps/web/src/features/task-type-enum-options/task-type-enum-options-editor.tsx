@@ -3,23 +3,32 @@ import { useStore } from "@tanstack/react-form";
 import { Plus, SquareCheckBig, SquareDashed, X } from "lucide-react";
 import { ZodError } from "zod";
 
+import { Id } from "@gc/convex/types";
 import { useFieldContext } from "@gc/form";
 import { m } from "@gc/i18n/messages";
 import { Button, InlineEdit, Input, Label, Separator, Tooltip } from "@gc/ui";
 
-export function TaskTypeEnumOptionsCreator({
+type TaskTypeEnumOption = {
+  name: string;
+  _id?: Id<"taskTypeEnumOptions">;
+};
+
+export function TaskTypeEnumOptionsEditor({
   enumOptions,
   onAddEnumOption,
   onRemoveEnumOption,
   onEditEnumOption,
 }: {
-  enumOptions: string[];
-  onAddEnumOption: (option: string) => void;
-  onRemoveEnumOption: (index: number) => void;
+  enumOptions: TaskTypeEnumOption[];
+  onAddEnumOption: (option: TaskTypeEnumOption) => void;
+  onRemoveEnumOption: (
+    index: number,
+    optionId?: Id<"taskTypeEnumOptions">
+  ) => void;
   onEditEnumOption: (index: number, value: string) => void;
 }) {
   const [newEnumOption, setNewEnumOption] = useState("");
-  const field = useFieldContext<string[]>();
+  const field = useFieldContext<TaskTypeEnumOption[]>();
   const errors = useStore(field.store, (state) => state.meta.errors);
   return (
     <div>
@@ -36,10 +45,11 @@ export function TaskTypeEnumOptionsCreator({
             variant="outline"
             size="icon"
             disabled={
-              newEnumOption.trim() === "" || enumOptions.includes(newEnumOption)
+              newEnumOption.trim() === "" ||
+              enumOptions.some((option) => option.name === newEnumOption)
             }
             onClick={() => {
-              onAddEnumOption(newEnumOption);
+              onAddEnumOption({ name: newEnumOption });
               setNewEnumOption("");
               field.handleBlur();
             }}
@@ -58,7 +68,7 @@ export function TaskTypeEnumOptionsCreator({
                 >
                   <InlineEdit
                     className="mr-auto flex-1 truncate"
-                    defaultValue={option}
+                    defaultValue={option.name}
                     saveOnBlur
                     onSave={(value) => {
                       onEditEnumOption(index, value);
@@ -84,7 +94,7 @@ export function TaskTypeEnumOptionsCreator({
                     type="button"
                     variant="ghost"
                     onClick={() => {
-                      onRemoveEnumOption(index);
+                      onRemoveEnumOption(index, option._id);
                       field.handleBlur();
                     }}
                   >
