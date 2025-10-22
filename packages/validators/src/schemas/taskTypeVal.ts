@@ -28,7 +28,11 @@ export const createTaskTypeConvexSchema = v.object({
     "completedNumValue",
   ]),
   taskTypeEnumOptions: v.optional(
-    v.array(taskTypeEnumOptionConvexSchema.fields.name)
+    v.array(
+      v.object({
+        ...pick(taskTypeEnumOptionConvexSchema.fields, ["name"]),
+      })
+    )
   ),
 });
 
@@ -53,7 +57,13 @@ export const createTaskTypeZodSchema = z.union([
     .object({
       name: z.string().min(1),
       valueKind: z.literal("enum"),
-      taskTypeEnumOptions: z.array(z.string()).min(2),
+      taskTypeEnumOptions: z
+        .array(
+          z.object({
+            name: z.string().min(1),
+          })
+        )
+        .min(2),
     })
     .strict(),
 ]);

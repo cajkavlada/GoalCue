@@ -74,7 +74,13 @@ const initTaskTypes: TaskTypesForUnits = [
   },
   {
     taskTypes: [
-      { name: "Time", i18nKey: "taskTypes_time", valueKind: "number" },
+      {
+        name: "Time",
+        i18nKey: "taskTypes_time",
+        valueKind: "number",
+        initialNumValue: 0,
+        completedNumValue: 60,
+      },
     ],
     unit: {
       name: "Minute",
@@ -84,7 +90,13 @@ const initTaskTypes: TaskTypesForUnits = [
   },
   {
     taskTypes: [
-      { name: "Distance", i18nKey: "taskTypes_distance", valueKind: "number" },
+      {
+        name: "Distance",
+        i18nKey: "taskTypes_distance",
+        valueKind: "number",
+        initialNumValue: 0,
+        completedNumValue: 10,
+      },
     ],
     unit: {
       name: "Kilometer",
@@ -94,7 +106,13 @@ const initTaskTypes: TaskTypesForUnits = [
   },
   {
     taskTypes: [
-      { name: "Pages", i18nKey: "taskTypes_pages", valueKind: "number" },
+      {
+        name: "Pages",
+        i18nKey: "taskTypes_pages",
+        valueKind: "number",
+        initialNumValue: 0,
+        completedNumValue: 100,
+      },
     ],
     unit: {
       name: "Page",
@@ -103,7 +121,13 @@ const initTaskTypes: TaskTypesForUnits = [
   },
   {
     taskTypes: [
-      { name: "Number", i18nKey: "taskTypes_number", valueKind: "number" },
+      {
+        name: "Number",
+        i18nKey: "taskTypes_number",
+        valueKind: "number",
+        initialNumValue: 0,
+        completedNumValue: 10,
+      },
     ],
     unit: {
       name: "Count",

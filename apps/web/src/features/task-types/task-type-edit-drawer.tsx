@@ -1,5 +1,6 @@
 import { useConvexMutation } from "@convex-dev/react-query";
 import { useMutation } from "@tanstack/react-query";
+import { nanoid } from "nanoid";
 
 import { api } from "@gc/convex/api";
 import { useAppForm } from "@gc/form";
@@ -33,6 +34,7 @@ export function TaskTypeEditDrawer({
     return enumOptions.map((option) => ({
       name: option.name,
       _id: option._id,
+      dndId: nanoid(),
     }));
   }
 
@@ -64,6 +66,13 @@ export function TaskTypeEditDrawer({
       onBlur: updateTaskTypeZodSchema,
     },
     onSubmit: async ({ value }) => {
+      // strip dndId from enum options
+      if (value.valueKind === "enum") {
+        value.taskTypeEnumOptions = value.taskTypeEnumOptions.map((option) => ({
+          name: option.name,
+          _id: option._id,
+        }));
+      }
       const { valueKind: _, ...rest } = value;
       await updateMutation.mutateAsync({
         taskTypeId: editedTaskType._id,
@@ -116,7 +125,6 @@ export function TaskTypeEditDrawer({
             <form.AppField name="taskTypeEnumOptions">
               {(field) => (
                 <TaskTypeEnumOptionsEditor
-                  enumOptions={field.state.value}
                   onAddEnumOption={(option) => {
                     field.pushValue(option);
                   }}
