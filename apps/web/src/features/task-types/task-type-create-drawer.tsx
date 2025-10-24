@@ -79,7 +79,9 @@ export function TaskTypeCreateDrawer() {
                   <Tooltip
                     content={m.taskTypes_form_field_valueKind_boolean_description()}
                   >
-                    <CircleQuestionMark />
+                    <span>
+                      <CircleQuestionMark />
+                    </span>
                   </Tooltip>
                 </SelectItem>
                 <SelectItem value="number">
@@ -87,7 +89,9 @@ export function TaskTypeCreateDrawer() {
                   <Tooltip
                     content={m.taskTypes_form_field_valueKind_number_description()}
                   >
-                    <CircleQuestionMark />
+                    <span>
+                      <CircleQuestionMark />
+                    </span>
                   </Tooltip>
                 </SelectItem>
                 <SelectItem value="enum">
@@ -95,7 +99,9 @@ export function TaskTypeCreateDrawer() {
                   <Tooltip
                     content={m.taskTypes_form_field_valueKind_enum_description()}
                   >
-                    <CircleQuestionMark />
+                    <span>
+                      <CircleQuestionMark />
+                    </span>
                   </Tooltip>
                 </SelectItem>
               </field.Select>
