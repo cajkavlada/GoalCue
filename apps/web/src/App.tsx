@@ -20,8 +20,8 @@ import { ThemeProvider, toast } from "@gc/ui";
 import { NotFoundRoute } from "./components/NotFoundRoute";
 import { env } from "./env";
 import { routeTree } from "./routeTree.gen";
-import { clerkLocalizations } from "./utils/clerkLocalizations";
-import { configureGlobalZodErrorMap } from "./utils/globalZodErrorMap";
+import { clerkLocalizations } from "./utils/clerk-localizations";
+import { configureGlobalZodErrorMap } from "./utils/global-zod-error-map";
 
 configureGlobalZodErrorMap();
 

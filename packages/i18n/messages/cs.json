@@ -144,5 +144,11 @@
   ],
   "taskTypes_form_field_enumOptions_new_placeholder": "Zadejte novou možnost",
   "taskTypes_edit_drawer_title": "Upravit typ úkolu",
-  "taskTypes_edit_drawer_description": "Formulář pro úpravu typu úkolu. Vyplňte pole a klikněte na tlačítko Uložit pro úpravu typu úkolu."
+  "taskTypes_edit_drawer_description": "Formulář pro úpravu typu úkolu. Vyplňte pole a klikněte na tlačítko Uložit pro úpravu typu úkolu.",
+  "enumOptions_backlog": "V zásobníku",
+  "enumOptions_revise": "Oprava",
+  "enumOptions_approved": "Schváleno",
+  "enumOptions_published": "Publikováno",
+  "enumOptions_draft": "Návrh",
+  "enumOptions_review": "Kontrola"
 }
