@@ -1,4 +1,3 @@
-import { log } from "console";
 import { convexQuery } from "@convex-dev/react-query";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
