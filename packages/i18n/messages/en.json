@@ -141,5 +141,11 @@
   ],
   "taskTypes_form_field_enumOptions_new_placeholder": "Enter new option",
   "taskTypes_edit_drawer_title": "Edit Task Type",
-  "taskTypes_edit_drawer_description": "Form to edit the task type. Fill in the fields and click on the save button to update the task type."
+  "taskTypes_edit_drawer_description": "Form to edit the task type. Fill in the fields and click on the save button to update the task type.",
+  "enumOptions_backlog": "Backlog",
+  "enumOptions_revise": "Revise",
+  "enumOptions_draft": "Draft",
+  "enumOptions_review": "Review",
+  "enumOptions_approved": "Approved",
+  "enumOptions_published": "Published"
 }
