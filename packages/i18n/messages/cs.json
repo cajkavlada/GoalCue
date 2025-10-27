@@ -150,5 +150,32 @@
   "enumOptions_approved": "Schváleno",
   "enumOptions_published": "Publikováno",
   "enumOptions_draft": "Návrh",
-  "enumOptions_review": "Kontrola"
+  "enumOptions_review": "Kontrola",
+  "units_heading": "Jednotky",
+  "units_create_button_label": "Vytvořit jednotku",
+  "units_create_drawer_title": "Vytvořit jednotku",
+  "units_create_drawer_description": "Formulář pro vytvoření jednotky. Vyplňte pole a klikněte na tlačítko Uložit pro vytvoření jednotky.",
+  "units_form_field_name_label": "Název",
+  "units_form_field_symbol_label": "Symbol",
+  "units_delete_dialog_title": "Smazat jednotku",
+  "units_delete_single_dialog_description": "Jste si jisti, že chcete smazat jednotku {name}?",
+  "units_delete_multiple_dialog_description": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "Jste si jisti, že chcete smazat vybranou jednotku?",
+        "countPlural=few": "Jste si jisti, že chcete smazat {count} vybrané jednotky?",
+        "countPlural=other": "Jste si jisti, že chcete smazat {count} vybraných jednotek?"
+      }
+    }
+  ],
+  "units_empty_message": "Žádné jednotky nebyly nalezeny",
+  "units_edit_drawer_title": "Upravit jednotku",
+  "units_edit_drawer_description": "Formulář pro úpravu jednotky. Vyplňte pole a klikněte na tlačítko Uložit pro úpravu jednotky."
 }

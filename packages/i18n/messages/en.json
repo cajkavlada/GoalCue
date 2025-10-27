@@ -147,5 +147,31 @@
   "enumOptions_draft": "Draft",
   "enumOptions_review": "Review",
   "enumOptions_approved": "Approved",
-  "enumOptions_published": "Published"
+  "enumOptions_published": "Published",
+  "units_heading": "Units",
+  "units_create_button_label": "Create Unit",
+  "units_create_drawer_title": "Create Unit",
+  "units_create_drawer_description": "Form to create a unit. Fill in the fields and click on the save button to create the unit.",
+  "units_form_field_name_label": "Name",
+  "units_form_field_symbol_label": "Symbol",
+  "units_delete_dialog_title": "Delete Unit",
+  "units_delete_single_dialog_description": "Are you sure you want to delete unit {name}?",
+  "units_delete_multiple_dialog_description": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "Are you sure you want to delete selected unit?",
+        "countPlural=other": "Are you sure you want to delete {count} selected units?"
+      }
+    }
+  ],
+  "units_empty_message": "No units found",
+  "units_edit_drawer_title": "Edit Unit",
+  "units_edit_drawer_description": "Form to edit the unit. Fill in the fields and click on the save button to update the unit."
 }
