@@ -1,11 +1,10 @@
-import { useConvexMutation } from "@convex-dev/react-query";
-import { useMutation } from "@tanstack/react-query";
+import { Plus } from "lucide-react";
 import { nanoid } from "nanoid";
 
-import { api } from "@gc/convex/api";
 import { useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
-import { Drawer, SelectItem, useModal } from "@gc/ui";
+import { ErrorSuspense } from "@gc/react-kit";
+import { Drawer, DrawerButton, SelectItem } from "@gc/ui";
 import {
   ExtendedTaskType,
   UpdateTaskTypeArgs,
@@ -13,23 +12,36 @@ import {
 } from "@gc/validators";
 
 import { TaskTypeEnumOptionsEditor } from "../task-type-enum-options/task-type-enum-options-editor";
+import { UnitCreateDrawer } from "../units/unit-create-drawer";
 import { useUnits } from "../units/use-units";
+import { useUpdateTaskType } from "./use-task-types";
 
 export function TaskTypeEditDrawer({
   editedTaskType,
 }: {
   editedTaskType: ExtendedTaskType;
 }) {
-  const { closeDrawer } = useModal();
+  return (
+    <Drawer
+      title={m.taskTypes_edit_drawer_title()}
+      description={m.taskTypes_edit_drawer_description()}
+      customFooter
+    >
+      <ErrorSuspense>
+        <TaskTypeEditForm editedTaskType={editedTaskType} />
+      </ErrorSuspense>
+    </Drawer>
+  );
+}
 
+export function TaskTypeEditForm({
+  editedTaskType,
+}: {
+  editedTaskType: ExtendedTaskType;
+}) {
   const { data: units } = useUnits();
 
-  const updateMutation = useMutation({
-    mutationFn: useConvexMutation(api.taskTypes.update),
-    onSuccess: () => {
-      closeDrawer();
-    },
-  });
+  const updateMutation = useUpdateTaskType();
 
   function stripEnumOptions(
     enumOptions: NonNullable<ExtendedTaskType["taskTypeEnumOptions"]>
@@ -89,46 +101,45 @@ export function TaskTypeEditDrawer({
   });
 
   return (
-    <Drawer
-      title={m.taskTypes_edit_drawer_title()}
-      description={m.taskTypes_edit_drawer_description()}
-      customFooter
-    >
-      <form.AppForm>
-        <form.FormRoot className="flex flex-col gap-4">
-          <form.AppField name="name">
-            {(field) => (
-              <field.Input
-                label={m.taskTypes_form_field_name_label()}
-                autoFocus
-              />
-            )}
-          </form.AppField>
+    <form.AppForm>
+      <form.FormRoot className="flex flex-col gap-4">
+        <form.AppField name="name">
+          {(field) => (
+            <field.Input
+              label={m.taskTypes_form_field_name_label()}
+              autoFocus
+            />
+          )}
+        </form.AppField>
 
-          {editedTaskType.valueKind === "number" && (
-            <div>
-              <div className="flex gap-2">
-                <form.AppField name="initialNumValue">
-                  {(field) => (
-                    <field.Input
-                      type="number"
-                      label={m.tasks_form_field_initialNumValue_label()}
-                    />
-                  )}
-                </form.AppField>
-                <form.AppField name="completedNumValue">
-                  {(field) => (
-                    <field.Input
-                      type="number"
-                      label={m.tasks_form_field_completedNumValue_label()}
-                    />
-                  )}
-                </form.AppField>
-              </div>
-              <form.FormErrors path="numValues" />
-              <form.AppField name="unitId">
+        {editedTaskType.valueKind === "number" && (
+          <div>
+            <div className="flex gap-2">
+              <form.AppField name="initialNumValue">
                 {(field) => (
-                  <field.Select label={m.taskTypes_form_field_unitId_label()}>
+                  <field.Input
+                    type="number"
+                    label={m.tasks_form_field_initialNumValue_label()}
+                  />
+                )}
+              </form.AppField>
+              <form.AppField name="completedNumValue">
+                {(field) => (
+                  <field.Input
+                    type="number"
+                    label={m.tasks_form_field_completedNumValue_label()}
+                  />
+                )}
+              </form.AppField>
+            </div>
+            <form.FormErrors path="numValues" />
+            <form.AppField name="unitId">
+              {(field) => (
+                <div className="flex w-full items-end gap-2">
+                  <field.Select
+                    className="flex-1"
+                    label={m.taskTypes_form_field_unitId_label()}
+                  >
                     <SelectItem value="none">
                       {m.taskTypes_form_field_unitId_none()}
                     </SelectItem>
@@ -141,41 +152,53 @@ export function TaskTypeEditDrawer({
                       </SelectItem>
                     ))}
                   </field.Select>
-                )}
-              </form.AppField>
-            </div>
-          )}
-          {editedTaskType.valueKind === "enum" && (
-            <form.AppField name="taskTypeEnumOptions">
-              {(field) => (
-                <TaskTypeEnumOptionsEditor
-                  onAddEnumOption={(option) => {
-                    field.pushValue(option);
-                  }}
-                  onRemoveEnumOption={(index, optionId) => {
-                    field.removeValue(index);
-                    if (optionId) {
-                      form.pushFieldValue(
-                        "archivedTaskTypeEnumOptions",
-                        optionId
-                      );
+                  <DrawerButton
+                    tooltip={m.taskTypes_create_button_label()}
+                    drawerContent={
+                      <UnitCreateDrawer
+                        onCreate={async (newUnitId) => {
+                          field.handleChange(newUnitId);
+                        }}
+                      />
                     }
-                  }}
-                  onEditEnumOption={(index, value) => {
-                    field.replaceValue(index, {
-                      ...field.state.value[index],
-                      name: value,
-                    });
-                  }}
-                />
+                  >
+                    <Plus />
+                  </DrawerButton>
+                </div>
               )}
             </form.AppField>
-          )}
-          <Drawer.Footer>
-            <form.SubmitButton />
-          </Drawer.Footer>
-        </form.FormRoot>
-      </form.AppForm>
-    </Drawer>
+          </div>
+        )}
+        {editedTaskType.valueKind === "enum" && (
+          <form.AppField name="taskTypeEnumOptions">
+            {(field) => (
+              <TaskTypeEnumOptionsEditor
+                onAddEnumOption={(option) => {
+                  field.pushValue(option);
+                }}
+                onRemoveEnumOption={(index, optionId) => {
+                  field.removeValue(index);
+                  if (optionId) {
+                    form.pushFieldValue(
+                      "archivedTaskTypeEnumOptions",
+                      optionId
+                    );
+                  }
+                }}
+                onEditEnumOption={(index, value) => {
+                  field.replaceValue(index, {
+                    ...field.state.value[index],
+                    name: value,
+                  });
+                }}
+              />
+            )}
+          </form.AppField>
+        )}
+        <Drawer.Footer>
+          <form.SubmitButton />
+        </Drawer.Footer>
+      </form.FormRoot>
+    </form.AppForm>
   );
 }

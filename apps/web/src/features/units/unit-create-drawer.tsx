@@ -1,21 +1,32 @@
-import { useConvexMutation } from "@convex-dev/react-query";
-import { useMutation } from "@tanstack/react-query";
-
-import { api } from "@gc/convex/api";
+import { Id } from "@gc/convex/types";
 import { useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
-import { Drawer, useModal } from "@gc/ui";
+import { ErrorSuspense } from "@gc/react-kit";
+import { Drawer } from "@gc/ui";
 import { CreateUnitArgs, createUnitZodSchema } from "@gc/validators";
 
-export function UnitCreateDrawer() {
-  const { closeDrawer } = useModal();
+import { useCreateUnit } from "./use-units";
 
-  const createMutation = useMutation({
-    mutationFn: useConvexMutation(api.units.create),
-    onSuccess: () => {
-      closeDrawer();
-    },
-  });
+type UnitCreateFormProps = {
+  onCreate?: (newUnitId: Id<"units">) => void;
+};
+
+export function UnitCreateDrawer(props: UnitCreateFormProps) {
+  return (
+    <Drawer
+      title={m.units_create_drawer_title()}
+      description={m.units_create_drawer_description()}
+      customFooter
+    >
+      <ErrorSuspense>
+        <UnitCreateForm {...props} />
+      </ErrorSuspense>
+    </Drawer>
+  );
+}
+
+export function UnitCreateForm({ onCreate }: UnitCreateFormProps) {
+  const createMutation = useCreateUnit(onCreate);
 
   const form = useAppForm({
     defaultValues: {
@@ -31,31 +42,23 @@ export function UnitCreateDrawer() {
   });
 
   return (
-    <Drawer
-      title={m.units_create_drawer_title()}
-      description={m.units_create_drawer_description()}
-      customFooter
-    >
-      <form.AppForm>
-        <form.FormRoot className="flex flex-col gap-4">
-          <form.AppField name="name">
-            {(field) => (
-              <field.Input
-                label={m.units_form_field_name_label()}
-                autoFocus
-              />
-            )}
-          </form.AppField>
-          <form.AppField name="symbol">
-            {(field) => (
-              <field.Input label={m.units_form_field_symbol_label()} />
-            )}
-          </form.AppField>
-          <Drawer.Footer>
-            <form.SubmitButton />
-          </Drawer.Footer>
-        </form.FormRoot>
-      </form.AppForm>
-    </Drawer>
+    <form.AppForm>
+      <form.FormRoot className="flex flex-col gap-4">
+        <form.AppField name="name">
+          {(field) => (
+            <field.Input
+              label={m.units_form_field_name_label()}
+              autoFocus
+            />
+          )}
+        </form.AppField>
+        <form.AppField name="symbol">
+          {(field) => <field.Input label={m.units_form_field_symbol_label()} />}
+        </form.AppField>
+        <Drawer.Footer>
+          <form.SubmitButton />
+        </Drawer.Footer>
+      </form.FormRoot>
+    </form.AppForm>
   );
 }

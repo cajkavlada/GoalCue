@@ -101,6 +101,7 @@ export const create = authedMutation({
         });
       }
     }
+    return newTaskTypeId;
   },
 });
 
