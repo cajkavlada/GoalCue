@@ -173,5 +173,7 @@
   ],
   "units_empty_message": "No units found",
   "units_edit_drawer_title": "Edit Unit",
-  "units_edit_drawer_description": "Form to edit the unit. Fill in the fields and click on the save button to update the unit."
+  "units_edit_drawer_description": "Form to edit the unit. Fill in the fields and click on the save button to update the unit.",
+  "taskTypes_form_field_unitId_label": "Unit (optional)",
+  "taskTypes_form_field_unitId_none": "No unit"
 }
