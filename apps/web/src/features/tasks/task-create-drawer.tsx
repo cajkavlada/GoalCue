@@ -1,6 +1,7 @@
 import { useConvexMutation } from "@convex-dev/react-query";
 import { useMutation } from "@tanstack/react-query";
 import { addDays, endOfDay } from "date-fns";
+import { Plus } from "lucide-react";
 import z from "zod";
 
 import { api } from "@gc/convex/api";
@@ -8,10 +9,11 @@ import { useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
 import { getLocale } from "@gc/i18n/runtime";
 import { ErrorSuspense } from "@gc/react-kit";
-import { Drawer, parseDateToString, useModal } from "@gc/ui";
+import { Drawer, DrawerButton, parseDateToString, useModal } from "@gc/ui";
 import { CreateTaskArgs, createTaskZodSchema } from "@gc/validators";
 
 import { usePriorityClasses } from "../priority-classes/use-priority-classes";
+import { TaskTypeCreateDrawer } from "../task-types/task-type-create-drawer";
 import { useTaskTypes } from "../task-types/use-task-types";
 
 type CreateTaskClientArgs = Omit<CreateTaskArgs, "dueAt"> & {
@@ -74,6 +76,23 @@ function TaskCreateForm() {
     },
   });
 
+  function onTaskTypeChange({
+    value,
+  }: {
+    value: CreateTaskArgs["taskTypeId"];
+  }) {
+    const taskType = taskTypes.find((t) => t._id === value);
+    const isNumber = taskType?.valueKind === "number";
+    form.setFieldValue(
+      "initialNumValue",
+      isNumber ? (taskType?.initialNumValue ?? 0) : undefined
+    );
+    form.setFieldValue(
+      "completedNumValue",
+      isNumber ? (taskType?.completedNumValue ?? 10) : undefined
+    );
+  }
+
   return (
     <form.AppForm>
       <form.FormRoot className="flex flex-col gap-4">
@@ -90,27 +109,33 @@ function TaskCreateForm() {
             <field.Input label={m.tasks_form_field_description_label()} />
           )}
         </form.AppField>
-        <form.AppField name="taskTypeId">
+        <form.AppField
+          name="taskTypeId"
+          listeners={{ onChange: onTaskTypeChange }}
+        >
           {(field) => (
-            <field.Select
-              label={m.tasks_form_field_taskType_label()}
-              options={taskTypes.map((taskType) => ({
-                label: taskType.name,
-                value: taskType._id,
-              }))}
-              onValueChange={(taskTypeId) => {
-                const taskType = taskTypes.find((t) => t._id === taskTypeId);
-                const isNumber = taskType?.valueKind === "number";
-                form.setFieldValue(
-                  "initialNumValue",
-                  isNumber ? (taskType?.initialNumValue ?? 0) : undefined
-                );
-                form.setFieldValue(
-                  "completedNumValue",
-                  isNumber ? (taskType?.completedNumValue ?? 10) : undefined
-                );
-              }}
-            />
+            <div className="flex w-full items-end gap-2">
+              <field.Select
+                className="flex-1"
+                label={m.tasks_form_field_taskType_label()}
+                options={taskTypes.map((taskType) => ({
+                  label: taskType.name,
+                  value: taskType._id,
+                }))}
+              />
+              <DrawerButton
+                tooltip={m.taskTypes_create_button_label()}
+                drawerContent={
+                  <TaskTypeCreateDrawer
+                    onCreate={(newTaskTypeId) => {
+                      field.handleChange(newTaskTypeId);
+                    }}
+                  />
+                }
+              >
+                <Plus />
+              </DrawerButton>
+            </div>
           )}
         </form.AppField>
         <form.Subscribe selector={(state) => state.values.taskTypeId}>

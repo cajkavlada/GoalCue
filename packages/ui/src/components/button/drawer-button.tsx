@@ -10,6 +10,7 @@ export function DrawerButton({
   return (
     <Button
       onClick={() => openDrawer(drawerContent)}
+      type="button"
       {...props}
     />
   );
