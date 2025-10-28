@@ -3,15 +3,19 @@ import { useMutation } from "@tanstack/react-query";
 import { CircleQuestionMark } from "lucide-react";
 
 import { api } from "@gc/convex/api";
+import { Id } from "@gc/convex/types";
 import { useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
 import { Drawer, SelectItem, Tooltip, useModal } from "@gc/ui";
 import { CreateTaskTypeArgs, createTaskTypeZodSchema } from "@gc/validators";
 
 import { TaskTypeEnumOptionsEditor } from "../task-type-enum-options/task-type-enum-options-editor";
+import { useUnits } from "../units/use-units";
 
 export function TaskTypeCreateDrawer() {
   const { closeDrawer } = useModal();
+
+  const { data: units } = useUnits();
 
   const createMutation = useMutation({
     mutationFn: useConvexMutation(api.taskTypes.create),
@@ -34,6 +38,9 @@ export function TaskTypeCreateDrawer() {
         value.taskTypeEnumOptions = value.taskTypeEnumOptions.map((option) => ({
           name: option.name,
         }));
+      }
+      if (value.valueKind === "number" && value.unitId === "none") {
+        value.unitId = undefined;
       }
       await createMutation.mutateAsync(value);
     },
@@ -63,6 +70,7 @@ export function TaskTypeCreateDrawer() {
                   if (valueKind === "number") {
                     form.setFieldValue("initialNumValue", 0);
                     form.setFieldValue("completedNumValue", 10);
+                    form.setFieldValue("unitId", "none" as Id<"units">); // default to none
                   } else {
                     form.deleteField("initialNumValue");
                     form.deleteField("completedNumValue");
@@ -131,6 +139,25 @@ export function TaskTypeCreateDrawer() {
                       </form.AppField>
                     </div>
                     <form.FormErrors path="numValues" />
+                    <form.AppField name="unitId">
+                      {(field) => (
+                        <field.Select
+                          label={m.taskTypes_form_field_unitId_label()}
+                        >
+                          <SelectItem value="none">
+                            {m.taskTypes_form_field_unitId_none()}
+                          </SelectItem>
+                          {units.map((unit) => (
+                            <SelectItem
+                              key={unit._id}
+                              value={unit._id}
+                            >
+                              {unit.name}
+                            </SelectItem>
+                          ))}
+                        </field.Select>
+                      )}
+                    </form.AppField>
                   </div>
                 );
               }

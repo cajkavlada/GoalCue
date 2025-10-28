@@ -5,7 +5,7 @@ import { nanoid } from "nanoid";
 import { api } from "@gc/convex/api";
 import { useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
-import { Drawer, useModal } from "@gc/ui";
+import { Drawer, SelectItem, useModal } from "@gc/ui";
 import {
   ExtendedTaskType,
   UpdateTaskTypeArgs,
@@ -13,6 +13,7 @@ import {
 } from "@gc/validators";
 
 import { TaskTypeEnumOptionsEditor } from "../task-type-enum-options/task-type-enum-options-editor";
+import { useUnits } from "../units/use-units";
 
 export function TaskTypeEditDrawer({
   editedTaskType,
@@ -20,6 +21,8 @@ export function TaskTypeEditDrawer({
   editedTaskType: ExtendedTaskType;
 }) {
   const { closeDrawer } = useModal();
+
+  const { data: units } = useUnits();
 
   const updateMutation = useMutation({
     mutationFn: useConvexMutation(api.taskTypes.update),
@@ -40,12 +43,13 @@ export function TaskTypeEditDrawer({
 
   const defaultValues: UpdateTaskTypeArgs =
     editedTaskType.valueKind === "number"
-      ? {
+      ? ({
           name: editedTaskType.name,
           valueKind: editedTaskType.valueKind,
           initialNumValue: editedTaskType.initialNumValue!,
           completedNumValue: editedTaskType.completedNumValue!,
-        }
+          unitId: editedTaskType.unitId ?? "none",
+        } as UpdateTaskTypeArgs)
       : editedTaskType.valueKind === "enum"
         ? {
             name: editedTaskType.name,
@@ -72,6 +76,9 @@ export function TaskTypeEditDrawer({
           name: option.name,
           _id: option._id,
         }));
+      }
+      if (value.valueKind === "number" && value.unitId === "none") {
+        value.unitId = undefined;
       }
       const { valueKind: _, ...rest } = value;
       await updateMutation.mutateAsync({
@@ -119,6 +126,23 @@ export function TaskTypeEditDrawer({
                 </form.AppField>
               </div>
               <form.FormErrors path="numValues" />
+              <form.AppField name="unitId">
+                {(field) => (
+                  <field.Select label={m.taskTypes_form_field_unitId_label()}>
+                    <SelectItem value="none">
+                      {m.taskTypes_form_field_unitId_none()}
+                    </SelectItem>
+                    {units.map((unit) => (
+                      <SelectItem
+                        key={unit._id}
+                        value={unit._id}
+                      >
+                        {unit.name}
+                      </SelectItem>
+                    ))}
+                  </field.Select>
+                )}
+              </form.AppField>
             </div>
           )}
           {editedTaskType.valueKind === "enum" && (

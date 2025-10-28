@@ -26,6 +26,7 @@ export const createTaskTypeConvexSchema = v.object({
     "valueKind",
     "initialNumValue",
     "completedNumValue",
+    "unitId",
   ]),
   taskTypeEnumOptions: v.optional(
     v.array(
@@ -50,6 +51,7 @@ export const createTaskTypeZodSchema = z.union([
       valueKind: z.literal("number"),
       initialNumValue: z.number(),
       completedNumValue: z.number(),
+      unitId: zid("units").optional(),
     })
     .strict()
     .superRefine(checkEqualInitialAndCompletedNumValues),
@@ -76,6 +78,7 @@ export const updateTaskTypeConvexSchema = v.object({
     "name",
     "initialNumValue",
     "completedNumValue",
+    "unitId",
   ]),
   taskTypeEnumOptions: v.optional(
     v.array(
@@ -103,6 +106,7 @@ export const updateTaskTypeZodSchema = z.union([
       valueKind: z.literal("number"),
       initialNumValue: z.number(),
       completedNumValue: z.number(),
+      unitId: zid("units").optional(),
     })
     .strict()
     .superRefine(checkEqualInitialAndCompletedNumValues),

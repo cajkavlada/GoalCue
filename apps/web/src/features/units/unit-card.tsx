@@ -1,8 +1,5 @@
-import { convexQuery } from "@convex-dev/react-query";
-import { useSuspenseQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 
-import { api } from "@gc/convex/api";
 import { m } from "@gc/i18n/messages";
 import { ErrorSuspense, SelectableList } from "@gc/react-kit";
 import {
@@ -16,6 +13,7 @@ import {
 
 import { UnitCreateDrawer } from "./unit-create-drawer";
 import { UnitList } from "./unit-list";
+import { useUnits } from "./use-units";
 
 export function UnitCard() {
   return (
@@ -42,9 +40,7 @@ export function UnitCard() {
 }
 
 function UnitCardList() {
-  const { data: units } = useSuspenseQuery(
-    convexQuery(api.units.getAllForUserId, {})
-  );
+  const { data: units } = useUnits();
   return (
     <SelectableList items={units}>
       <UnitList

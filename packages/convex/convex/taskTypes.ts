@@ -12,6 +12,7 @@ import {
 } from "@gc/validators";
 
 import { Id } from "./_generated/dataModel";
+import { checkUnit } from "./units";
 import {
   authedMutation,
   AuthedMutationCtx,
@@ -53,6 +54,11 @@ export const create = authedMutation({
   rateLimit: { name: "createTaskType" },
   handler: async (ctx, taskTypeArgs) => {
     await zodParse(createTaskTypeZodSchema, taskTypeArgs);
+
+    if (taskTypeArgs.unitId) {
+      await checkUnit(ctx, taskTypeArgs.unitId);
+    }
+
     const { taskTypeEnumOptions, ...rawTaskType } = taskTypeArgs;
     const newTaskTypeId = await ctx.db.insert("taskTypes", {
       ...rawTaskType,
@@ -108,6 +114,11 @@ export const update = authedMutation({
       ...taskTypeArgs,
       valueKind: originalTaskType.valueKind,
     });
+    if (taskTypeArgs.unitId) {
+      await checkUnit(ctx, taskTypeArgs.unitId);
+    } else {
+      taskTypeArgs.unitId = undefined;
+    }
 
     const { taskTypeEnumOptions, archivedTaskTypeEnumOptions, ...rawTaskType } =
       taskTypeArgs;
@@ -182,6 +193,8 @@ export const update = authedMutation({
           });
         }
       }
+    } else {
+      await ctx.db.patch(taskTypeId, rawTaskType);
     }
   },
 });

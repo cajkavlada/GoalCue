@@ -68,7 +68,7 @@ export const archive = authedMutation({
   },
 });
 
-async function checkUnit(
+export async function checkUnit(
   ctx: AuthedMutationCtx | AuthedQueryCtx,
   unitId: Id<"units">
 ) {

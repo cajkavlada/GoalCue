@@ -177,5 +177,7 @@
   ],
   "units_empty_message": "Žádné jednotky nebyly nalezeny",
   "units_edit_drawer_title": "Upravit jednotku",
-  "units_edit_drawer_description": "Formulář pro úpravu jednotky. Vyplňte pole a klikněte na tlačítko Uložit pro úpravu jednotky."
+  "units_edit_drawer_description": "Formulář pro úpravu jednotky. Vyplňte pole a klikněte na tlačítko Uložit pro úpravu jednotky.",
+  "taskTypes_form_field_unitId_label": "Jednotka (nepovinné)",
+  "taskTypes_form_field_unitId_none": "Žádná jednotka"
 }

@@ -15,14 +15,16 @@ function RouteComponent() {
   return (
     <div className="flex h-full flex-col gap-2">
       <div className="flex items-center justify-end gap-2 border-b px-4 py-2">
-        <div className="mr-auto flex gap-4">
-          <Link to="/{-$locale}/dashboard">
-            <Home />
-          </Link>
-          <Link to="/{-$locale}/settings">
-            <Settings />
-          </Link>
-        </div>
+        <SignedIn>
+          <div className="mr-auto flex gap-4">
+            <Link to="/{-$locale}/dashboard">
+              <Home />
+            </Link>
+            <Link to="/{-$locale}/settings">
+              <Settings />
+            </Link>
+          </div>
+        </SignedIn>
         <LocaleSelector />
         <ModeSelector />
         <SignedIn>
