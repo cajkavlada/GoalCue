@@ -175,5 +175,32 @@
   "units_edit_drawer_title": "Edit Unit",
   "units_edit_drawer_description": "Form to edit the unit. Fill in the fields and click on the save button to update the unit.",
   "taskTypes_form_field_unitId_label": "Unit (optional)",
-  "taskTypes_form_field_unitId_none": "No unit"
+  "taskTypes_form_field_unitId_none": "No unit",
+  "priorityClasses_heading": "Priority Classes",
+  "priorityClasses_create_button_label": "Create Priority Class",
+  "priorityClasses_create_drawer_title": "Create Priority Class",
+  "priorityClasses_create_drawer_description": "Form to create a priority class. Fill in the fields and click on the save button to create the priority class.",
+  "priorityClasses_form_field_name_label": "Name",
+  "priorityClasses_delete_dialog_title": "Delete Priority Class",
+  "priorityClasses_delete_single_dialog_description": "Are you sure you want to delete priority class {name}?",
+  "priorityClasses_delete_multiple_dialog_description": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "Are you sure you want to delete selected priority class?",
+        "countPlural=other": "Are you sure you want to delete {count} selected priority classes?"
+      }
+    }
+  ],
+  "priorityClasses_empty_message": "No priority classes found",
+  "priorityClasses_edit_drawer_title": "Edit Priority Class",
+  "priorityClasses_edit_drawer_description": "Form to edit the priority class. Fill in the fields and click on the save button to update the priority class.",
+  "priorityClasses_ordering_high": "High priority",
+  "priorityClasses_ordering_low": "Low priority"
 }
