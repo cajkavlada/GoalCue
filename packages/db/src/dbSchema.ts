@@ -85,7 +85,7 @@ export const dbSchema = defineSchema({
     color: v.optional(v.string()),
     orderKey: v.string(),
     archivedAt: v.optional(v.number()),
-  }).index("by_userId", ["userId"]),
+  }).index("by_userId_orderKey", ["userId", "orderKey"]),
   events: defineTable({
     title: v.string(),
     description: v.optional(v.string()),

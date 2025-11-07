@@ -12,6 +12,7 @@ import { ErrorSuspense } from "@gc/react-kit";
 import { Drawer, DrawerButton, parseDateToString, useModal } from "@gc/ui";
 import { CreateTaskArgs, createTaskZodSchema } from "@gc/validators";
 
+import { PriorityClassCreateDrawer } from "../priority-classes/priority-class-create-drawer";
 import { usePriorityClasses } from "../priority-classes/use-priority-classes";
 import { TaskTypeCreateDrawer } from "../task-types/task-type-create-drawer";
 import { useTaskTypes } from "../task-types/use-task-types";
@@ -194,13 +195,28 @@ function TaskCreateForm() {
         </form.Subscribe>
         <form.AppField name="priorityClassId">
           {(field) => (
-            <field.Select
-              label={m.tasks_form_field_priorityClass_label()}
-              options={priorityClasses.map((priorityClass) => ({
-                label: priorityClass.name,
-                value: priorityClass._id,
-              }))}
-            />
+            <div className="flex w-full items-end gap-2">
+              <field.Select
+                className="flex-1"
+                label={m.tasks_form_field_priorityClass_label()}
+                options={priorityClasses.map((priorityClass) => ({
+                  label: priorityClass.name,
+                  value: priorityClass._id,
+                }))}
+              />
+              <DrawerButton
+                tooltip={m.priorityClasses_create_button_label()}
+                drawerContent={
+                  <PriorityClassCreateDrawer
+                    onCreate={(newPriorityClassId) => {
+                      field.handleChange(newPriorityClassId);
+                    }}
+                  />
+                }
+              >
+                <Plus />
+              </DrawerButton>
+            </div>
           )}
         </form.AppField>
         <Drawer.Footer>
