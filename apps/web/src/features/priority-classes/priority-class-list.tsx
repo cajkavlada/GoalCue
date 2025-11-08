@@ -9,7 +9,7 @@ import { useBulkSelect } from "@gc/react-kit";
 import { ActionMenu, Checkbox, DropdownMenuItem, useModal } from "@gc/ui";
 import { PriorityClass } from "@gc/validators";
 
-import { getItemsAroundTarget } from "@/utils/algorithms/dnd-items-around-target";
+import { getItemsAroundTarget, useSortableReset } from "@/utils/dnd";
 import { PriorityClassDeleteDialog } from "./priority-class-delete-dialog";
 import { PriorityClassListItem } from "./priority-class-list-item";
 import { useUpdatePriorityClass } from "./use-priority-classes";
@@ -22,9 +22,12 @@ export function PriorityClassList({
   emptyMessage: string;
 }) {
   const { openDialog } = useModal();
+  const { resetKey, triggerReset } = useSortableReset();
+
   const { isAllSelected, toggleSelectAll, selectedIds } =
     useBulkSelect<PriorityClass>();
-  const updateMutation = useUpdatePriorityClass();
+
+  const updateMutation = useUpdatePriorityClass({ onError: triggerReset });
 
   const droppableRef = useRef<HTMLDivElement>(null);
 
@@ -93,7 +96,10 @@ export function PriorityClassList({
                 }
               }}
             >
-              <ol className="h-full overflow-auto">
+              <ol
+                className="h-full overflow-auto"
+                key={resetKey}
+              >
                 {priorityClasses.map((priorityClass, index) => (
                   <PriorityClassListItem
                     key={priorityClass._id}

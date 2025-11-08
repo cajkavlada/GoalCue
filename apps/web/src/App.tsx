@@ -7,20 +7,17 @@ import {
 } from "@tanstack/react-router";
 
 import { ClerkLoaded, ClerkLoading, ClerkProvider, useAuth } from "@gc/auth";
-import {
-  ConvexError,
-  ConvexProviderWithClerk,
-  ConvexReactClient,
-} from "@gc/convex";
+import { ConvexProviderWithClerk, ConvexReactClient } from "@gc/convex";
 import { m } from "@gc/i18n/messages";
 import { getLocale } from "@gc/i18n/runtime";
 import { ErrorBoundary, ErrorSuspense } from "@gc/react-kit";
-import { ThemeProvider, toast } from "@gc/ui";
+import { ThemeProvider } from "@gc/ui";
 
 import { NotFoundRoute } from "./components/NotFoundRoute";
 import { env } from "./env";
 import { routeTree } from "./routeTree.gen";
 import { clerkLocalizations } from "./utils/clerk-localizations";
+import { globalOnErrorMutationHandler } from "./utils/error-management/global-on-error-mutation-handler";
 import { configureGlobalZodErrorMap } from "./utils/global-zod-error-map";
 
 configureGlobalZodErrorMap();
@@ -35,23 +32,7 @@ const queryClient = new QueryClient({
       queryFn: convexQueryClient.queryFn(),
     },
     mutations: {
-      onError: (error) => {
-        if (error instanceof ConvexError) {
-          if (error.data.code === "zod_error") {
-            toast.error(m.toast_error_validation(), {
-              description: error.data.message,
-            });
-          } else {
-            toast.error(m.toast_generic_error(), {
-              description: error.data.message,
-            });
-          }
-        } else {
-          toast.error(m.toast_error_unexpected(), {
-            description: error.message,
-          });
-        }
-      },
+      onError: globalOnErrorMutationHandler,
     },
   },
 });
