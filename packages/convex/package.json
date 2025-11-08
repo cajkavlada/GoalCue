@@ -21,7 +21,7 @@
     "@gc/validators": "workspace:*",
     "convex": "catalog:convex",
     "convex-helpers": "catalog:convex",
-    "fractional-indexing": "^3.2.0",
+    "fractional-indexing": "catalog:common",
     "zod": "catalog:common"
   },
   "devDependencies": {

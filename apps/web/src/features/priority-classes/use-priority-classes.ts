@@ -36,6 +36,33 @@ export function useUpdatePriorityClass() {
   const convexUpdatePriorityClass = useConvexMutation(
     api.priorityClasses.update
   );
+  // optimistic update for reseting the state when update fails
+  // commented out because animation is not working as expected
+  // .withOptimisticUpdate((localStore, args) => {
+  //   if (!args.orderKey) return;
+  //   const priorityClasses = localStore.getQuery(
+  //     api.priorityClasses.getAllForUserId,
+  //     {}
+  //   );
+  //   if (!priorityClasses) return;
+  //   const newPriorityClasses = priorityClasses
+  //     .map((priorityClass) => {
+  //       if (priorityClass._id === args.priorityClassId) {
+  //         return {
+  //           ...priorityClass,
+  //           orderKey: args.orderKey!,
+  //         };
+  //       }
+  //       return priorityClass;
+  //     })
+  //     .sort((a, b) => a.orderKey.localeCompare(b.orderKey));
+
+  //   localStore.setQuery(
+  //     api.priorityClasses.getAllForUserId,
+  //     {},
+  //     newPriorityClasses
+  //   );
+  // });
   return useMutation({
     mutationFn: convexUpdatePriorityClass,
     onSuccess: () => {
