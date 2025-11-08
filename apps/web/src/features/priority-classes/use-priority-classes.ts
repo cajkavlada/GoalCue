@@ -5,6 +5,7 @@ import { api } from "@gc/convex/api";
 import { Id } from "@gc/convex/types";
 import { useModal } from "@gc/ui";
 
+import { globalOnErrorMutationHandler } from "@/utils/error-management/global-on-error-mutation-handler";
 import { translatePregeneratedItem } from "@/utils/translate-pregenerated-items";
 
 export function usePriorityClasses() {
@@ -31,42 +32,19 @@ export function useCreatePriorityClass(
   });
 }
 
-export function useUpdatePriorityClass() {
+export function useUpdatePriorityClass({ onError }: { onError?: () => void }) {
   const { closeDrawer } = useModal();
   const convexUpdatePriorityClass = useConvexMutation(
     api.priorityClasses.update
   );
-  // optimistic update for reseting the state when update fails
-  // commented out because animation is not working as expected
-  // .withOptimisticUpdate((localStore, args) => {
-  //   if (!args.orderKey) return;
-  //   const priorityClasses = localStore.getQuery(
-  //     api.priorityClasses.getAllForUserId,
-  //     {}
-  //   );
-  //   if (!priorityClasses) return;
-  //   const newPriorityClasses = priorityClasses
-  //     .map((priorityClass) => {
-  //       if (priorityClass._id === args.priorityClassId) {
-  //         return {
-  //           ...priorityClass,
-  //           orderKey: args.orderKey!,
-  //         };
-  //       }
-  //       return priorityClass;
-  //     })
-  //     .sort((a, b) => a.orderKey.localeCompare(b.orderKey));
-
-  //   localStore.setQuery(
-  //     api.priorityClasses.getAllForUserId,
-  //     {},
-  //     newPriorityClasses
-  //   );
-  // });
   return useMutation({
     mutationFn: convexUpdatePriorityClass,
     onSuccess: () => {
       closeDrawer();
+    },
+    onError: (error) => {
+      onError?.();
+      globalOnErrorMutationHandler(error);
     },
   });
 }

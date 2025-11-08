@@ -33,7 +33,7 @@ export function PriorityClassEditForm({
 }: {
   editedPriorityClass: PriorityClass;
 }) {
-  const updateMutation = useUpdatePriorityClass();
+  const updateMutation = useUpdatePriorityClass({});
 
   const defaultValues: UpdatePriorityClassArgs = {
     name: editedPriorityClass.name,
