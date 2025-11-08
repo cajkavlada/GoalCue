@@ -18,6 +18,7 @@ catalogs:
 
   common:
     date-fns: ^4.1.0
+    fractional-indexing: ^3.2.0
     lucide-react: ^0.545.0
     zod: ^4.1.3
 

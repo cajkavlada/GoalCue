@@ -26,7 +26,7 @@ export function TaskTypeList({
       )}
       {taskTypes.length > 0 && (
         <>
-          <div className="flex h-[36px] items-center gap-2 pr-2">
+          <div className="flex h-[36px] items-center gap-2 pl-1 pr-2">
             <Checkbox
               checked={isAllSelected}
               onCheckedChange={toggleSelectAll}

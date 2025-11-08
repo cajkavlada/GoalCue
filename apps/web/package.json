@@ -31,6 +31,7 @@
     "@tanstack/react-router": "catalog:tanstack",
     "babel-plugin-react-compiler": "catalog:react",
     "date-fns": "catalog:common",
+    "fractional-indexing": "catalog:common",
     "lucide-react": "catalog:common",
     "nanoid": "^5.1.6",
     "react": "catalog:react",
