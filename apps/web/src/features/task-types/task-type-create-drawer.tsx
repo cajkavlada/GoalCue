@@ -5,12 +5,12 @@ import { useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
 import { ErrorSuspense } from "@gc/react-kit";
 import { Drawer, DrawerButton, SelectItem, Tooltip } from "@gc/ui";
-import { CreateTaskTypeArgs, createTaskTypeZodSchema } from "@gc/validators";
+import { CreateTaskTypeArgs, getCreateTaskTypeZodSchema } from "@gc/validators";
 
 import { TaskTypeEnumOptionsEditor } from "../task-type-enum-options/task-type-enum-options-editor";
 import { UnitCreateDrawer } from "../units/unit-create-drawer";
 import { useUnits } from "../units/use-units";
-import { useCreateTaskType } from "./use-task-types";
+import { useCreateTaskType, useTaskTypes } from "./use-task-types";
 
 type TaskTypeCreateFormProps = {
   onCreate?: (newTaskTypeId: Id<"taskTypes">) => void;
@@ -33,6 +33,7 @@ export function TaskTypeCreateDrawer(props: TaskTypeCreateFormProps) {
 function TaskTypeCreateForm({ onCreate }: TaskTypeCreateFormProps) {
   const { data: units } = useUnits();
 
+  const { data: taskTypes } = useTaskTypes();
   const createMutation = useCreateTaskType(onCreate);
 
   const form = useAppForm({
@@ -41,7 +42,7 @@ function TaskTypeCreateForm({ onCreate }: TaskTypeCreateFormProps) {
       valueKind: "boolean",
     } as CreateTaskTypeArgs,
     validators: {
-      onBlur: createTaskTypeZodSchema,
+      onBlur: getCreateTaskTypeZodSchema({ existingTaskTypes: taskTypes }),
     },
     onSubmit: async ({ value }) => {
       // strip dndId from enum options

@@ -3,9 +3,10 @@ import { generateKeyBetween } from "fractional-indexing";
 
 import {
   createPriorityClassConvexSchema,
+  getCreatePriorityClassZodSchema,
+  getUpdatePriorityClassZodSchema,
   priorityClassConvexSchema,
   updatePriorityClassConvexSchema,
-  updatePriorityClassZodSchema,
   zodParse,
 } from "@gc/validators";
 
@@ -35,19 +36,27 @@ export const create = authedMutation({
   args: createPriorityClassConvexSchema,
   rateLimit: { name: "createPriorityClass" },
   handler: async ({ db, userId }, args) => {
-    const firstPriorityClass = await db
+    const priorityClasses = await db
       .query("priorityClasses")
       .withIndex("by_userId_orderKey", (q) => q.eq("userId", userId))
       .filter((q) => q.eq(q.field("archivedAt"), undefined))
       .order("asc")
-      .first();
-    if (!firstPriorityClass) {
+      .collect();
+
+    if (priorityClasses.length === 0) {
       throw new ConvexError({ message: "No priority classes found" });
     }
+
+    await zodParse(
+      getCreatePriorityClassZodSchema({
+        existingPriorityClasses: priorityClasses,
+      }),
+      args
+    );
     return await db.insert("priorityClasses", {
       ...args,
       userId,
-      orderKey: generateKeyBetween(null, firstPriorityClass.orderKey),
+      orderKey: generateKeyBetween(null, priorityClasses[0]?.orderKey),
     });
   },
 });
@@ -57,7 +66,19 @@ export const update = authedMutation({
   rateLimit: { name: "updatePriorityClass" },
   handler: async (ctx, { priorityClassId, ...priorityClassArgs }) => {
     await checkPriorityClass(ctx, priorityClassId);
-    await zodParse(updatePriorityClassZodSchema, priorityClassArgs);
+    const priorityClasses = await ctx.db
+      .query("priorityClasses")
+      .withIndex("by_userId_orderKey", (q) => q.eq("userId", ctx.userId))
+      .filter((q) => q.eq(q.field("archivedAt"), undefined))
+      .order("asc")
+      .collect();
+    await zodParse(
+      getUpdatePriorityClassZodSchema({
+        existingPriorityClasses: priorityClasses,
+        currentPriorityClassId: priorityClassId,
+      }),
+      priorityClassArgs
+    );
     await ctx.db.patch(priorityClassId, {
       ...priorityClassArgs,
     });

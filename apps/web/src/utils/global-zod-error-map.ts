@@ -19,7 +19,6 @@ export function configureGlobalZodErrorMap() {
       if (issue.code === "too_small" && issue.origin === "array") {
         return m.form_field_validation_array_min({ min: issue.minimum });
       }
-
       if (issue.code === "custom") {
         return customErrorMap(issue);
       }
@@ -41,6 +40,8 @@ function customErrorMap(issue: z.core.$ZodRawIssue) {
     //   return m.taskTypes_form_field_initialEnumOption_validation_not_found();
     // case CUSTOM_ERROR_REASONS.COMPLETED_ENUM_OPTION_NOT_FOUND:
     //   return m.taskTypes_form_field_completedEnumOption_validation_not_found();
+    case CUSTOM_ERROR_REASONS.NOT_UNIQUE:
+      return m.form_field_validation_not_unique();
     default:
       return undefined;
   }

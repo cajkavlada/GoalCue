@@ -3,12 +3,15 @@ import { m } from "@gc/i18n/messages";
 import { ErrorSuspense } from "@gc/react-kit";
 import { Drawer } from "@gc/ui";
 import {
+  getUpdatePriorityClassZodSchema,
   PriorityClass,
   UpdatePriorityClassArgs,
-  updatePriorityClassZodSchema,
 } from "@gc/validators";
 
-import { useUpdatePriorityClass } from "./use-priority-classes";
+import {
+  usePriorityClasses,
+  useUpdatePriorityClass,
+} from "./use-priority-classes";
 
 export function PriorityClassEditDrawer({
   editedPriorityClass,
@@ -33,6 +36,7 @@ export function PriorityClassEditForm({
 }: {
   editedPriorityClass: PriorityClass;
 }) {
+  const { data: priorityClasses } = usePriorityClasses();
   const updateMutation = useUpdatePriorityClass({});
 
   const defaultValues: UpdatePriorityClassArgs = {
@@ -42,7 +46,10 @@ export function PriorityClassEditForm({
   const form = useAppForm({
     defaultValues,
     validators: {
-      onBlur: updatePriorityClassZodSchema,
+      onBlur: getUpdatePriorityClassZodSchema({
+        existingPriorityClasses: priorityClasses,
+        currentPriorityClassId: editedPriorityClass._id,
+      }),
     },
     onSubmit: async ({ value }) => {
       await updateMutation.mutateAsync({
