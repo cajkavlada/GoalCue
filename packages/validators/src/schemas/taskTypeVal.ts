@@ -5,6 +5,7 @@ import z from "zod";
 
 import { CUSTOM_ERROR_REASONS } from "../utils/customErrorReasons";
 import { convexSchemaFromTable } from "../utils/dbSchemaHelpers";
+import { uniqueField } from "../utils/zodHelpers";
 import { zid } from "../utils/zodv4Helpers";
 import { taskTypeEnumOptionConvexSchema } from "./taskTypeEnumOptionVal";
 
@@ -38,39 +39,52 @@ export const createTaskTypeConvexSchema = v.object({
 });
 
 // TODO: infer from convex schema when convexToZod supports zod v4
-export const createTaskTypeZodSchema = z.union([
-  z
-    .object({
-      name: z.string().min(1),
-      valueKind: z.literal("boolean"),
-    })
-    .strict(),
-  z
-    .object({
-      name: z.string().min(1),
-      valueKind: z.literal("number"),
-      initialNumValue: z.number(),
-      completedNumValue: z.number(),
-      unitId: zid("units").optional(),
-    })
-    .strict()
-    .superRefine(checkEqualInitialAndCompletedNumValues),
-  z
-    .object({
-      name: z.string().min(1),
-      valueKind: z.literal("enum"),
-      taskTypeEnumOptions: z
-        .array(
-          z.object({
-            name: z.string().min(1),
-          })
-        )
-        .min(2),
-    })
-    .strict(),
-]);
+export function getCreateTaskTypeZodSchema({
+  existingTaskTypes,
+}: {
+  existingTaskTypes: TaskType[];
+}) {
+  const uniqueName = z
+    .string()
+    .min(1)
+    .pipe(uniqueField({ existing: existingTaskTypes, fieldName: "name" }));
 
-export type CreateTaskTypeArgs = z.infer<typeof createTaskTypeZodSchema>;
+  return z.union([
+    z
+      .object({
+        name: uniqueName,
+        valueKind: z.literal("boolean"),
+      })
+      .strict(),
+    z
+      .object({
+        name: uniqueName,
+        valueKind: z.literal("number"),
+        initialNumValue: z.number(),
+        completedNumValue: z.number(),
+        unitId: zid("units").optional(),
+      })
+      .strict()
+      .superRefine(checkEqualInitialAndCompletedNumValues),
+    z
+      .object({
+        name: uniqueName,
+        valueKind: z.literal("enum"),
+        taskTypeEnumOptions: z
+          .array(
+            z.object({
+              name: z.string().min(1),
+            })
+          )
+          .min(2),
+      })
+      .strict(),
+  ]);
+}
+
+export type CreateTaskTypeArgs = z.infer<
+  ReturnType<typeof getCreateTaskTypeZodSchema>
+>;
 
 export const updateTaskTypeConvexSchema = v.object({
   taskTypeId: taskTypeConvexSchema.fields._id,
@@ -93,41 +107,61 @@ export const updateTaskTypeConvexSchema = v.object({
   ),
 });
 
-export const updateTaskTypeZodSchema = z.union([
-  z
-    .object({
-      name: z.string().min(1),
-      valueKind: z.literal("boolean"),
-    })
-    .strict(),
-  z
-    .object({
-      name: z.string().min(1),
-      valueKind: z.literal("number"),
-      initialNumValue: z.number(),
-      completedNumValue: z.number(),
-      unitId: zid("units").optional(),
-    })
-    .strict()
-    .superRefine(checkEqualInitialAndCompletedNumValues),
-  z
-    .object({
-      name: z.string().min(1),
-      valueKind: z.literal("enum"),
-      taskTypeEnumOptions: z
-        .array(
-          z.object({
-            name: z.string().min(1),
-            _id: zid("taskTypeEnumOptions").optional(),
-          })
-        )
-        .min(2),
-      archivedTaskTypeEnumOptions: z.array(zid("taskTypeEnumOptions")),
-    })
-    .strict(),
-]);
+export function getUpdateTaskTypeZodSchema({
+  existingTaskTypes,
+  currentTaskTypeId,
+}: {
+  existingTaskTypes: TaskType[];
+  currentTaskTypeId: TaskType["_id"];
+}) {
+  const uniqueName = z
+    .string()
+    .min(1)
+    .pipe(
+      uniqueField({
+        existing: existingTaskTypes,
+        fieldName: "name",
+        currentId: currentTaskTypeId,
+      })
+    );
+  return z.union([
+    z
+      .object({
+        name: uniqueName,
+        valueKind: z.literal("boolean"),
+      })
+      .strict(),
+    z
+      .object({
+        name: uniqueName,
+        valueKind: z.literal("number"),
+        initialNumValue: z.number(),
+        completedNumValue: z.number(),
+        unitId: zid("units").optional(),
+      })
+      .strict()
+      .superRefine(checkEqualInitialAndCompletedNumValues),
+    z
+      .object({
+        name: uniqueName,
+        valueKind: z.literal("enum"),
+        taskTypeEnumOptions: z
+          .array(
+            z.object({
+              name: z.string().min(1),
+              _id: zid("taskTypeEnumOptions").optional(),
+            })
+          )
+          .min(2),
+        archivedTaskTypeEnumOptions: z.array(zid("taskTypeEnumOptions")),
+      })
+      .strict(),
+  ]);
+}
 
-export type UpdateTaskTypeArgs = z.infer<typeof updateTaskTypeZodSchema>;
+export type UpdateTaskTypeArgs = z.infer<
+  ReturnType<typeof getUpdateTaskTypeZodSchema>
+>;
 
 export function checkEqualInitialAndCompletedNumValues(
   {

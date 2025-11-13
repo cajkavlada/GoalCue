@@ -202,5 +202,6 @@
   "priorityClasses_edit_drawer_title": "Edit Priority Class",
   "priorityClasses_edit_drawer_description": "Form to edit the priority class. Fill in the fields and click on the save button to update the priority class.",
   "priorityClasses_ordering_high": "High priority",
-  "priorityClasses_ordering_low": "Low priority"
+  "priorityClasses_ordering_low": "Low priority",
+  "form_field_validation_not_unique": "Must be unique. Record with this name already exists."
 }

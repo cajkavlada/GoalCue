@@ -3,11 +3,11 @@ import { generateNKeysBetween } from "fractional-indexing";
 
 import {
   createTaskTypeConvexSchema,
-  createTaskTypeZodSchema,
   extendedTaskTypeConvexSchema,
+  getCreateTaskTypeZodSchema,
+  getUpdateTaskTypeZodSchema,
   taskTypeConvexSchema,
   updateTaskTypeConvexSchema,
-  updateTaskTypeZodSchema,
   zodParse,
 } from "@gc/validators";
 
@@ -53,7 +53,16 @@ export const create = authedMutation({
   args: createTaskTypeConvexSchema,
   rateLimit: { name: "createTaskType" },
   handler: async (ctx, taskTypeArgs) => {
-    await zodParse(createTaskTypeZodSchema, taskTypeArgs);
+    const existingTaskTypes = await ctx.db
+      .query("taskTypes")
+      .withIndex("by_userId", (q) =>
+        q.eq("userId", ctx.userId).eq("archivedAt", undefined)
+      )
+      .collect();
+    await zodParse(
+      getCreateTaskTypeZodSchema({ existingTaskTypes }),
+      taskTypeArgs
+    );
 
     if (taskTypeArgs.unitId) {
       await checkUnit(ctx, taskTypeArgs.unitId);
@@ -111,10 +120,22 @@ export const update = authedMutation({
   handler: async (ctx, { taskTypeId, ...taskTypeArgs }) => {
     const originalTaskType = await checkTaskType(ctx, taskTypeId);
 
-    await zodParse(updateTaskTypeZodSchema, {
-      ...taskTypeArgs,
-      valueKind: originalTaskType.valueKind,
-    });
+    const existingTaskTypes = await ctx.db
+      .query("taskTypes")
+      .withIndex("by_userId", (q) =>
+        q.eq("userId", ctx.userId).eq("archivedAt", undefined)
+      )
+      .collect();
+    await zodParse(
+      getUpdateTaskTypeZodSchema({
+        existingTaskTypes,
+        currentTaskTypeId: taskTypeId,
+      }),
+      {
+        ...taskTypeArgs,
+        valueKind: originalTaskType.valueKind,
+      }
+    );
     if (taskTypeArgs.unitId) {
       await checkUnit(ctx, taskTypeArgs.unitId);
     } else {

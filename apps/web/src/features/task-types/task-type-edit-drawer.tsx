@@ -7,14 +7,14 @@ import { ErrorSuspense } from "@gc/react-kit";
 import { Drawer, DrawerButton, SelectItem } from "@gc/ui";
 import {
   ExtendedTaskType,
+  getUpdateTaskTypeZodSchema,
   UpdateTaskTypeArgs,
-  updateTaskTypeZodSchema,
 } from "@gc/validators";
 
 import { TaskTypeEnumOptionsEditor } from "../task-type-enum-options/task-type-enum-options-editor";
 import { UnitCreateDrawer } from "../units/unit-create-drawer";
 import { useUnits } from "../units/use-units";
-import { useUpdateTaskType } from "./use-task-types";
+import { useTaskTypes, useUpdateTaskType } from "./use-task-types";
 
 export function TaskTypeEditDrawer({
   editedTaskType,
@@ -40,7 +40,7 @@ export function TaskTypeEditForm({
   editedTaskType: ExtendedTaskType;
 }) {
   const { data: units } = useUnits();
-
+  const { data: taskTypes } = useTaskTypes();
   const updateMutation = useUpdateTaskType();
 
   function stripEnumOptions(
@@ -79,7 +79,10 @@ export function TaskTypeEditForm({
   const form = useAppForm({
     defaultValues,
     validators: {
-      onBlur: updateTaskTypeZodSchema,
+      onBlur: getUpdateTaskTypeZodSchema({
+        existingTaskTypes: taskTypes,
+        currentTaskTypeId: editedTaskType._id,
+      }),
     },
     onSubmit: async ({ value }) => {
       // strip dndId from enum options

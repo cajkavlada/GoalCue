@@ -207,5 +207,6 @@
   "priorityClasses_edit_drawer_title": "Upravit prioritní třídu",
   "priorityClasses_edit_drawer_description": "Formulář pro úpravu prioritní třídy. Vyplňte pole a klikněte na tlačítko Uložit pro úpravu prioritní třídy.",
   "priorityClasses_ordering_high": "Vysoká priorita",
-  "priorityClasses_ordering_low": "Nízká priorita"
+  "priorityClasses_ordering_low": "Nízká priorita",
+  "form_field_validation_not_unique": "Musí být unikátní. Záznam s tímto názvem již existuje."
 }

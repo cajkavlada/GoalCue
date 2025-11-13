@@ -7,4 +7,5 @@ export const CUSTOM_ERROR_REASONS = {
     "initial enum option not found in enum options",
   COMPLETED_ENUM_OPTION_NOT_FOUND:
     "completed enum option not found in enum options",
+  NOT_UNIQUE: "not unique",
 } as const;

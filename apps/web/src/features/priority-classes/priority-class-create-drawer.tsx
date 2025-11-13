@@ -5,10 +5,13 @@ import { ErrorSuspense } from "@gc/react-kit";
 import { Drawer } from "@gc/ui";
 import {
   CreatePriorityClassArgs,
-  createPriorityClassZodSchema,
+  getCreatePriorityClassZodSchema,
 } from "@gc/validators";
 
-import { useCreatePriorityClass } from "./use-priority-classes";
+import {
+  useCreatePriorityClass,
+  usePriorityClasses,
+} from "./use-priority-classes";
 
 type PriorityClassCreateFormProps = {
   onCreate?: (newPriorityClassId: Id<"priorityClasses">) => void;
@@ -32,13 +35,16 @@ export function PriorityClassCreateForm({
   onCreate,
 }: PriorityClassCreateFormProps) {
   const createMutation = useCreatePriorityClass(onCreate);
+  const { data: priorityClasses } = usePriorityClasses();
 
   const form = useAppForm({
     defaultValues: {
       name: "",
     } satisfies CreatePriorityClassArgs,
     validators: {
-      onBlur: createPriorityClassZodSchema,
+      onBlur: getCreatePriorityClassZodSchema({
+        existingPriorityClasses: priorityClasses,
+      }),
     },
     onSubmit: async ({ value }) => {
       await createMutation.mutateAsync(value);

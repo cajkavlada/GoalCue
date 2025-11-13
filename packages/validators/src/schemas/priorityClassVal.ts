@@ -4,6 +4,7 @@ import { Infer, v } from "convex/values";
 import z from "zod";
 
 import { convexSchemaFromTable } from "../utils/dbSchemaHelpers";
+import { uniqueField } from "../utils/zodHelpers";
 
 export const priorityClassConvexSchema =
   convexSchemaFromTable("priorityClasses");
@@ -16,14 +17,25 @@ export const createPriorityClassConvexSchema = v.object(
 );
 
 // TODO: infer from convex schema when convexToZod supports zod v4
-export const createPriorityClassZodSchema = z
-  .object({
-    name: z.string().min(1),
-  })
-  .strict();
+export function getCreatePriorityClassZodSchema({
+  existingPriorityClasses,
+}: {
+  existingPriorityClasses: PriorityClass[];
+}) {
+  return z
+    .object({
+      name: z
+        .string()
+        .min(1)
+        .pipe(
+          uniqueField({ existing: existingPriorityClasses, fieldName: "name" })
+        ),
+    })
+    .strict();
+}
 
 export type CreatePriorityClassArgs = z.infer<
-  typeof createPriorityClassZodSchema
+  ReturnType<typeof getCreatePriorityClassZodSchema>
 >;
 
 // update priority class convex schema
@@ -33,13 +45,30 @@ export const updatePriorityClassConvexSchema = v.object({
 });
 
 // TODO: infer from convex schema when convexToZod supports zod v4
-export const updatePriorityClassZodSchema = z
-  .object({
-    name: z.string().min(1).optional(),
-    orderKey: z.string().optional(),
-  })
-  .strict();
+export function getUpdatePriorityClassZodSchema({
+  existingPriorityClasses,
+  currentPriorityClassId,
+}: {
+  existingPriorityClasses: PriorityClass[];
+  currentPriorityClassId: PriorityClass["_id"];
+}) {
+  return z
+    .object({
+      name: z
+        .string()
+        .min(1)
+        .pipe(
+          uniqueField({
+            existing: existingPriorityClasses,
+            fieldName: "name",
+            currentId: currentPriorityClassId,
+          })
+        ),
+      orderKey: z.string().optional(),
+    })
+    .strict();
+}
 
 export type UpdatePriorityClassArgs = z.infer<
-  typeof updatePriorityClassZodSchema
+  ReturnType<typeof getUpdatePriorityClassZodSchema>
 >;
