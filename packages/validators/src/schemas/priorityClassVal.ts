@@ -3,7 +3,6 @@ import { partial } from "convex-helpers/validators";
 import { Infer, v } from "convex/values";
 import z from "zod";
 
-import { CUSTOM_ERROR_REASONS } from "../utils/customErrorReasons";
 import { convexSchemaFromTable } from "../utils/dbSchemaHelpers";
 import { uniqueField } from "../utils/zodHelpers";
 
