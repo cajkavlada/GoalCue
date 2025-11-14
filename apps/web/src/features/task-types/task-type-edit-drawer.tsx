@@ -13,8 +13,8 @@ import {
 
 import { TaskTypeEnumOptionsEditor } from "../task-type-enum-options/task-type-enum-options-editor";
 import { UnitCreateDrawer } from "../units/unit-create-drawer";
-import { useUnits } from "../units/use-units";
-import { useTaskTypes, useUpdateTaskType } from "./use-task-types";
+import { unitApi } from "../units/unit.api";
+import { taskTypeApi } from "./task-type.api";
 
 export function TaskTypeEditDrawer({
   editedTaskType,
@@ -39,9 +39,9 @@ export function TaskTypeEditForm({
 }: {
   editedTaskType: ExtendedTaskType;
 }) {
-  const { data: units } = useUnits();
-  const { data: taskTypes } = useTaskTypes();
-  const updateMutation = useUpdateTaskType();
+  const { data: units } = unitApi.useList();
+  const { data: taskTypes } = taskTypeApi.useList();
+  const updateMutation = taskTypeApi.useUpdate();
 
   function stripEnumOptions(
     enumOptions: NonNullable<ExtendedTaskType["taskTypeEnumOptions"]>

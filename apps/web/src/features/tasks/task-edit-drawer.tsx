@@ -1,21 +1,19 @@
-import { useConvexMutation } from "@convex-dev/react-query";
-import { useMutation } from "@tanstack/react-query";
 import { addDays, endOfDay } from "date-fns";
 import z from "zod";
 
-import { api } from "@gc/convex/api";
 import { useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
 import { getLocale } from "@gc/i18n/runtime";
 import { ErrorSuspense } from "@gc/react-kit";
-import { Drawer, parseDateToString, useModal } from "@gc/ui";
+import { Drawer, parseDateToString } from "@gc/ui";
 import {
   ExtendedTask,
   UpdateTaskArgs,
   updateTaskZodSchema,
 } from "@gc/validators";
 
-import { usePriorityClasses } from "../priority-classes/use-priority-classes";
+import { priorityClassApi } from "../priority-classes/priority-class.api";
+import { taskApi } from "./task.api";
 
 type UpdateTaskClientArgs = Omit<UpdateTaskArgs, "dueAt"> & {
   useDueAt: boolean;
@@ -37,16 +35,9 @@ export function TaskEditDrawer({ editedTask }: { editedTask: ExtendedTask }) {
 }
 
 function TaskCreateForm({ editedTask }: { editedTask: ExtendedTask }) {
-  const { closeDrawer } = useModal();
+  const { data: priorityClasses } = priorityClassApi.useList();
 
-  const { data: priorityClasses } = usePriorityClasses();
-
-  const updateMutation = useMutation({
-    mutationFn: useConvexMutation(api.tasks.update),
-    onSuccess: () => {
-      closeDrawer();
-    },
-  });
+  const updateMutation = taskApi.useUpdate();
 
   const defaultDueAt = addDays(endOfDay(new Date()), 2);
   const defaultValues: UpdateTaskClientArgs = {

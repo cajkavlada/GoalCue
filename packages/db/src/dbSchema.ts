@@ -56,9 +56,9 @@ export const dbSchema = defineSchema({
     name: v.string(),
     i18nKey: v.optional(v.string()),
     symbol: v.optional(v.string()),
-    userId: v.optional(v.string()),
+    userId: v.string(),
     archivedAt: v.optional(v.number()),
-  }).index("by_userId", ["userId"]),
+  }).index("by_userId", ["userId", "archivedAt"]),
   taskActions: defineTable({
     taskId: v.id("tasks"),
     boolValue: v.optional(v.boolean()),

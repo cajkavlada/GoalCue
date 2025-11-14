@@ -13,7 +13,7 @@ import {
 
 import { PriorityClassCreateDrawer } from "./priority-class-create-drawer";
 import { PriorityClassList } from "./priority-class-list";
-import { usePriorityClasses } from "./use-priority-classes";
+import { priorityClassApi } from "./priority-class.api";
 
 export function PriorityClassCard() {
   return (
@@ -40,7 +40,7 @@ export function PriorityClassCard() {
 }
 
 function PriorityClassCardList() {
-  const { data: priorityClasses } = usePriorityClasses();
+  const { data: priorityClasses } = priorityClassApi.useList();
   return (
     <SelectableList items={priorityClasses}>
       <PriorityClassList

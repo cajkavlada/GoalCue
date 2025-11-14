@@ -1,12 +1,9 @@
 import { useState } from "react";
-import { useConvexMutation } from "@convex-dev/react-query";
-import { useMutation } from "@tanstack/react-query";
 
-import { api } from "@gc/convex/api";
 import { Input } from "@gc/ui";
 import { ExtendedTask } from "@gc/validators";
 
-import { makeAddActionUpdater } from "./utils/task-action-optimistic-update";
+import { taskActionApi } from "./task-action.api";
 
 export function NumberTaskActionInput({
   task,
@@ -17,10 +14,9 @@ export function NumberTaskActionInput({
 }) {
   const [value, setValue] = useState(`${task.currentNumValue ?? 0}`);
 
-  const addActionMutation = useMutation({
-    mutationFn: useConvexMutation(api.taskActions.add).withOptimisticUpdate(
-      makeAddActionUpdater(task, completedAfter)
-    ),
+  const addActionMutation = taskActionApi.useAdd({
+    task,
+    completedAfter,
   });
 
   function handleNumAction() {

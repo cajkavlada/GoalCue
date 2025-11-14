@@ -1,21 +1,19 @@
-import { useConvexMutation } from "@convex-dev/react-query";
-import { useMutation } from "@tanstack/react-query";
 import { addDays, endOfDay } from "date-fns";
 import { Plus } from "lucide-react";
 import z from "zod";
 
-import { api } from "@gc/convex/api";
 import { useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
 import { getLocale } from "@gc/i18n/runtime";
 import { ErrorSuspense } from "@gc/react-kit";
-import { Drawer, DrawerButton, parseDateToString, useModal } from "@gc/ui";
+import { Drawer, DrawerButton, parseDateToString } from "@gc/ui";
 import { CreateTaskArgs, createTaskZodSchema } from "@gc/validators";
 
 import { PriorityClassCreateDrawer } from "../priority-classes/priority-class-create-drawer";
-import { usePriorityClasses } from "../priority-classes/use-priority-classes";
+import { priorityClassApi } from "../priority-classes/priority-class.api";
 import { TaskTypeCreateDrawer } from "../task-types/task-type-create-drawer";
-import { useTaskTypes } from "../task-types/use-task-types";
+import { taskTypeApi } from "../task-types/task-type.api";
+import { taskApi } from "./task.api";
 
 type CreateTaskClientArgs = Omit<CreateTaskArgs, "dueAt"> & {
   useDueAt: boolean;
@@ -37,17 +35,10 @@ export function TaskCreateDrawer() {
 }
 
 function TaskCreateForm() {
-  const { closeDrawer } = useModal();
+  const { data: priorityClasses } = priorityClassApi.useList();
+  const { data: taskTypes } = taskTypeApi.useList();
 
-  const { data: priorityClasses } = usePriorityClasses();
-  const { data: taskTypes } = useTaskTypes();
-
-  const createMutation = useMutation({
-    mutationFn: useConvexMutation(api.tasks.create),
-    onSuccess: () => {
-      closeDrawer();
-    },
-  });
+  const createMutation = taskApi.useCreate();
 
   const defaultDueAt = addDays(endOfDay(new Date()), 2);
   const defaultValues: CreateTaskClientArgs = {

@@ -8,10 +8,7 @@ import {
   getCreatePriorityClassZodSchema,
 } from "@gc/validators";
 
-import {
-  useCreatePriorityClass,
-  usePriorityClasses,
-} from "./use-priority-classes";
+import { priorityClassApi } from "./priority-class.api";
 
 type PriorityClassCreateFormProps = {
   onCreate?: (newPriorityClassId: Id<"priorityClasses">) => void;
@@ -34,8 +31,8 @@ export function PriorityClassCreateDrawer(props: PriorityClassCreateFormProps) {
 export function PriorityClassCreateForm({
   onCreate,
 }: PriorityClassCreateFormProps) {
-  const createMutation = useCreatePriorityClass(onCreate);
-  const { data: priorityClasses } = usePriorityClasses();
+  const { data: priorityClasses } = priorityClassApi.useList();
+  const createMutation = priorityClassApi.useCreate(onCreate);
 
   const form = useAppForm({
     defaultValues: {

@@ -7,14 +7,14 @@ import { useModal } from "@gc/ui";
 
 import { translatePregeneratedItem } from "@/utils/translate-pregenerated-items";
 
-export function useUnits() {
+function useList() {
   return useSuspenseQuery({
     ...convexQuery(api.units.getAllForUserId, {}),
     select: (data) => data.map(translatePregeneratedItem),
   });
 }
 
-export function useCreateUnit(onCreate?: (newUnitId: Id<"units">) => void) {
+function useCreate(onCreate?: (newUnitId: Id<"units">) => void) {
   const { closeDrawer } = useModal();
   const convexCreateUnit = useConvexMutation(api.units.create);
   return useMutation({
@@ -29,7 +29,7 @@ export function useCreateUnit(onCreate?: (newUnitId: Id<"units">) => void) {
   });
 }
 
-export function useUpdateUnit() {
+function useUpdate() {
   const { closeDrawer } = useModal();
   const convexUpdateUnit = useConvexMutation(api.units.update);
   return useMutation({
@@ -39,3 +39,21 @@ export function useUpdateUnit() {
     },
   });
 }
+
+function useArchive() {
+  const { closeDialog } = useModal();
+  const convexArchiveUnit = useConvexMutation(api.units.archive);
+  return useMutation({
+    mutationFn: convexArchiveUnit,
+    onSuccess: () => {
+      closeDialog();
+    },
+  });
+}
+
+export const unitApi = {
+  useList,
+  useCreate,
+  useUpdate,
+  useArchive,
+};

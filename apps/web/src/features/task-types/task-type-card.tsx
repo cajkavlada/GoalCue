@@ -13,7 +13,7 @@ import {
 
 import { TaskTypeCreateDrawer } from "./task-type-create-drawer";
 import { TaskTypeList } from "./task-type-list";
-import { useTaskTypes } from "./use-task-types";
+import { taskTypeApi } from "./task-type.api";
 
 export function TaskTypeCard() {
   return (
@@ -40,7 +40,7 @@ export function TaskTypeCard() {
 }
 
 function TaskTypeCardList() {
-  const { data: taskTypes } = useTaskTypes();
+  const { data: taskTypes } = taskTypeApi.useList();
   return (
     <SelectableList items={taskTypes}>
       <TaskTypeList
