@@ -2,9 +2,9 @@ import { useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
 import { ErrorSuspense } from "@gc/react-kit";
 import { Drawer } from "@gc/ui";
-import { Unit, UpdateUnitArgs, updateUnitZodSchema } from "@gc/validators";
+import { getUpdateUnitZodSchema, Unit, UpdateUnitArgs } from "@gc/validators";
 
-import { useUpdateUnit } from "./use-units";
+import { unitApi } from "./unit.api";
 
 export function UnitEditDrawer({ editedUnit }: { editedUnit: Unit }) {
   return (
@@ -21,7 +21,8 @@ export function UnitEditDrawer({ editedUnit }: { editedUnit: Unit }) {
 }
 
 export function UnitEditForm({ editedUnit }: { editedUnit: Unit }) {
-  const updateMutation = useUpdateUnit();
+  const { data: units } = unitApi.useList();
+  const updateMutation = unitApi.useUpdate();
 
   const defaultValues: UpdateUnitArgs = {
     name: editedUnit.name,
@@ -31,7 +32,10 @@ export function UnitEditForm({ editedUnit }: { editedUnit: Unit }) {
   const form = useAppForm({
     defaultValues,
     validators: {
-      onBlur: updateUnitZodSchema,
+      onBlur: getUpdateUnitZodSchema({
+        existingUnits: units,
+        currentUnitId: editedUnit._id,
+      }),
     },
     onSubmit: async ({ value }) => {
       await updateMutation.mutateAsync({

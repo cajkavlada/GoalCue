@@ -9,8 +9,8 @@ import { CreateTaskTypeArgs, getCreateTaskTypeZodSchema } from "@gc/validators";
 
 import { TaskTypeEnumOptionsEditor } from "../task-type-enum-options/task-type-enum-options-editor";
 import { UnitCreateDrawer } from "../units/unit-create-drawer";
-import { useUnits } from "../units/use-units";
-import { useCreateTaskType, useTaskTypes } from "./use-task-types";
+import { unitApi } from "../units/unit.api";
+import { taskTypeApi } from "./task-type.api";
 
 type TaskTypeCreateFormProps = {
   onCreate?: (newTaskTypeId: Id<"taskTypes">) => void;
@@ -31,10 +31,10 @@ export function TaskTypeCreateDrawer(props: TaskTypeCreateFormProps) {
 }
 
 function TaskTypeCreateForm({ onCreate }: TaskTypeCreateFormProps) {
-  const { data: units } = useUnits();
+  const { data: units } = unitApi.useList();
 
-  const { data: taskTypes } = useTaskTypes();
-  const createMutation = useCreateTaskType(onCreate);
+  const { data: taskTypes } = taskTypeApi.useList();
+  const createMutation = taskTypeApi.useCreate(onCreate);
 
   const form = useAppForm({
     defaultValues: {

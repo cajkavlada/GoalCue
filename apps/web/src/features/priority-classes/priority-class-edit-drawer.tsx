@@ -8,10 +8,7 @@ import {
   UpdatePriorityClassArgs,
 } from "@gc/validators";
 
-import {
-  usePriorityClasses,
-  useUpdatePriorityClass,
-} from "./use-priority-classes";
+import { priorityClassApi } from "./priority-class.api";
 
 export function PriorityClassEditDrawer({
   editedPriorityClass,
@@ -36,8 +33,8 @@ export function PriorityClassEditForm({
 }: {
   editedPriorityClass: PriorityClass;
 }) {
-  const { data: priorityClasses } = usePriorityClasses();
-  const updateMutation = useUpdatePriorityClass({});
+  const { data: priorityClasses } = priorityClassApi.useList();
+  const updateMutation = priorityClassApi.useUpdate({});
 
   const defaultValues: UpdatePriorityClassArgs = {
     name: editedPriorityClass.name,

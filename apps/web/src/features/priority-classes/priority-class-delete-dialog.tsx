@@ -1,25 +1,16 @@
-import { useConvexMutation } from "@convex-dev/react-query";
-import { useMutation } from "@tanstack/react-query";
-
-import { api } from "@gc/convex/api";
 import { Id } from "@gc/convex/types";
 import { m } from "@gc/i18n/messages";
-import { Dialog, useModal } from "@gc/ui";
+import { Dialog } from "@gc/ui";
 import { PriorityClass } from "@gc/validators";
+
+import { priorityClassApi } from "./priority-class.api";
 
 type PriorityClassDialogProps =
   | { priorityClass: PriorityClass; priorityClassIds?: never }
   | { priorityClassIds: Id<"priorityClasses">[]; priorityClass?: never };
 
 export function PriorityClassDeleteDialog(props: PriorityClassDialogProps) {
-  const { closeDialog } = useModal();
-
-  const archiveMutation = useMutation({
-    mutationFn: useConvexMutation(api.priorityClasses.archive),
-    onSuccess: () => {
-      closeDialog();
-    },
-  });
+  const archiveMutation = priorityClassApi.useArchive();
 
   return (
     <Dialog

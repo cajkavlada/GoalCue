@@ -3,9 +3,9 @@ import { useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
 import { ErrorSuspense } from "@gc/react-kit";
 import { Drawer } from "@gc/ui";
-import { CreateUnitArgs, createUnitZodSchema } from "@gc/validators";
+import { CreateUnitArgs, getCreateUnitZodSchema } from "@gc/validators";
 
-import { useCreateUnit } from "./use-units";
+import { unitApi } from "./unit.api";
 
 type UnitCreateFormProps = {
   onCreate?: (newUnitId: Id<"units">) => void;
@@ -26,7 +26,8 @@ export function UnitCreateDrawer(props: UnitCreateFormProps) {
 }
 
 export function UnitCreateForm({ onCreate }: UnitCreateFormProps) {
-  const createMutation = useCreateUnit(onCreate);
+  const { data: units } = unitApi.useList();
+  const createMutation = unitApi.useCreate(onCreate);
 
   const form = useAppForm({
     defaultValues: {
@@ -34,7 +35,7 @@ export function UnitCreateForm({ onCreate }: UnitCreateFormProps) {
       symbol: "",
     } as CreateUnitArgs,
     validators: {
-      onBlur: createUnitZodSchema,
+      onBlur: getCreateUnitZodSchema({ existingUnits: units }),
     },
     onSubmit: async ({ value }) => {
       await createMutation.mutateAsync(value);

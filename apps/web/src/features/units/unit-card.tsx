@@ -13,7 +13,7 @@ import {
 
 import { UnitCreateDrawer } from "./unit-create-drawer";
 import { UnitList } from "./unit-list";
-import { useUnits } from "./use-units";
+import { unitApi } from "./unit.api";
 
 export function UnitCard() {
   return (
@@ -40,7 +40,7 @@ export function UnitCard() {
 }
 
 function UnitCardList() {
-  const { data: units } = useUnits();
+  const { data: units } = unitApi.useList();
   return (
     <SelectableList items={units}>
       <UnitList

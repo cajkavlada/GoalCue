@@ -12,7 +12,7 @@ import { PriorityClass } from "@gc/validators";
 import { getItemsAroundTarget, useSortableReset } from "@/utils/dnd";
 import { PriorityClassDeleteDialog } from "./priority-class-delete-dialog";
 import { PriorityClassListItem } from "./priority-class-list-item";
-import { useUpdatePriorityClass } from "./use-priority-classes";
+import { priorityClassApi } from "./priority-class.api";
 
 export function PriorityClassList({
   priorityClasses,
@@ -27,7 +27,7 @@ export function PriorityClassList({
   const { isAllSelected, toggleSelectAll, selectedIds } =
     useBulkSelect<PriorityClass>();
 
-  const updateMutation = useUpdatePriorityClass({ onError: triggerReset });
+  const updateMutation = priorityClassApi.useUpdate({ onError: triggerReset });
 
   const droppableRef = useRef<HTMLDivElement>(null);
 

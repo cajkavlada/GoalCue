@@ -5,12 +5,12 @@ import z from "zod";
 
 import { convexSchemaFromTable } from "../utils/dbSchemaHelpers";
 import { zid } from "../utils/zodv4Helpers";
-import { priorityClassConvexSchema } from "./priorityClassVal";
-import { taskTypeEnumOptionConvexSchema } from "./taskTypeEnumOptionVal";
+import { priorityClassConvexSchema } from "./priorityClass.val";
 import {
   checkEqualInitialAndCompletedNumValues,
   taskTypeConvexSchema,
-} from "./taskTypeVal";
+} from "./taskType.val";
+import { taskTypeEnumOptionConvexSchema } from "./taskTypeEnumOption.val";
 
 export const taskConvexSchema = convexSchemaFromTable("tasks").fields;
 

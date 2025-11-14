@@ -1,25 +1,16 @@
-import { useConvexMutation } from "@convex-dev/react-query";
-import { useMutation } from "@tanstack/react-query";
-
-import { api } from "@gc/convex/api";
 import { Id } from "@gc/convex/types";
 import { m } from "@gc/i18n/messages";
-import { Dialog, useModal } from "@gc/ui";
+import { Dialog } from "@gc/ui";
 import { Unit } from "@gc/validators";
+
+import { unitApi } from "./unit.api";
 
 type UnitDialogProps =
   | { unit: Unit; unitIds?: never }
   | { unitIds: Id<"units">[]; unit?: never };
 
 export function UnitDeleteDialog(props: UnitDialogProps) {
-  const { closeDialog } = useModal();
-
-  const archiveMutation = useMutation({
-    mutationFn: useConvexMutation(api.units.archive),
-    onSuccess: () => {
-      closeDialog();
-    },
-  });
+  const archiveMutation = unitApi.useArchive();
 
   return (
     <Dialog

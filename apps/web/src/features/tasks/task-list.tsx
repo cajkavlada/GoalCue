@@ -1,8 +1,5 @@
-import { useConvexMutation } from "@convex-dev/react-query";
-import { useMutation } from "@tanstack/react-query";
 import { CircleQuestionMark, ListChecks, Trash2 } from "lucide-react";
 
-import { api } from "@gc/convex/api";
 import { m } from "@gc/i18n/messages";
 import { useBulkSelect, VirtualList } from "@gc/react-kit";
 import {
@@ -15,6 +12,7 @@ import {
 import { cn } from "@gc/utils";
 import { ExtendedTask } from "@gc/validators";
 
+import { taskActionApi } from "../task-actions/task-action.api";
 import { TaskDeleteDialog } from "./task-delete-dialog";
 import { TaskListItem } from "./task-list-item";
 
@@ -34,12 +32,9 @@ export function TaskList({
   const { isAllSelected, toggleSelectAll, selectedIds } =
     useBulkSelect<ExtendedTask>();
 
-  const addToCompletedMutation = useMutation({
-    mutationFn: useConvexMutation(api.taskActions.addToCompleted),
-  });
-  const addToInitialMutation = useMutation({
-    mutationFn: useConvexMutation(api.taskActions.addToInitial),
-  });
+  const addToCompletedMutation = taskActionApi.useAddToCompleted();
+
+  const addToInitialMutation = taskActionApi.useAddToInitial();
 
   return (
     <div className={cn("flex flex-1 flex-col overflow-hidden", className)}>

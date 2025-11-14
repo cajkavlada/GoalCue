@@ -1,25 +1,16 @@
-import { useConvexMutation } from "@convex-dev/react-query";
-import { useMutation } from "@tanstack/react-query";
-
-import { api } from "@gc/convex/api";
 import { Id } from "@gc/convex/types";
 import { m } from "@gc/i18n/messages";
-import { Dialog, useModal } from "@gc/ui";
+import { Dialog } from "@gc/ui";
 import { ExtendedTask } from "@gc/validators";
+
+import { taskApi } from "./task.api";
 
 type TaskDeleteDialogProps =
   | { task: ExtendedTask; taskIds?: never }
   | { taskIds: Id<"tasks">[]; task?: never };
 
 export function TaskDeleteDialog(props: TaskDeleteDialogProps) {
-  const { closeDialog } = useModal();
-
-  const archiveMutation = useMutation({
-    mutationFn: useConvexMutation(api.tasks.archive),
-    onSuccess: () => {
-      closeDialog();
-    },
-  });
+  const archiveMutation = taskApi.useArchive();
 
   return (
     <Dialog

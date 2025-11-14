@@ -7,7 +7,7 @@ import { CUSTOM_ERROR_REASONS } from "../utils/customErrorReasons";
 import { convexSchemaFromTable } from "../utils/dbSchemaHelpers";
 import { uniqueField } from "../utils/zodHelpers";
 import { zid } from "../utils/zodv4Helpers";
-import { taskTypeEnumOptionConvexSchema } from "./taskTypeEnumOptionVal";
+import { taskTypeEnumOptionConvexSchema } from "./taskTypeEnumOption.val";
 
 export const taskTypeConvexSchema = convexSchemaFromTable("taskTypes");
 

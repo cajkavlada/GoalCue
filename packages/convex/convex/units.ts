@@ -2,10 +2,10 @@ import { ConvexError, v } from "convex/values";
 
 import {
   createUnitConvexSchema,
-  createUnitZodSchema,
+  getCreateUnitZodSchema,
+  getUpdateUnitZodSchema,
   unitConvexSchema,
   updateUnitConvexSchema,
-  updateUnitZodSchema,
   zodParse,
 } from "@gc/validators";
 
@@ -23,8 +23,9 @@ export const getAllForUserId = authedQuery({
   handler: async ({ db, userId }) => {
     const units = await db
       .query("units")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .filter((q) => q.eq(q.field("archivedAt"), undefined))
+      .withIndex("by_userId", (q) =>
+        q.eq("userId", userId).eq("archivedAt", undefined)
+      )
       .collect();
     return units;
   },
@@ -34,7 +35,13 @@ export const create = authedMutation({
   args: createUnitConvexSchema,
   rateLimit: { name: "createUnit" },
   handler: async (ctx, unitArgs) => {
-    await zodParse(createUnitZodSchema, unitArgs);
+    const existingUnits = await ctx.db
+      .query("units")
+      .withIndex("by_userId", (q) =>
+        q.eq("userId", ctx.userId).eq("archivedAt", undefined)
+      )
+      .collect();
+    await zodParse(getCreateUnitZodSchema({ existingUnits }), unitArgs);
     return await ctx.db.insert("units", {
       ...unitArgs,
       userId: ctx.userId,
@@ -47,7 +54,16 @@ export const update = authedMutation({
   rateLimit: { name: "updateUnit" },
   handler: async (ctx, { unitId, ...unitArgs }) => {
     await checkUnit(ctx, unitId);
-    await zodParse(updateUnitZodSchema, unitArgs);
+    const existingUnits = await ctx.db
+      .query("units")
+      .withIndex("by_userId", (q) =>
+        q.eq("userId", ctx.userId).eq("archivedAt", undefined)
+      )
+      .collect();
+    await zodParse(
+      getUpdateUnitZodSchema({ existingUnits, currentUnitId: unitId }),
+      unitArgs
+    );
     await ctx.db.patch(unitId, {
       ...unitArgs,
     });

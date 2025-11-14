@@ -1,8 +1,5 @@
-import { convexQuery } from "@convex-dev/react-query";
-import { useSuspenseQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 
-import { api } from "@gc/convex/api";
 import { m } from "@gc/i18n/messages";
 import { ErrorSuspense, SelectableList } from "@gc/react-kit";
 import {
@@ -18,6 +15,7 @@ import {
 import { getYesterdayTimestamp } from "@/utils/time";
 import { TaskCreateDrawer } from "./task-create-drawer";
 import { TaskList } from "./task-list";
+import { taskApi } from "./task.api";
 
 export function TaskCard() {
   return (
@@ -44,17 +42,13 @@ export function TaskCard() {
 }
 
 function TaskCardLists() {
-  const { data: uncompletedTasks } = useSuspenseQuery(
-    convexQuery(api.tasks.getUncompletedExtendedForUserId, {})
-  );
-
   const yesterdayTimestamp = getYesterdayTimestamp();
 
-  const { data: recentlyCompletedTasks } = useSuspenseQuery(
-    convexQuery(api.tasks.getRecentlyCompletedExtendedForUserId, {
+  const { data: uncompletedTasks } = taskApi.useUncompletedExtendedList();
+  const { data: recentlyCompletedTasks } =
+    taskApi.useRecentlyCompletedExtendedList({
       completedAfter: yesterdayTimestamp,
-    })
-  );
+    });
 
   return (
     <>

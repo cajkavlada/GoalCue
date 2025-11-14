@@ -8,14 +8,14 @@ import { useModal } from "@gc/ui";
 import { globalOnErrorMutationHandler } from "@/utils/error-management/global-on-error-mutation-handler";
 import { translatePregeneratedItem } from "@/utils/translate-pregenerated-items";
 
-export function usePriorityClasses() {
+function useList() {
   return useSuspenseQuery({
     ...convexQuery(api.priorityClasses.getAllForUserId, {}),
     select: (data) => data.map(translatePregeneratedItem),
   });
 }
 
-export function useCreatePriorityClass(
+function useCreate(
   onCreate?: (newPriorityClassId: Id<"priorityClasses">) => void
 ) {
   const { closeDrawer } = useModal();
@@ -32,7 +32,7 @@ export function useCreatePriorityClass(
   });
 }
 
-export function useUpdatePriorityClass({ onError }: { onError?: () => void }) {
+function useUpdate({ onError }: { onError?: () => void }) {
   const { closeDrawer } = useModal();
   const convexUpdatePriorityClass = useConvexMutation(
     api.priorityClasses.update
@@ -49,7 +49,7 @@ export function useUpdatePriorityClass({ onError }: { onError?: () => void }) {
   });
 }
 
-export function useArchivePriorityClasses() {
+function useArchive() {
   const { closeDialog } = useModal();
   const convexArchivePriorityClass = useConvexMutation(
     api.priorityClasses.archive
@@ -61,3 +61,10 @@ export function useArchivePriorityClasses() {
     },
   });
 }
+
+export const priorityClassApi = {
+  useList,
+  useCreate,
+  useUpdate,
+  useArchive,
+};

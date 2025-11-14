@@ -7,11 +7,9 @@ import { useModal } from "@gc/ui";
 
 import { translatePregeneratedItem } from "@/utils/translate-pregenerated-items";
 
-const convexGetTaskTypes = convexQuery(api.taskTypes.getAllForUserId, {});
-
-export function useTaskTypes() {
+function useList() {
   return useSuspenseQuery({
-    ...convexGetTaskTypes,
+    ...convexQuery(api.taskTypes.getAllForUserId, {}),
     select: (data) =>
       data.map((taskType) => ({
         ...translatePregeneratedItem(taskType),
@@ -26,9 +24,7 @@ export function useTaskTypes() {
   });
 }
 
-export function useCreateTaskType(
-  onCreate?: (newTaskTypeId: Id<"taskTypes">) => void
-) {
+function useCreate(onCreate?: (newTaskTypeId: Id<"taskTypes">) => void) {
   const { closeDrawer } = useModal();
   const convexCreateTaskType = useConvexMutation(api.taskTypes.create);
 
@@ -44,7 +40,7 @@ export function useCreateTaskType(
   });
 }
 
-export function useUpdateTaskType() {
+function useUpdate() {
   const { closeDrawer } = useModal();
   const convexUpdateTaskType = useConvexMutation(api.taskTypes.update);
 
@@ -55,3 +51,21 @@ export function useUpdateTaskType() {
     },
   });
 }
+
+function useArchive() {
+  const { closeDialog } = useModal();
+  const convexArchiveTaskType = useConvexMutation(api.taskTypes.archive);
+  return useMutation({
+    mutationFn: convexArchiveTaskType,
+    onSuccess: () => {
+      closeDialog();
+    },
+  });
+}
+
+export const taskTypeApi = {
+  useList,
+  useCreate,
+  useUpdate,
+  useArchive,
+};
