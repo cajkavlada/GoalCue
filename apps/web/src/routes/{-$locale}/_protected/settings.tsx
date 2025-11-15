@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { PriorityClassCard } from "@/features/priority-classes/priority-class-card";
+import { TagCard } from "@/features/tags/tag-card";
 import { TaskTypeCard } from "@/features/task-types/task-type-card";
 import { UnitCard } from "@/features/units/unit-card";
 
@@ -14,6 +15,7 @@ function RouteComponent() {
       <TaskTypeCard />
       <UnitCard />
       <PriorityClassCard />
+      <TagCard />
     </div>
   );
 }

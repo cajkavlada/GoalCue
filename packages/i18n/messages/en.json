@@ -203,5 +203,37 @@
   "priorityClasses_edit_drawer_description": "Form to edit the priority class. Fill in the fields and click on the save button to update the priority class.",
   "priorityClasses_ordering_high": "High priority",
   "priorityClasses_ordering_low": "Low priority",
-  "form_field_validation_not_unique": "Must be unique. Record with this name already exists."
+  "form_field_validation_not_unique": "Must be unique. Record with this name already exists.",
+  "tags_heading": "Tags",
+  "tags_create_button_label": "Create Tag",
+  "tags_create_drawer_title": "Create Tag",
+  "tags_create_drawer_description": "Form to create a tag. Fill in the fields and click on the save button to create the tag.",
+  "tags_form_field_name_label": "Name",
+  "tags_form_field_color_label": "Color",
+  "tags_form_field_kind_label": "Kind",
+  "tags_delete_dialog_title": "Delete Tag",
+  "tags_delete_single_dialog_description": "Are you sure you want to delete tag {name}?",
+  "tags_delete_multiple_dialog_description": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "Are you sure you want to delete selected tag?",
+        "countPlural=other": "Are you sure you want to delete {count} selected tags?"
+      }
+    }
+  ],
+  "tags_empty_message": "No tags found",
+  "tags_edit_drawer_title": "Edit Tag",
+  "tags_edit_drawer_description": "Form to edit the tag. Fill in the fields and click on the save button to update the tag.",
+  "tags_form_field_kind_project_option": "Project",
+  "tags_form_field_kind_area_option": "Area",
+  "tags_form_field_kind_context_option": "Context",
+  "tags_form_field_kind_timeframe_option": "Timeframe",
+  "tags_form_field_kind_label_option": "Label"
 }

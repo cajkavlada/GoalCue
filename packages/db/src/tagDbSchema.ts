@@ -1,0 +1,34 @@
+import { literals } from "convex-helpers/validators";
+import { defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export const tagDbSchema = {
+  tags: defineTable({
+    name: v.string(),
+    i18nKey: v.optional(v.string()),
+    color: v.optional(v.string()),
+    userId: v.string(),
+    kind: v.optional(
+      literals("project", "area", "context", "timeframe", "label")
+    ),
+    archivedAt: v.optional(v.number()),
+  }).index("by_userId_name", ["userId", "archivedAt", "name"]),
+  tagTasks: defineTable({
+    taskId: v.id("tasks"),
+    tagId: v.id("tags"),
+  })
+    .index("by_taskId", ["taskId"])
+    .index("by_tagId", ["tagId"]),
+  tagEvents: defineTable({
+    eventId: v.id("events"),
+    tagId: v.id("tags"),
+  })
+    .index("by_eventId", ["eventId"])
+    .index("by_tagId", ["tagId"]),
+  tagTaskTypes: defineTable({
+    taskTypeId: v.id("taskTypes"),
+    tagId: v.id("tags"),
+  })
+    .index("by_taskTypeId", ["taskTypeId"])
+    .index("by_tagId", ["tagId"]),
+};
