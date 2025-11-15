@@ -9,7 +9,7 @@ import {
 } from "@gc/validators";
 
 import { Doc, Id } from "./_generated/dataModel";
-import { checkTask } from "./tasks";
+import { taskQueries, taskTypeQueries } from "./dbQueries";
 import { authedMutation, AuthedMutationCtx } from "./utils/authedFunctions";
 
 export const add = authedMutation({
@@ -23,13 +23,10 @@ export const add = authedMutation({
 
     await zodParse(addTaskActionAdvancedSchema, input);
 
-    const task = await checkTask(ctx, taskId);
-    const taskType = await ctx.db.get(task.taskTypeId);
-    if (!taskType) {
-      throw new ConvexError({
-        message: `Task type not found.`,
-      });
-    }
+    const task = await taskQueries({ ctx }).getOne({ taskId });
+    const taskType = await taskTypeQueries({ ctx }).getOne({
+      taskTypeId: task.taskTypeId,
+    });
 
     const checkedNewTaskValues = checkTaskValues({
       valueKind: task.valueKind,
@@ -109,14 +106,11 @@ async function checkTasksAndGetBorderValues(
 ) {
   return await Promise.all(
     taskIds.map(async (taskId) => {
-      const task = await checkTask(ctx, taskId);
+      const task = await taskQueries({ ctx }).getOne({ taskId });
       if (task.valueKind === "enum") {
-        const taskType = await ctx.db.get(task.taskTypeId);
-        if (!taskType) {
-          throw new ConvexError({
-            message: `Task type not found.`,
-          });
-        }
+        const taskType = await taskTypeQueries({ ctx }).getOne({
+          taskTypeId: task.taskTypeId,
+        });
         return {
           ...task,
           completedEnumOptionId: taskType.completedEnumOptionId,

@@ -63,4 +63,5 @@ export function getUpdateUnitZodSchema({
     })
     .strict();
 }
+
 export type UpdateUnitArgs = z.infer<ReturnType<typeof getUpdateUnitZodSchema>>;
