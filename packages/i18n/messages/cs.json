@@ -208,5 +208,38 @@
   "priorityClasses_edit_drawer_description": "Formulář pro úpravu prioritní třídy. Vyplňte pole a klikněte na tlačítko Uložit pro úpravu prioritní třídy.",
   "priorityClasses_ordering_high": "Vysoká priorita",
   "priorityClasses_ordering_low": "Nízká priorita",
-  "form_field_validation_not_unique": "Musí být unikátní. Záznam s tímto názvem již existuje."
+  "form_field_validation_not_unique": "Musí být unikátní. Záznam s tímto názvem již existuje.",
+  "tags_heading": "Tagy",
+  "tags_create_button_label": "Vytvořit štítek",
+  "tags_create_drawer_title": "Vytvořit štítek",
+  "tags_create_drawer_description": "Formulář pro vytvoření štítku. Vyplňte pole a klikněte na tlačítko Uložit pro vytvoření štítku.",
+  "tags_form_field_name_label": "Název",
+  "tags_form_field_color_label": "Barva",
+  "tags_form_field_kind_label": "Typ",
+  "tags_delete_dialog_title": "Smazat štítek",
+  "tags_delete_single_dialog_description": "Jste si jisti, že chcete smazat štítek {name}?",
+  "tags_delete_multiple_dialog_description": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "Jste si jisti, že chcete smazat vybraný štítek?",
+        "countPlural=few": "Jste si jisti, že chcete smazat {count} vybrané štítky?",
+        "countPlural=other": "Jste si jisti, že chcete smazat {count} vybraných štítků?"
+      }
+    }
+  ],
+  "tags_empty_message": "Žádné štítky nebyly nalezeny",
+  "tags_edit_drawer_title": "Upravit štítek",
+  "tags_edit_drawer_description": "Formulář pro úpravu štítku. Vyplňte pole a klikněte na tlačítko Uložit pro úpravu štítku.",
+  "tags_form_field_kind_project_option": "Projekt",
+  "tags_form_field_kind_area_option": "Oblast",
+  "tags_form_field_kind_context_option": "Kontext",
+  "tags_form_field_kind_timeframe_option": "Časové období",
+  "tags_form_field_kind_label_option": "Značka"
 }

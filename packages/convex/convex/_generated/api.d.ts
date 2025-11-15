@@ -10,6 +10,7 @@
 
 import type * as dbQueries_index from "../dbQueries/index.js";
 import type * as priorityClasses from "../priorityClasses.js";
+import type * as tags from "../tags.js";
 import type * as taskActions from "../taskActions.js";
 import type * as taskTypes from "../taskTypes.js";
 import type * as tasks from "../tasks.js";
@@ -28,6 +29,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "dbQueries/index": typeof dbQueries_index;
   priorityClasses: typeof priorityClasses;
+  tags: typeof tags;
   taskActions: typeof taskActions;
   taskTypes: typeof taskTypes;
   tasks: typeof tasks;
