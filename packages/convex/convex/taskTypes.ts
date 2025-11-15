@@ -1,4 +1,4 @@
-import { ConvexError, v } from "convex/values";
+import { v } from "convex/values";
 import { generateNKeysBetween } from "fractional-indexing";
 
 import {
@@ -12,36 +12,27 @@ import {
 } from "@gc/validators";
 
 import { Id } from "./_generated/dataModel";
-import { checkUnit } from "./units";
 import {
-  authedMutation,
-  AuthedMutationCtx,
-  authedQuery,
-  AuthedQueryCtx,
-} from "./utils/authedFunctions";
+  taskTypeEnumOptionQueries,
+  taskTypeQueries,
+  unitQueries,
+} from "./dbQueries";
+import { authedMutation, authedQuery } from "./utils/authedFunctions";
 
 export const getAllForUserId = authedQuery({
   args: {},
   returns: v.array(extendedTaskTypeConvexSchema),
-  handler: async ({ db, userId }) => {
-    const taskTypes = await db
-      .query("taskTypes")
-      .withIndex("by_userId", (q) =>
-        q.eq("userId", userId).eq("archivedAt", undefined)
-      )
-      .collect();
+  handler: async (ctx) => {
+    const taskTypes = await taskTypeQueries({ ctx }).getAll();
     const extendedTaskTypes = await Promise.all(
       taskTypes.map(async (taskType) => {
         if (taskType.valueKind !== "enum") {
           return taskType;
         }
-        const taskTypeEnumOptions = await db
-          .query("taskTypeEnumOptions")
-          .withIndex("by_taskTypeId_orderKey", (q) =>
-            q.eq("taskTypeId", taskType._id)
-          )
-          .filter((q) => q.eq(q.field("archivedAt"), undefined))
-          .collect();
+        const taskTypeEnumOptions = await taskTypeEnumOptionQueries({
+          ctx,
+        }).getAllForTaskType({ taskTypeId: taskType._id });
+
         return { ...taskType, taskTypeEnumOptions };
       })
     );
@@ -53,19 +44,14 @@ export const create = authedMutation({
   args: createTaskTypeConvexSchema,
   rateLimit: { name: "createTaskType" },
   handler: async (ctx, taskTypeArgs) => {
-    const existingTaskTypes = await ctx.db
-      .query("taskTypes")
-      .withIndex("by_userId", (q) =>
-        q.eq("userId", ctx.userId).eq("archivedAt", undefined)
-      )
-      .collect();
+    const existingTaskTypes = await taskTypeQueries({ ctx }).getAll();
     await zodParse(
       getCreateTaskTypeZodSchema({ existingTaskTypes }),
       taskTypeArgs
     );
 
     if (taskTypeArgs.unitId) {
-      await checkUnit(ctx, taskTypeArgs.unitId);
+      await unitQueries({ ctx }).getOne({ unitId: taskTypeArgs.unitId });
     }
 
     const { taskTypeEnumOptions, ...rawTaskType } = taskTypeArgs;
@@ -118,14 +104,11 @@ export const update = authedMutation({
   args: updateTaskTypeConvexSchema,
   rateLimit: { name: "updateTaskType" },
   handler: async (ctx, { taskTypeId, ...taskTypeArgs }) => {
-    const originalTaskType = await checkTaskType(ctx, taskTypeId);
+    const originalTaskType = await taskTypeQueries({ ctx }).getOne({
+      taskTypeId,
+    });
 
-    const existingTaskTypes = await ctx.db
-      .query("taskTypes")
-      .withIndex("by_userId", (q) =>
-        q.eq("userId", ctx.userId).eq("archivedAt", undefined)
-      )
-      .collect();
+    const existingTaskTypes = await taskTypeQueries({ ctx }).getAll();
     await zodParse(
       getUpdateTaskTypeZodSchema({
         existingTaskTypes,
@@ -137,7 +120,7 @@ export const update = authedMutation({
       }
     );
     if (taskTypeArgs.unitId) {
-      await checkUnit(ctx, taskTypeArgs.unitId);
+      await unitQueries({ ctx }).getOne({ unitId: taskTypeArgs.unitId });
     } else {
       taskTypeArgs.unitId = undefined;
     }
@@ -152,13 +135,9 @@ export const update = authedMutation({
     }
 
     if (taskTypeEnumOptions) {
-      const originalEnumOptions = await ctx.db
-        .query("taskTypeEnumOptions")
-        .withIndex("by_taskTypeId_orderKey", (q) =>
-          q.eq("taskTypeId", taskTypeId)
-        )
-        .filter((q) => q.eq(q.field("archivedAt"), undefined))
-        .collect();
+      const originalEnumOptions = await taskTypeEnumOptionQueries({
+        ctx,
+      }).getAllForTaskType({ taskTypeId });
 
       const orderKeys = generateNKeysBetween(
         null,
@@ -228,7 +207,9 @@ export const archive = authedMutation({
   rateLimit: { name: "archiveTaskType" },
   handler: async (ctx, { taskTypeIds }) => {
     await Promise.all(
-      taskTypeIds.map((taskTypeId) => checkTaskType(ctx, taskTypeId))
+      taskTypeIds.map((taskTypeId) =>
+        taskTypeQueries({ ctx }).getOne({ taskTypeId })
+      )
     );
     const now = Date.now();
     for (const taskTypeId of taskTypeIds) {
@@ -236,18 +217,3 @@ export const archive = authedMutation({
     }
   },
 });
-
-async function checkTaskType(
-  ctx: AuthedMutationCtx | AuthedQueryCtx,
-  taskTypeId: Id<"taskTypes">
-) {
-  const { db, userId } = ctx;
-  const taskType = await db.get(taskTypeId);
-  if (!taskType) {
-    throw new ConvexError({ message: "Task type not found" });
-  }
-  if (taskType.userId !== userId) {
-    throw new ConvexError({ message: "Not authorized for this task type" });
-  }
-  return taskType;
-}

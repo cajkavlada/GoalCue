@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as dbQueries_index from "../dbQueries/index.js";
 import type * as priorityClasses from "../priorityClasses.js";
 import type * as taskActions from "../taskActions.js";
 import type * as taskTypes from "../taskTypes.js";
@@ -25,6 +26,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "dbQueries/index": typeof dbQueries_index;
   priorityClasses: typeof priorityClasses;
   taskActions: typeof taskActions;
   taskTypes: typeof taskTypes;
