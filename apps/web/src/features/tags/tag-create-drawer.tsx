@@ -3,7 +3,11 @@ import { useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
 import { ErrorSuspense } from "@gc/react-kit";
 import { Drawer } from "@gc/ui";
-import { CreateTagArgs, getCreateTagZodSchema } from "@gc/validators";
+import {
+  CreateTagArgs,
+  getCreateTagZodSchema,
+  TAG_COLORS,
+} from "@gc/validators";
 
 import { tagApi } from "./tag.api";
 
@@ -49,6 +53,14 @@ export function TagCreateForm({ onCreate }: TagCreateFormProps) {
             <field.Input
               label={m.tags_form_field_name_label()}
               autoFocus
+            />
+          )}
+        </form.AppField>
+        <form.AppField name="color">
+          {(field) => (
+            <field.ColorPicker
+              label={m.tags_form_field_color_label()}
+              colors={TAG_COLORS}
             />
           )}
         </form.AppField>
