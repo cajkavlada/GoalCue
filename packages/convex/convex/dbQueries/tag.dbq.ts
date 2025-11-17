@@ -74,20 +74,20 @@ export function tagRelationsUpdate({ ctx }: { ctx: AuthedMutationCtx }) {
       taskTypeId: Id<"taskTypes">;
       newTags: Id<"tags">[];
     }) {
-      const currentTagRelations = await tagQueries({
+      const originalTagRelations = await tagQueries({
         ctx,
       }).getAllRelationsForTaskType({ taskTypeId });
       const { idsToAdd: tagsToAdd, idsToRemove: tagsToRemove } =
-        getIdsToAddAndRemoveforUpdate(
-          currentTagRelations.map((rel) => rel.tagId),
-          newTags
-        );
+        getIdsToAddAndRemoveforUpdate({
+          originalIds: originalTagRelations.map((rel) => rel.tagId),
+          newIds: newTags,
+        });
       for (const tagId of tagsToAdd) {
         await tagQueries({ ctx }).getOne({ tagId });
         await ctx.db.insert("tagTaskTypes", { taskTypeId, tagId });
       }
       for (const tagId of tagsToRemove) {
-        const rel = currentTagRelations.find((rel) => rel.tagId === tagId);
+        const rel = originalTagRelations.find((rel) => rel.tagId === tagId);
         if (rel) {
           await ctx.db.delete(rel._id);
         }
@@ -101,20 +101,20 @@ export function tagRelationsUpdate({ ctx }: { ctx: AuthedMutationCtx }) {
       taskId: Id<"tasks">;
       newTags: Id<"tags">[];
     }) {
-      const currentTagRelations = await tagQueries({
+      const originalTagRelations = await tagQueries({
         ctx,
       }).getAllRelationsForTask({ taskId });
       const { idsToAdd: tagsToAdd, idsToRemove: tagsToRemove } =
-        getIdsToAddAndRemoveforUpdate(
-          currentTagRelations.map((rel) => rel.tagId),
-          newTags
-        );
+        getIdsToAddAndRemoveforUpdate({
+          originalIds: originalTagRelations.map((rel) => rel.tagId),
+          newIds: newTags,
+        });
       for (const tagId of tagsToAdd) {
         await tagQueries({ ctx }).getOne({ tagId });
         await ctx.db.insert("tagTasks", { taskId, tagId });
       }
       for (const tagId of tagsToRemove) {
-        const rel = currentTagRelations.find((rel) => rel.tagId === tagId);
+        const rel = originalTagRelations.find((rel) => rel.tagId === tagId);
         if (rel) {
           await ctx.db.delete(rel._id);
         }

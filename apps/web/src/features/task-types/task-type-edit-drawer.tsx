@@ -74,7 +74,6 @@ export function TaskTypeEditForm({
             taskTypeEnumOptions: stripEnumOptions(
               editedTaskType.taskTypeEnumOptions!
             ),
-            archivedTaskTypeEnumOptions: [],
             tags: editedTaskType.tags.map((tag) => tag._id),
           }
         : {
@@ -186,14 +185,8 @@ export function TaskTypeEditForm({
                 onAddEnumOption={(option) => {
                   field.pushValue(option);
                 }}
-                onRemoveEnumOption={(index, optionId) => {
+                onRemoveEnumOption={(index) => {
                   field.removeValue(index);
-                  if (optionId) {
-                    form.pushFieldValue(
-                      "archivedTaskTypeEnumOptions",
-                      optionId
-                    );
-                  }
                 }}
                 onEditEnumOption={(index, value) => {
                   field.replaceValue(index, {
