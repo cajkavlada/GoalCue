@@ -17,3 +17,4 @@ export * from "./separator";
 export * from "./command";
 export * from "./popover";
 export * from "./badge";
+export * from "./color-picker";

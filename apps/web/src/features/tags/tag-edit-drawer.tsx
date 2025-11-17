@@ -2,7 +2,12 @@ import { useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
 import { ErrorSuspense } from "@gc/react-kit";
 import { Drawer } from "@gc/ui";
-import { getUpdateTagZodSchema, Tag, UpdateTagArgs } from "@gc/validators";
+import {
+  getUpdateTagZodSchema,
+  Tag,
+  TAG_COLORS,
+  UpdateTagArgs,
+} from "@gc/validators";
 
 import { tagApi } from "./tag.api";
 
@@ -26,6 +31,7 @@ export function TagEditForm({ editedTag }: { editedTag: Tag }) {
 
   const defaultValues: UpdateTagArgs = {
     name: editedTag.name,
+    color: editedTag.color,
   };
 
   const form = useAppForm({
@@ -52,6 +58,14 @@ export function TagEditForm({ editedTag }: { editedTag: Tag }) {
             <field.Input
               label={m.tags_form_field_name_label()}
               autoFocus
+            />
+          )}
+        </form.AppField>
+        <form.AppField name="color">
+          {(field) => (
+            <field.ColorPicker
+              label={m.tags_form_field_color_label()}
+              colors={TAG_COLORS}
             />
           )}
         </form.AppField>

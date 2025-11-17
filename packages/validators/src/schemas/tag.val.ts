@@ -2,6 +2,8 @@ import { pick } from "convex-helpers";
 import { Infer, v } from "convex/values";
 import z from "zod";
 
+import { TAG_COLORS } from "@gc/db";
+
 import { convexSchemaFromTable } from "../utils/dbSchemaHelpers";
 import { uniqueField } from "../utils/zodHelpers";
 
@@ -24,7 +26,7 @@ export function getCreateTagZodSchema({
         .string()
         .min(1)
         .pipe(uniqueField({ existing: existingTags, fieldName: "name" })),
-      color: z.string().optional(),
+      color: z.enum(TAG_COLORS.map((color) => color.value)).optional(),
       kind: z
         .enum(["project", "area", "context", "timeframe", "label"])
         .optional(),
@@ -58,7 +60,7 @@ export function getUpdateTagZodSchema({
             currentId: currentTagId,
           })
         ),
-      color: z.string().optional(),
+      color: z.enum(TAG_COLORS.map((color) => color.value)).optional(),
       kind: z
         .enum(["project", "area", "context", "timeframe", "label"])
         .optional(),
