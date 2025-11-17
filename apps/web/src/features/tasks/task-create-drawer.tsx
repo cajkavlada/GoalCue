@@ -52,7 +52,7 @@ function TaskCreateForm() {
     completedNumValue: taskTypes[0]?.completedNumValue,
     useDueAt: false,
     dueAt: defaultDueAt,
-    tags: [],
+    tags: taskTypes[0]?.tags.map((tag) => tag._id) ?? [],
   };
 
   const form = useAppForm({
@@ -87,6 +87,7 @@ function TaskCreateForm() {
       "completedNumValue",
       isNumber ? (taskType?.completedNumValue ?? 10) : undefined
     );
+    form.setFieldValue("tags", taskType?.tags.map((tag) => tag._id) ?? []);
   }
 
   return (
