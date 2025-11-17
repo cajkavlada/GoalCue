@@ -3,6 +3,7 @@ import { createFormHook, createFormHookContexts } from "@tanstack/react-form";
 import {
   DatePickerField,
   InputField,
+  MultiSelectField,
   SelectField,
   SwitchField,
 } from "./field-components";
@@ -19,6 +20,7 @@ export const { useAppForm, withForm } = createFormHook({
     Select: SelectField,
     DatePicker: DatePickerField,
     Switch: SwitchField,
+    MultiSelect: MultiSelectField,
   },
   formComponents: { FormRoot, SubmitButton, FormErrors },
 });

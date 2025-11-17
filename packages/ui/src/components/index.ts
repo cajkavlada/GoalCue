@@ -14,3 +14,6 @@ export * from "./date";
 export * from "./switch";
 export * from "./card";
 export * from "./separator";
+export * from "./command";
+export * from "./popover";
+export * from "./badge";

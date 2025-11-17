@@ -15,6 +15,8 @@ import {
 import { Doc, Id } from "./_generated/dataModel";
 import {
   priorityClassQueries,
+  tagQueries,
+  tagRelationsUpdate,
   taskQueries,
   taskTypeEnumOptionQueries,
   taskTypeQueries,
@@ -74,52 +76,69 @@ export const getExtendedById = authedQuery({
 export const create = authedMutation({
   args: createTaskConvexSchema,
   rateLimit: { name: "createTask" },
-  handler: async (ctx, task) => {
-    const parsedDueAt = task.dueAt ? new Date(task.dueAt) : undefined;
+  handler: async (ctx, taskArgs) => {
+    const parsedDueAt = taskArgs.dueAt ? new Date(taskArgs.dueAt) : undefined;
     await zodParse(createTaskZodSchema, {
-      ...task,
+      ...taskArgs,
       dueAt: parsedDueAt,
     });
 
     const taskType = await taskTypeQueries({ ctx }).getOne({
-      taskTypeId: task.taskTypeId,
+      taskTypeId: taskArgs.taskTypeId,
     });
 
     await zodParse(taskWithCorrectValuesSchema, {
-      ...task,
+      ...taskArgs,
       valueKind: taskType.valueKind,
       dueAt: parsedDueAt,
     });
 
-    return await ctx.db.insert("tasks", {
-      ...task,
+    const { tags, ...rawTask } = taskArgs;
+
+    const newTaskId = await ctx.db.insert("tasks", {
+      ...rawTask,
       userId: ctx.userId,
       valueKind: taskType.valueKind,
       priorityIndex: generateKeyBetween(
         null,
-        await getFirstPriorityIndexInClass(ctx, task.priorityClassId)
+        await getFirstPriorityIndexInClass(ctx, rawTask.priorityClassId)
       ),
-      initialNumValue: task.initialNumValue ?? taskType.initialNumValue,
-      currentNumValue: task.initialNumValue ?? taskType.initialNumValue,
-      completedNumValue: task.completedNumValue ?? taskType.completedNumValue,
+      initialNumValue: rawTask.initialNumValue ?? taskType.initialNumValue,
+      currentNumValue: rawTask.initialNumValue ?? taskType.initialNumValue,
+      completedNumValue:
+        rawTask.completedNumValue ?? taskType.completedNumValue,
       currentEnumOptionId: taskType.initialEnumOptionId,
     });
+
+    for (const tagId of tags) {
+      await tagQueries({ ctx }).getOne({ tagId });
+      await ctx.db.insert("tagTasks", { taskId: newTaskId, tagId });
+    }
+
+    return newTaskId;
   },
 });
 
 export const update = authedMutation({
   args: updateTaskConvexSchema,
   rateLimit: { name: "updateTask" },
-  handler: async (ctx, { taskId, ...task }) => {
+  handler: async (ctx, { taskId, ...taskArgs }) => {
     await taskQueries({ ctx }).getOne({ taskId });
-    const parsedDueAt = task.dueAt ? new Date(task.dueAt) : undefined;
+    const parsedDueAt = taskArgs.dueAt ? new Date(taskArgs.dueAt) : undefined;
     await zodParse(updateTaskZodSchema, {
-      ...task,
+      ...taskArgs,
       dueAt: parsedDueAt,
     });
+    const { tags, ...rawTask } = taskArgs;
+
+    await tagRelationsUpdate({ ctx }).updateTagsForTask({
+      taskId,
+      newTags: tags,
+    });
+
     await ctx.db.patch(taskId, {
-      ...task,
-      dueAt: task.dueAt ?? undefined,
+      ...rawTask,
+      dueAt: taskArgs.dueAt ?? undefined,
     });
   },
 });
@@ -147,6 +166,7 @@ async function getExtendedTaskInfo(ctx: AuthedQueryCtx, task: Doc<"tasks">) {
   const priorityClass = await priorityClassQueries({ ctx }).getOne({
     priorityClassId: task.priorityClassId,
   });
+  const tags = await tagQueries({ ctx }).getAllForTask({ taskId: task._id });
 
   let enumOptions: Doc<"taskTypeEnumOptions">[] | undefined;
   if (taskType.valueKind === "enum") {
@@ -158,6 +178,7 @@ async function getExtendedTaskInfo(ctx: AuthedQueryCtx, task: Doc<"tasks">) {
     ...task,
     taskType,
     priorityClass,
+    tags,
     ...(enumOptions ? { enumOptions } : {}),
   };
 }

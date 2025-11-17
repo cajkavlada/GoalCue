@@ -17,8 +17,8 @@ import type * as tasks from "../tasks.js";
 import type * as units from "../units.js";
 import type * as users from "../users.js";
 import type * as utils_authedFunctions from "../utils/authedFunctions.js";
-import type * as utils_parsedHandler from "../utils/parsedHandler.js";
 import type * as utils_rateLimiter from "../utils/rateLimiter.js";
+import type * as utils_relationsUtils from "../utils/relationsUtils.js";
 
 import type {
   ApiFromModules,
@@ -36,8 +36,8 @@ declare const fullApi: ApiFromModules<{
   units: typeof units;
   users: typeof users;
   "utils/authedFunctions": typeof utils_authedFunctions;
-  "utils/parsedHandler": typeof utils_parsedHandler;
   "utils/rateLimiter": typeof utils_rateLimiter;
+  "utils/relationsUtils": typeof utils_relationsUtils;
 }>;
 
 /**

@@ -1,7 +1,7 @@
 import { useStore } from "@tanstack/react-form";
 
 import { m } from "@gc/i18n/messages";
-import { Label, TimePicker, DatePicker as UIDatePicker } from "@gc/ui";
+import { DatePicker, Label, TimePicker } from "@gc/ui";
 import { cn } from "@gc/utils";
 
 import type { FieldError } from "../types/field-error";
@@ -54,7 +54,7 @@ export function DatePickerField({
     <div className={cn("flex flex-col", className)}>
       <Label htmlFor={field.name}>{label}</Label>
       <div className="flex gap-2">
-        <UIDatePicker
+        <DatePicker
           value={state.value}
           onChange={field.handleChange}
           onBlur={field.handleBlur}

@@ -1,10 +1,10 @@
-import { Label, Select } from "@gc/ui";
+import { Label, MultiSelect } from "@gc/ui";
 import { cn } from "@gc/utils";
 
 import { useFieldContext } from "../use-app-form";
 import { FieldErrors } from "./field-errors";
 
-export function SelectField<T extends string>({
+export function MultiSelectField<T extends string>({
   label,
   className,
   onValueChange,
@@ -12,16 +12,16 @@ export function SelectField<T extends string>({
 }: {
   label: string;
   className?: string;
-  options?: { label: string; value: T }[];
-  onValueChange?: (value: T) => void;
-  children?: React.ReactNode;
+  options: { label: string; value: T }[];
+  onValueChange?: (value: T[]) => void;
   placeholder?: string;
+  emptyMessage: string;
 }) {
-  const field = useFieldContext<T>();
+  const field = useFieldContext<T[]>();
   return (
     <div className={cn("flex flex-col", className)}>
       <Label htmlFor={field.name}>{label}</Label>
-      <Select
+      <MultiSelect
         value={field.state.value}
         onValueChange={(val) => {
           field.handleChange(val);
