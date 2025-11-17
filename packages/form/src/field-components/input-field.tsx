@@ -1,4 +1,4 @@
-import { Label, Input as UIInput } from "@gc/ui";
+import { Input, Label } from "@gc/ui";
 import { cn } from "@gc/utils";
 
 import { useFieldContext } from "../use-app-form";
@@ -29,7 +29,7 @@ export function InputField({
   return (
     <div className={cn("flex flex-col", className)}>
       <Label htmlFor={field.name}>{label}</Label>
-      <UIInput
+      <Input
         className={inputClassName}
         id={field.name}
         type={type}

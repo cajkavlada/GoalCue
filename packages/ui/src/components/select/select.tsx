@@ -30,11 +30,7 @@ export function Select<T extends string>({
       onValueChange={onValueChange}
     >
       <SelectTrigger className={cn("w-full", className)}>
-        <SelectValue
-          placeholder={
-            placeholder ?? options?.[0]?.label ?? m.select_placeholder()
-          }
-        />
+        <SelectValue placeholder={placeholder ?? m.select_placeholder()} />
       </SelectTrigger>
       <SelectContent>
         {options?.map((option) => (

@@ -241,5 +241,8 @@
   "tags_form_field_kind_area_option": "Oblast",
   "tags_form_field_kind_context_option": "Kontext",
   "tags_form_field_kind_timeframe_option": "Časové období",
-  "tags_form_field_kind_label_option": "Značka"
+  "tags_form_field_kind_label_option": "Značka",
+  "search_placeholder": "Hledat...",
+  "tags_form_assigned_tags_label": "Přiřazené štítky",
+  "tags_form_assigned_tags_placeholder": "Žádné přiřazené štítky"
 }

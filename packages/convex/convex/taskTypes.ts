@@ -11,8 +11,10 @@ import {
   zodParse,
 } from "@gc/validators";
 
-import { Id } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
 import {
+  tagQueries,
+  tagRelationsUpdate,
   taskTypeEnumOptionQueries,
   taskTypeQueries,
   unitQueries,
@@ -26,14 +28,22 @@ export const getAllForUserId = authedQuery({
     const taskTypes = await taskTypeQueries({ ctx }).getAll();
     const extendedTaskTypes = await Promise.all(
       taskTypes.map(async (taskType) => {
-        if (taskType.valueKind !== "enum") {
-          return taskType;
-        }
-        const taskTypeEnumOptions = await taskTypeEnumOptionQueries({
-          ctx,
-        }).getAllForTaskType({ taskTypeId: taskType._id });
+        const tags = await tagQueries({ ctx }).getAllForTaskType({
+          taskTypeId: taskType._id,
+        });
 
-        return { ...taskType, taskTypeEnumOptions };
+        let taskTypeEnumOptions: Doc<"taskTypeEnumOptions">[] | undefined;
+        if (taskType.valueKind === "enum") {
+          taskTypeEnumOptions = await taskTypeEnumOptionQueries({
+            ctx,
+          }).getAllForTaskType({ taskTypeId: taskType._id });
+        }
+
+        return {
+          ...taskType,
+          tags,
+          ...(taskTypeEnumOptions ? { taskTypeEnumOptions } : {}),
+        };
       })
     );
     return extendedTaskTypes;
@@ -54,11 +64,20 @@ export const create = authedMutation({
       await unitQueries({ ctx }).getOne({ unitId: taskTypeArgs.unitId });
     }
 
-    const { taskTypeEnumOptions, ...rawTaskType } = taskTypeArgs;
+    const { taskTypeEnumOptions, tags, ...rawTaskType } = taskTypeArgs;
+
     const newTaskTypeId = await ctx.db.insert("taskTypes", {
       ...rawTaskType,
       userId: ctx.userId,
     });
+
+    for (const tagId of tags) {
+      await tagQueries({ ctx }).getOne({ tagId });
+      await ctx.db.insert("tagTaskTypes", {
+        taskTypeId: newTaskTypeId,
+        tagId,
+      });
+    }
 
     if (taskTypeEnumOptions) {
       const orderKeys = generateNKeysBetween(
@@ -125,8 +144,17 @@ export const update = authedMutation({
       taskTypeArgs.unitId = undefined;
     }
 
-    const { taskTypeEnumOptions, archivedTaskTypeEnumOptions, ...rawTaskType } =
-      taskTypeArgs;
+    const {
+      taskTypeEnumOptions,
+      archivedTaskTypeEnumOptions,
+      tags,
+      ...rawTaskType
+    } = taskTypeArgs;
+
+    await tagRelationsUpdate({ ctx }).updateTagsForTaskType({
+      taskTypeId,
+      newTags: tags,
+    });
 
     const now = Date.now();
     for (const archivedTaskTypeEnumOptionId of archivedTaskTypeEnumOptions ??

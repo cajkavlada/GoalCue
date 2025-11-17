@@ -7,6 +7,7 @@ import { CUSTOM_ERROR_REASONS } from "../utils/customErrorReasons";
 import { convexSchemaFromTable } from "../utils/dbSchemaHelpers";
 import { uniqueField } from "../utils/zodHelpers";
 import { zid } from "../utils/zodv4Helpers";
+import { tagConvexSchema } from "./tag.val";
 import { taskTypeEnumOptionConvexSchema } from "./taskTypeEnumOption.val";
 
 export const taskTypeConvexSchema = convexSchemaFromTable("taskTypes");
@@ -16,6 +17,7 @@ export type TaskType = Infer<typeof taskTypeConvexSchema>;
 export const extendedTaskTypeConvexSchema = v.object({
   ...taskTypeConvexSchema.fields,
   taskTypeEnumOptions: v.optional(v.array(taskTypeEnumOptionConvexSchema)),
+  tags: v.array(tagConvexSchema),
 });
 
 export type ExtendedTaskType = Infer<typeof extendedTaskTypeConvexSchema>;
@@ -36,6 +38,7 @@ export const createTaskTypeConvexSchema = v.object({
       })
     )
   ),
+  tags: v.array(v.id("tags")),
 });
 
 // TODO: infer from convex schema when convexToZod supports zod v4
@@ -44,21 +47,24 @@ export function getCreateTaskTypeZodSchema({
 }: {
   existingTaskTypes: TaskType[];
 }) {
-  const uniqueName = z
-    .string()
-    .min(1)
-    .pipe(uniqueField({ existing: existingTaskTypes, fieldName: "name" }));
+  const baseSchema = z.object({
+    name: z
+      .string()
+      .min(1)
+      .pipe(uniqueField({ existing: existingTaskTypes, fieldName: "name" })),
+    tags: z.array(zid("tags")),
+  });
 
   return z.union([
     z
       .object({
-        name: uniqueName,
+        ...baseSchema.shape,
         valueKind: z.literal("boolean"),
       })
       .strict(),
     z
       .object({
-        name: uniqueName,
+        ...baseSchema.shape,
         valueKind: z.literal("number"),
         initialNumValue: z.number(),
         completedNumValue: z.number(),
@@ -68,7 +74,7 @@ export function getCreateTaskTypeZodSchema({
       .superRefine(checkEqualInitialAndCompletedNumValues),
     z
       .object({
-        name: uniqueName,
+        ...baseSchema.shape,
         valueKind: z.literal("enum"),
         taskTypeEnumOptions: z
           .array(
@@ -102,6 +108,7 @@ export const updateTaskTypeConvexSchema = v.object({
       })
     )
   ),
+  tags: v.array(v.id("tags")),
   archivedTaskTypeEnumOptions: v.optional(
     v.array(taskTypeEnumOptionConvexSchema.fields._id)
   ),
@@ -114,26 +121,29 @@ export function getUpdateTaskTypeZodSchema({
   existingTaskTypes: TaskType[];
   currentTaskTypeId: TaskType["_id"];
 }) {
-  const uniqueName = z
-    .string()
-    .min(1)
-    .pipe(
-      uniqueField({
-        existing: existingTaskTypes,
-        fieldName: "name",
-        currentId: currentTaskTypeId,
-      })
-    );
+  const baseSchema = z.object({
+    name: z
+      .string()
+      .min(1)
+      .pipe(
+        uniqueField({
+          existing: existingTaskTypes,
+          fieldName: "name",
+          currentId: currentTaskTypeId,
+        })
+      ),
+    tags: z.array(zid("tags")),
+  });
   return z.union([
     z
       .object({
-        name: uniqueName,
+        ...baseSchema.shape,
         valueKind: z.literal("boolean"),
       })
       .strict(),
     z
       .object({
-        name: uniqueName,
+        ...baseSchema.shape,
         valueKind: z.literal("number"),
         initialNumValue: z.number(),
         completedNumValue: z.number(),
@@ -143,7 +153,7 @@ export function getUpdateTaskTypeZodSchema({
       .superRefine(checkEqualInitialAndCompletedNumValues),
     z
       .object({
-        name: uniqueName,
+        ...baseSchema.shape,
         valueKind: z.literal("enum"),
         taskTypeEnumOptions: z
           .array(

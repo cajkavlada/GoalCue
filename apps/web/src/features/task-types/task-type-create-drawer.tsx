@@ -7,6 +7,8 @@ import { ErrorSuspense } from "@gc/react-kit";
 import { Drawer, DrawerButton, SelectItem, Tooltip } from "@gc/ui";
 import { CreateTaskTypeArgs, getCreateTaskTypeZodSchema } from "@gc/validators";
 
+import { TagCreateDrawer } from "../tags/tag-create-drawer";
+import { tagApi } from "../tags/tag.api";
 import { TaskTypeEnumOptionsEditor } from "../task-type-enum-options/task-type-enum-options-editor";
 import { UnitCreateDrawer } from "../units/unit-create-drawer";
 import { unitApi } from "../units/unit.api";
@@ -32,6 +34,7 @@ export function TaskTypeCreateDrawer(props: TaskTypeCreateFormProps) {
 
 function TaskTypeCreateForm({ onCreate }: TaskTypeCreateFormProps) {
   const { data: units } = unitApi.useList();
+  const { data: tags } = tagApi.useList();
 
   const { data: taskTypes } = taskTypeApi.useList();
   const createMutation = taskTypeApi.useCreate(onCreate);
@@ -40,6 +43,7 @@ function TaskTypeCreateForm({ onCreate }: TaskTypeCreateFormProps) {
     defaultValues: {
       name: "",
       valueKind: "boolean",
+      tags: [],
     } as CreateTaskTypeArgs,
     validators: {
       onBlur: getCreateTaskTypeZodSchema({ existingTaskTypes: taskTypes }),
@@ -214,6 +218,33 @@ function TaskTypeCreateForm({ onCreate }: TaskTypeCreateFormProps) {
             return null;
           }}
         </form.Subscribe>
+        <form.AppField name="tags">
+          {(field) => (
+            <div className="flex w-full items-end gap-2">
+              <field.MultiSelect
+                className="flex-1"
+                label={m.tags_form_assigned_tags_label()}
+                emptyMessage={m.tags_empty_message()}
+                options={tags.map((tag) => ({
+                  label: tag.name,
+                  value: tag._id,
+                }))}
+              />
+              <DrawerButton
+                tooltip={m.tags_create_button_label()}
+                drawerContent={
+                  <TagCreateDrawer
+                    onCreate={(newTagId) => {
+                      field.pushValue(newTagId);
+                    }}
+                  />
+                }
+              >
+                <Plus />
+              </DrawerButton>
+            </div>
+          )}
+        </form.AppField>
         <Drawer.Footer>
           <form.SubmitButton />
         </Drawer.Footer>

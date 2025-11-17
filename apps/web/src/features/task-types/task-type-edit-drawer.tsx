@@ -11,6 +11,8 @@ import {
   UpdateTaskTypeArgs,
 } from "@gc/validators";
 
+import { TagCreateDrawer } from "../tags/tag-create-drawer";
+import { tagApi } from "../tags/tag.api";
 import { TaskTypeEnumOptionsEditor } from "../task-type-enum-options/task-type-enum-options-editor";
 import { UnitCreateDrawer } from "../units/unit-create-drawer";
 import { unitApi } from "../units/unit.api";
@@ -40,6 +42,8 @@ export function TaskTypeEditForm({
   editedTaskType: ExtendedTaskType;
 }) {
   const { data: units } = unitApi.useList();
+  const { data: tags } = tagApi.useList();
+
   const { data: taskTypes } = taskTypeApi.useList();
   const updateMutation = taskTypeApi.useUpdate();
 
@@ -61,6 +65,7 @@ export function TaskTypeEditForm({
           initialNumValue: editedTaskType.initialNumValue!,
           completedNumValue: editedTaskType.completedNumValue!,
           unitId: editedTaskType.unitId ?? "none",
+          tags: editedTaskType.tags.map((tag) => tag._id),
         } as UpdateTaskTypeArgs)
       : editedTaskType.valueKind === "enum"
         ? {
@@ -70,10 +75,12 @@ export function TaskTypeEditForm({
               editedTaskType.taskTypeEnumOptions!
             ),
             archivedTaskTypeEnumOptions: [],
+            tags: editedTaskType.tags.map((tag) => tag._id),
           }
         : {
             name: editedTaskType.name,
             valueKind: editedTaskType.valueKind,
+            tags: editedTaskType.tags.map((tag) => tag._id),
           };
 
   const form = useAppForm({
@@ -198,6 +205,33 @@ export function TaskTypeEditForm({
             )}
           </form.AppField>
         )}
+        <form.AppField name="tags">
+          {(field) => (
+            <div className="flex w-full items-end gap-2">
+              <field.MultiSelect
+                className="flex-1"
+                label={m.tags_form_assigned_tags_label()}
+                emptyMessage={m.tags_empty_message()}
+                options={tags.map((tag) => ({
+                  label: tag.name,
+                  value: tag._id,
+                }))}
+              />
+              <DrawerButton
+                tooltip={m.tags_create_button_label()}
+                drawerContent={
+                  <TagCreateDrawer
+                    onCreate={(newTagId) => {
+                      field.pushValue(newTagId);
+                    }}
+                  />
+                }
+              >
+                <Plus />
+              </DrawerButton>
+            </div>
+          )}
+        </form.AppField>
         <Drawer.Footer>
           <form.SubmitButton />
         </Drawer.Footer>

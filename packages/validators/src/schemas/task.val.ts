@@ -1,11 +1,11 @@
 import { pick } from "convex-helpers";
-import { partial } from "convex-helpers/validators";
 import { Infer, v } from "convex/values";
 import z from "zod";
 
 import { convexSchemaFromTable } from "../utils/dbSchemaHelpers";
 import { zid } from "../utils/zodv4Helpers";
 import { priorityClassConvexSchema } from "./priorityClass.val";
+import { tagConvexSchema } from "./tag.val";
 import {
   checkEqualInitialAndCompletedNumValues,
   taskTypeConvexSchema,
@@ -19,13 +19,14 @@ export const extendedTaskConvexSchema = v.object({
   taskType: taskTypeConvexSchema,
   priorityClass: priorityClassConvexSchema,
   enumOptions: v.optional(v.array(taskTypeEnumOptionConvexSchema)),
+  tags: v.array(tagConvexSchema),
 });
 
 export type ExtendedTask = Infer<typeof extendedTaskConvexSchema>;
 
 // create task convex schema
-export const createTaskConvexSchema = v.object(
-  pick(taskConvexSchema, [
+export const createTaskConvexSchema = v.object({
+  ...pick(taskConvexSchema, [
     "title",
     "description",
     "taskTypeId",
@@ -34,8 +35,9 @@ export const createTaskConvexSchema = v.object(
     "dueAt",
     "initialNumValue",
     "completedNumValue",
-  ])
-);
+  ]),
+  tags: v.array(v.id("tags")),
+});
 
 // TODO: infer from convex schema when convexToZod supports zod v4
 export const createTaskZodSchema = z
@@ -48,6 +50,7 @@ export const createTaskZodSchema = z
     dueAt: z.date().optional(),
     initialNumValue: z.number().optional(),
     completedNumValue: z.number().optional(),
+    tags: z.array(zid("tags")),
   })
   .superRefine(checkEqualInitialAndCompletedNumValues);
 
@@ -86,31 +89,29 @@ export const taskWithCorrectValuesSchema = z.union([
 
 export const updateTaskConvexSchema = v.object({
   taskId: taskConvexSchema._id,
-  ...partial(
-    pick(taskConvexSchema, [
-      "title",
-      "description",
-      "priorityClassId",
-      "priorityIndex",
-      "repetitionId",
-      "dueAt",
-      "initialNumValue",
-      "completedNumValue",
-    ])
-  ),
+  ...pick(taskConvexSchema, [
+    "title",
+    "description",
+    "priorityClassId",
+    "repetitionId",
+    "dueAt",
+    "initialNumValue",
+    "completedNumValue",
+  ]),
+  tags: v.array(v.id("tags")),
 });
 
 export const updateTaskZodSchema = z
   .object({
     title: z.string(),
-    description: z.string(),
+    description: z.string().optional(),
     priorityClassId: zid("priorityClasses"),
-    repetitionId: zid("repetitions"),
-    dueAt: z.date(),
-    initialNumValue: z.number(),
-    completedNumValue: z.number(),
+    repetitionId: zid("repetitions").optional(),
+    dueAt: z.date().optional(),
+    initialNumValue: z.number().optional(),
+    completedNumValue: z.number().optional(),
+    tags: z.array(zid("tags")),
   })
-  .partial()
   .superRefine(checkEqualInitialAndCompletedNumValues);
 
 export type UpdateTaskArgs = z.infer<typeof updateTaskZodSchema>;

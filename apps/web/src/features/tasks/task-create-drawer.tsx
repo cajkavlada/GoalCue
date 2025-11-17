@@ -11,6 +11,8 @@ import { CreateTaskArgs, createTaskZodSchema } from "@gc/validators";
 
 import { PriorityClassCreateDrawer } from "../priority-classes/priority-class-create-drawer";
 import { priorityClassApi } from "../priority-classes/priority-class.api";
+import { TagCreateDrawer } from "../tags/tag-create-drawer";
+import { tagApi } from "../tags/tag.api";
 import { TaskTypeCreateDrawer } from "../task-types/task-type-create-drawer";
 import { taskTypeApi } from "../task-types/task-type.api";
 import { taskApi } from "./task.api";
@@ -37,6 +39,7 @@ export function TaskCreateDrawer() {
 function TaskCreateForm() {
   const { data: priorityClasses } = priorityClassApi.useList();
   const { data: taskTypes } = taskTypeApi.useList();
+  const { data: tags } = tagApi.useList();
 
   const createMutation = taskApi.useCreate();
 
@@ -49,6 +52,7 @@ function TaskCreateForm() {
     completedNumValue: taskTypes[0]?.completedNumValue,
     useDueAt: false,
     dueAt: defaultDueAt,
+    tags: [],
   };
 
   const form = useAppForm({
@@ -201,6 +205,33 @@ function TaskCreateForm() {
                   <PriorityClassCreateDrawer
                     onCreate={(newPriorityClassId) => {
                       field.handleChange(newPriorityClassId);
+                    }}
+                  />
+                }
+              >
+                <Plus />
+              </DrawerButton>
+            </div>
+          )}
+        </form.AppField>
+        <form.AppField name="tags">
+          {(field) => (
+            <div className="flex w-full items-end gap-2">
+              <field.MultiSelect
+                className="flex-1"
+                label={m.tags_form_assigned_tags_label()}
+                emptyMessage={m.tags_empty_message()}
+                options={tags.map((tag) => ({
+                  label: tag.name,
+                  value: tag._id,
+                }))}
+              />
+              <DrawerButton
+                tooltip={m.tags_create_button_label()}
+                drawerContent={
+                  <TagCreateDrawer
+                    onCreate={(newTagId) => {
+                      field.pushValue(newTagId);
                     }}
                   />
                 }

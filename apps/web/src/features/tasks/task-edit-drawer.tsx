@@ -1,11 +1,12 @@
 import { addDays, endOfDay } from "date-fns";
+import { Plus } from "lucide-react";
 import z from "zod";
 
 import { useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
 import { getLocale } from "@gc/i18n/runtime";
 import { ErrorSuspense } from "@gc/react-kit";
-import { Drawer, parseDateToString } from "@gc/ui";
+import { Drawer, DrawerButton, parseDateToString } from "@gc/ui";
 import {
   ExtendedTask,
   UpdateTaskArgs,
@@ -13,6 +14,8 @@ import {
 } from "@gc/validators";
 
 import { priorityClassApi } from "../priority-classes/priority-class.api";
+import { TagCreateDrawer } from "../tags/tag-create-drawer";
+import { tagApi } from "../tags/tag.api";
 import { taskApi } from "./task.api";
 
 type UpdateTaskClientArgs = Omit<UpdateTaskArgs, "dueAt"> & {
@@ -28,14 +31,15 @@ export function TaskEditDrawer({ editedTask }: { editedTask: ExtendedTask }) {
       customFooter
     >
       <ErrorSuspense>
-        <TaskCreateForm editedTask={editedTask} />
+        <TaskEditForm editedTask={editedTask} />
       </ErrorSuspense>
     </Drawer>
   );
 }
 
-function TaskCreateForm({ editedTask }: { editedTask: ExtendedTask }) {
+function TaskEditForm({ editedTask }: { editedTask: ExtendedTask }) {
   const { data: priorityClasses } = priorityClassApi.useList();
+  const { data: tags } = tagApi.useList();
 
   const updateMutation = taskApi.useUpdate();
 
@@ -48,6 +52,7 @@ function TaskCreateForm({ editedTask }: { editedTask: ExtendedTask }) {
     completedNumValue: editedTask.completedNumValue,
     useDueAt: !!editedTask.dueAt,
     dueAt: editedTask.dueAt ? new Date(editedTask.dueAt) : defaultDueAt,
+    tags: editedTask.tags.map((tag) => tag._id),
   };
 
   const form = useAppForm({
@@ -140,6 +145,33 @@ function TaskCreateForm({ editedTask }: { editedTask: ExtendedTask }) {
                 value: priorityClass._id,
               }))}
             />
+          )}
+        </form.AppField>
+        <form.AppField name="tags">
+          {(field) => (
+            <div className="flex w-full items-end gap-2">
+              <field.MultiSelect
+                className="flex-1"
+                label={m.tags_form_assigned_tags_label()}
+                emptyMessage={m.tags_empty_message()}
+                options={tags.map((tag) => ({
+                  label: tag.name,
+                  value: tag._id,
+                }))}
+              />
+              <DrawerButton
+                tooltip={m.tags_create_button_label()}
+                drawerContent={
+                  <TagCreateDrawer
+                    onCreate={(newTagId) => {
+                      field.pushValue(newTagId);
+                    }}
+                  />
+                }
+              >
+                <Plus />
+              </DrawerButton>
+            </div>
           )}
         </form.AppField>
         <Drawer.Footer>
