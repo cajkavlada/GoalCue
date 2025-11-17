@@ -4,7 +4,10 @@ import { cn } from "@gc/utils";
 import { useFieldContext } from "../use-app-form";
 import { FieldErrors } from "./field-errors";
 
-export function MultiSelectField<T extends string>({
+export function MultiSelectField<
+  T extends string,
+  C extends string | undefined,
+>({
   label,
   className,
   onValueChange,
@@ -12,7 +15,7 @@ export function MultiSelectField<T extends string>({
 }: {
   label: string;
   className?: string;
-  options: { label: string; value: T }[];
+  options: { label: string; value: T; color?: C }[];
   onValueChange?: (value: T[]) => void;
   placeholder?: string;
   emptyMessage: string;

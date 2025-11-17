@@ -223,6 +223,7 @@ function TaskCreateForm() {
                 emptyMessage={m.tags_empty_message()}
                 options={tags.map((tag) => ({
                   label: tag.name,
+                  color: tag.color,
                   value: tag._id,
                 }))}
               />
