@@ -21,7 +21,6 @@ import {
   unitQueries,
 } from "./dbQueries";
 import { authedMutation, authedQuery } from "./utils/authedFunctions";
-import { getIdsToAddAndRemoveforUpdate } from "./utils/relationsUtils";
 
 export const getAllForUserId = authedQuery({
   args: {},
