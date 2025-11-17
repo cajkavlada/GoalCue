@@ -109,9 +109,6 @@ export const updateTaskTypeConvexSchema = v.object({
     )
   ),
   tags: v.array(v.id("tags")),
-  archivedTaskTypeEnumOptions: v.optional(
-    v.array(taskTypeEnumOptionConvexSchema.fields._id)
-  ),
 });
 
 export function getUpdateTaskTypeZodSchema({
@@ -163,7 +160,6 @@ export function getUpdateTaskTypeZodSchema({
             })
           )
           .min(2),
-        archivedTaskTypeEnumOptions: z.array(zid("taskTypeEnumOptions")),
       })
       .strict(),
   ]);
