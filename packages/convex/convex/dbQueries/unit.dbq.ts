@@ -5,7 +5,7 @@ import { AuthedQueryCtx } from "../utils/authedFunctions";
 
 export function unitQueries({ ctx }: { ctx: AuthedQueryCtx }) {
   return {
-    getAll() {
+    list() {
       return ctx.db
         .query("units")
         .withIndex("by_userId", (q) =>
@@ -14,7 +14,7 @@ export function unitQueries({ ctx }: { ctx: AuthedQueryCtx }) {
         .collect();
     },
 
-    async getOne({ unitId }: { unitId: Id<"units"> }) {
+    async getById({ unitId }: { unitId: Id<"units"> }) {
       const unit = await ctx.db.get(unitId);
       if (!unit) {
         throw new ConvexError({ message: "Unit not found" });

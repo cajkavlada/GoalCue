@@ -16,12 +16,12 @@ export function makeAddActionUpdater(
 ): AddActionUpdater {
   return (localStore, args) => {
     if (!task.completedAt) {
-      const apiRef = api.tasks.getUncompletedExtendedForUserId;
+      const apiRef = api.tasks.listUncompletedExtended;
       const tasks = localStore.getQuery(apiRef);
 
       localStore.setQuery(apiRef, {}, updateTaskInListByAction(tasks, args));
     } else if (completedAfter) {
-      const apiRef = api.tasks.getRecentlyCompletedExtendedForUserId;
+      const apiRef = api.tasks.listRecentlyCompletedExtended;
       const tasks = localStore.getQuery(apiRef, { completedAfter });
 
       localStore.setQuery(

@@ -9,7 +9,7 @@ import { translatePregeneratedItem } from "@/utils/translate-pregenerated-items"
 
 function useList() {
   return useSuspenseQuery({
-    ...convexQuery(api.taskTypes.getAllForUserId, {}),
+    ...convexQuery(api.taskTypes.listExtended, {}),
     select: (data) =>
       data.map((taskType) => ({
         ...translatePregeneratedItem(taskType),

@@ -12,11 +12,11 @@ import {
 import { tagQueries } from "./dbQueries";
 import { authedMutation, authedQuery } from "./utils/authedFunctions";
 
-export const getAll = authedQuery({
+export const list = authedQuery({
   args: {},
   returns: v.array(tagConvexSchema),
   handler: async (ctx) => {
-    return tagQueries({ ctx }).getAll();
+    return tagQueries({ ctx }).list();
   },
 });
 
@@ -24,7 +24,7 @@ export const create = authedMutation({
   args: createTagConvexSchema,
   rateLimit: { name: "createTag" },
   handler: async (ctx, tagArgs) => {
-    const existingTags = await tagQueries({ ctx }).getAll();
+    const existingTags = await tagQueries({ ctx }).list();
     await zodParse(getCreateTagZodSchema({ existingTags }), tagArgs);
     return ctx.db.insert("tags", {
       ...tagArgs,
@@ -37,8 +37,8 @@ export const update = authedMutation({
   args: updateTagConvexSchema,
   rateLimit: { name: "updateTag" },
   handler: async (ctx, { tagId, ...tagArgs }) => {
-    await tagQueries({ ctx }).getOne({ tagId });
-    const existingTags = await tagQueries({ ctx }).getAll();
+    await tagQueries({ ctx }).getById({ tagId });
+    const existingTags = await tagQueries({ ctx }).list();
     await zodParse(
       getUpdateTagZodSchema({ existingTags, currentTagId: tagId }),
       tagArgs
@@ -54,7 +54,7 @@ export const archive = authedMutation({
   rateLimit: { name: "archiveTag" },
   handler: async (ctx, { tagIds }) => {
     await Promise.all(
-      tagIds.map((tagId) => tagQueries({ ctx }).getOne({ tagId }))
+      tagIds.map((tagId) => tagQueries({ ctx }).getById({ tagId }))
     );
     const now = Date.now();
     for (const tagId of tagIds) {

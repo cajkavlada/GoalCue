@@ -6,7 +6,7 @@ import { getIdsToAddAndRemoveforUpdate } from "../utils/relationsUtils";
 
 export function taskTypeEnumOptionQueries({ ctx }: { ctx: AuthedQueryCtx }) {
   return {
-    getAllForTaskType({ taskTypeId }: { taskTypeId: Id<"taskTypes"> }) {
+    listByTaskTypeId({ taskTypeId }: { taskTypeId: Id<"taskTypes"> }) {
       return ctx.db
         .query("taskTypeEnumOptions")
         .withIndex("by_taskTypeId_orderKey", (q) =>
@@ -35,7 +35,7 @@ export function taskTypeEnumOptionsUpdate({ ctx }: { ctx: AuthedMutationCtx }) {
 
       const originalEnumOptions = await taskTypeEnumOptionQueries({
         ctx,
-      }).getAllForTaskType({ taskTypeId });
+      }).listByTaskTypeId({ taskTypeId });
 
       const { idsToRemove: enumOptionsToArchive } =
         getIdsToAddAndRemoveforUpdate({

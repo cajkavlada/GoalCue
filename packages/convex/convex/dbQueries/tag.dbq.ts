@@ -6,7 +6,7 @@ import { getIdsToAddAndRemoveforUpdate } from "../utils/relationsUtils";
 
 export function tagQueries({ ctx }: { ctx: AuthedQueryCtx }) {
   return {
-    getAll() {
+    list() {
       return ctx.db
         .query("tags")
         .withIndex("by_userId_name", (q) =>
@@ -15,44 +15,40 @@ export function tagQueries({ ctx }: { ctx: AuthedQueryCtx }) {
         .collect();
     },
 
-    async getAllForTask({ taskId }: { taskId: Id<"tasks"> }) {
-      const tagTasks = await this.getAllRelationsForTask({ taskId });
+    async listByTaskId({ taskId }: { taskId: Id<"tasks"> }) {
+      const tagTasks = await this.listRelationsForTask({ taskId });
       return await Promise.all(
-        tagTasks.map((tagTask) => this.getOne({ tagId: tagTask.tagId }))
+        tagTasks.map((tagTask) => this.getById({ tagId: tagTask.tagId }))
       );
     },
 
-    async getAllForTaskType({ taskTypeId }: { taskTypeId: Id<"taskTypes"> }) {
-      const tagTaskTypes = await this.getAllRelationsForTaskType({
+    async listByTaskTypeId({ taskTypeId }: { taskTypeId: Id<"taskTypes"> }) {
+      const tagTaskTypes = await this.listRelationsForTaskType({
         taskTypeId,
       });
 
       return await Promise.all(
         tagTaskTypes.map((tagTaskType) =>
-          this.getOne({ tagId: tagTaskType.tagId })
+          this.getById({ tagId: tagTaskType.tagId })
         )
       );
     },
 
-    getAllRelationsForTask({ taskId }: { taskId: Id<"tasks"> }) {
+    listRelationsForTask({ taskId }: { taskId: Id<"tasks"> }) {
       return ctx.db
         .query("tagTasks")
         .withIndex("by_taskId", (q) => q.eq("taskId", taskId))
         .collect();
     },
 
-    getAllRelationsForTaskType({
-      taskTypeId,
-    }: {
-      taskTypeId: Id<"taskTypes">;
-    }) {
+    listRelationsForTaskType({ taskTypeId }: { taskTypeId: Id<"taskTypes"> }) {
       return ctx.db
         .query("tagTaskTypes")
         .withIndex("by_taskTypeId", (q) => q.eq("taskTypeId", taskTypeId))
         .collect();
     },
 
-    async getOne({ tagId }: { tagId: Id<"tags"> }) {
+    async getById({ tagId }: { tagId: Id<"tags"> }) {
       const tag = await ctx.db.get(tagId);
       if (!tag) {
         throw new ConvexError({ message: "Tag not found" });
@@ -76,14 +72,14 @@ export function tagRelationsUpdate({ ctx }: { ctx: AuthedMutationCtx }) {
     }) {
       const originalTagRelations = await tagQueries({
         ctx,
-      }).getAllRelationsForTaskType({ taskTypeId });
+      }).listRelationsForTaskType({ taskTypeId });
       const { idsToAdd: tagsToAdd, idsToRemove: tagsToRemove } =
         getIdsToAddAndRemoveforUpdate({
           originalIds: originalTagRelations.map((rel) => rel.tagId),
           newIds: newTags,
         });
       for (const tagId of tagsToAdd) {
-        await tagQueries({ ctx }).getOne({ tagId });
+        await tagQueries({ ctx }).getById({ tagId });
         await ctx.db.insert("tagTaskTypes", { taskTypeId, tagId });
       }
       for (const tagId of tagsToRemove) {
@@ -103,14 +99,14 @@ export function tagRelationsUpdate({ ctx }: { ctx: AuthedMutationCtx }) {
     }) {
       const originalTagRelations = await tagQueries({
         ctx,
-      }).getAllRelationsForTask({ taskId });
+      }).listRelationsForTask({ taskId });
       const { idsToAdd: tagsToAdd, idsToRemove: tagsToRemove } =
         getIdsToAddAndRemoveforUpdate({
           originalIds: originalTagRelations.map((rel) => rel.tagId),
           newIds: newTags,
         });
       for (const tagId of tagsToAdd) {
-        await tagQueries({ ctx }).getOne({ tagId });
+        await tagQueries({ ctx }).getById({ tagId });
         await ctx.db.insert("tagTasks", { taskId, tagId });
       }
       for (const tagId of tagsToRemove) {
