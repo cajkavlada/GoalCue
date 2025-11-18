@@ -13,11 +13,11 @@ import {
 import { priorityClassQueries } from "./dbQueries";
 import { authedMutation, authedQuery } from "./utils/authedFunctions";
 
-export const getAllForUserId = authedQuery({
+export const list = authedQuery({
   args: {},
   returns: v.array(priorityClassConvexSchema),
   handler: async (ctx) => {
-    return priorityClassQueries({ ctx }).getAll();
+    return priorityClassQueries({ ctx }).list();
   },
 });
 
@@ -27,7 +27,7 @@ export const create = authedMutation({
   handler: async (ctx, args) => {
     const existingPriorityClasses = await priorityClassQueries({
       ctx,
-    }).getAll();
+    }).list();
 
     if (existingPriorityClasses.length === 0) {
       throw new ConvexError({ message: "No priority classes found" });
@@ -51,10 +51,10 @@ export const update = authedMutation({
   args: updatePriorityClassConvexSchema,
   rateLimit: { name: "updatePriorityClass" },
   handler: async (ctx, { priorityClassId, ...priorityClassArgs }) => {
-    await priorityClassQueries({ ctx }).getOne({ priorityClassId });
+    await priorityClassQueries({ ctx }).getById({ priorityClassId });
     const existingPriorityClasses = await priorityClassQueries({
       ctx,
-    }).getAll();
+    }).list();
     await zodParse(
       getUpdatePriorityClassZodSchema({
         existingPriorityClasses,
@@ -76,7 +76,7 @@ export const archive = authedMutation({
   handler: async (ctx, { priorityClassIds }) => {
     await Promise.all(
       priorityClassIds.map((priorityClassId) =>
-        priorityClassQueries({ ctx }).getOne({ priorityClassId })
+        priorityClassQueries({ ctx }).getById({ priorityClassId })
       )
     );
     const now = Date.now();

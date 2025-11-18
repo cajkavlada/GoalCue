@@ -23,8 +23,8 @@ export const add = authedMutation({
 
     await zodParse(addTaskActionAdvancedSchema, input);
 
-    const task = await taskQueries({ ctx }).getOne({ taskId });
-    const taskType = await taskTypeQueries({ ctx }).getOne({
+    const task = await taskQueries({ ctx }).getById({ taskId });
+    const taskType = await taskTypeQueries({ ctx }).getById({
       taskTypeId: task.taskTypeId,
     });
 
@@ -106,9 +106,9 @@ async function checkTasksAndGetBorderValues(
 ) {
   return await Promise.all(
     taskIds.map(async (taskId) => {
-      const task = await taskQueries({ ctx }).getOne({ taskId });
+      const task = await taskQueries({ ctx }).getById({ taskId });
       if (task.valueKind === "enum") {
-        const taskType = await taskTypeQueries({ ctx }).getOne({
+        const taskType = await taskTypeQueries({ ctx }).getById({
           taskTypeId: task.taskTypeId,
         });
         return {

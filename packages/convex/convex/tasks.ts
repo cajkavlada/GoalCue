@@ -28,11 +28,11 @@ import {
   AuthedQueryCtx,
 } from "./utils/authedFunctions";
 
-export const getUncompletedExtendedForUserId = authedQuery({
+export const listUncompletedExtended = authedQuery({
   args: {},
   returns: v.array(extendedTaskConvexSchema),
   handler: async (ctx) => {
-    const tasks = await taskQueries({ ctx }).getAllByStatus({
+    const tasks = await taskQueries({ ctx }).listByStatus({
       completedAfter: undefined,
     });
 
@@ -45,11 +45,11 @@ export const getUncompletedExtendedForUserId = authedQuery({
   },
 });
 
-export const getRecentlyCompletedExtendedForUserId = authedQuery({
+export const listRecentlyCompletedExtended = authedQuery({
   args: { completedAfter: v.number() },
   returns: v.array(extendedTaskConvexSchema),
   handler: async (ctx, { completedAfter }) => {
-    const tasks = await taskQueries({ ctx }).getAllByStatus({
+    const tasks = await taskQueries({ ctx }).listByStatus({
       completedAfter,
     });
 
@@ -68,7 +68,7 @@ export const getExtendedById = authedQuery({
   },
   returns: extendedTaskConvexSchema,
   handler: async (ctx, { taskId }) => {
-    const task = await taskQueries({ ctx }).getOne({ taskId });
+    const task = await taskQueries({ ctx }).getById({ taskId });
     return await getExtendedTaskInfo(ctx, task);
   },
 });
@@ -83,7 +83,7 @@ export const create = authedMutation({
       dueAt: parsedDueAt,
     });
 
-    const taskType = await taskTypeQueries({ ctx }).getOne({
+    const taskType = await taskTypeQueries({ ctx }).getById({
       taskTypeId: taskArgs.taskTypeId,
     });
 
@@ -111,7 +111,7 @@ export const create = authedMutation({
     });
 
     for (const tagId of tags) {
-      await tagQueries({ ctx }).getOne({ tagId });
+      await tagQueries({ ctx }).getById({ tagId });
       await ctx.db.insert("tagTasks", { taskId: newTaskId, tagId });
     }
 
@@ -123,7 +123,7 @@ export const update = authedMutation({
   args: updateTaskConvexSchema,
   rateLimit: { name: "updateTask" },
   handler: async (ctx, { taskId, ...taskArgs }) => {
-    await taskQueries({ ctx }).getOne({ taskId });
+    await taskQueries({ ctx }).getById({ taskId });
     const parsedDueAt = taskArgs.dueAt ? new Date(taskArgs.dueAt) : undefined;
     await zodParse(updateTaskZodSchema, {
       ...taskArgs,
@@ -150,7 +150,7 @@ export const archive = authedMutation({
   rateLimit: { name: "archiveTask" },
   handler: async (ctx, { taskIds }) => {
     await Promise.all(
-      taskIds.map((taskId) => taskQueries({ ctx }).getOne({ taskId }))
+      taskIds.map((taskId) => taskQueries({ ctx }).getById({ taskId }))
     );
     const now = Date.now();
     for (const taskId of taskIds) {
@@ -160,17 +160,17 @@ export const archive = authedMutation({
 });
 
 async function getExtendedTaskInfo(ctx: AuthedQueryCtx, task: Doc<"tasks">) {
-  const taskType = await taskTypeQueries({ ctx }).getOne({
+  const taskType = await taskTypeQueries({ ctx }).getById({
     taskTypeId: task.taskTypeId,
   });
-  const priorityClass = await priorityClassQueries({ ctx }).getOne({
+  const priorityClass = await priorityClassQueries({ ctx }).getById({
     priorityClassId: task.priorityClassId,
   });
-  const tags = await tagQueries({ ctx }).getAllForTask({ taskId: task._id });
+  const tags = await tagQueries({ ctx }).listByTaskId({ taskId: task._id });
 
   let enumOptions: Doc<"taskTypeEnumOptions">[] | undefined;
   if (taskType.valueKind === "enum") {
-    enumOptions = await taskTypeEnumOptionQueries({ ctx }).getAllForTaskType({
+    enumOptions = await taskTypeEnumOptionQueries({ ctx }).listByTaskTypeId({
       taskTypeId: task.taskTypeId,
     });
   }

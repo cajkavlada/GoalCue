@@ -5,7 +5,7 @@ import { AuthedQueryCtx } from "../utils/authedFunctions";
 
 export function taskQueries({ ctx }: { ctx: AuthedQueryCtx }) {
   return {
-    getAllByStatus({ completedAfter }: { completedAfter?: number }) {
+    listByStatus({ completedAfter }: { completedAfter?: number }) {
       return ctx.db
         .query("tasks")
         .withIndex("by_user_status_priority", (q) => {
@@ -20,7 +20,7 @@ export function taskQueries({ ctx }: { ctx: AuthedQueryCtx }) {
         .collect();
     },
 
-    async getOne({ taskId }: { taskId: Id<"tasks"> }) {
+    async getById({ taskId }: { taskId: Id<"tasks"> }) {
       const task = await ctx.db.get(taskId);
       if (!task) {
         throw new ConvexError({ message: "Task not found" });

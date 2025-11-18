@@ -22,14 +22,14 @@ import {
 } from "./dbQueries";
 import { authedMutation, authedQuery } from "./utils/authedFunctions";
 
-export const getAllForUserId = authedQuery({
+export const listExtended = authedQuery({
   args: {},
   returns: v.array(extendedTaskTypeConvexSchema),
   handler: async (ctx) => {
-    const taskTypes = await taskTypeQueries({ ctx }).getAll();
+    const taskTypes = await taskTypeQueries({ ctx }).list();
     const extendedTaskTypes = await Promise.all(
       taskTypes.map(async (taskType) => {
-        const tags = await tagQueries({ ctx }).getAllForTaskType({
+        const tags = await tagQueries({ ctx }).listByTaskTypeId({
           taskTypeId: taskType._id,
         });
 
@@ -37,7 +37,7 @@ export const getAllForUserId = authedQuery({
         if (taskType.valueKind === "enum") {
           taskTypeEnumOptions = await taskTypeEnumOptionQueries({
             ctx,
-          }).getAllForTaskType({ taskTypeId: taskType._id });
+          }).listByTaskTypeId({ taskTypeId: taskType._id });
         }
 
         return {
@@ -55,14 +55,14 @@ export const create = authedMutation({
   args: createTaskTypeConvexSchema,
   rateLimit: { name: "createTaskType" },
   handler: async (ctx, taskTypeArgs) => {
-    const existingTaskTypes = await taskTypeQueries({ ctx }).getAll();
+    const existingTaskTypes = await taskTypeQueries({ ctx }).list();
     await zodParse(
       getCreateTaskTypeZodSchema({ existingTaskTypes }),
       taskTypeArgs
     );
 
     if (taskTypeArgs.unitId) {
-      await unitQueries({ ctx }).getOne({ unitId: taskTypeArgs.unitId });
+      await unitQueries({ ctx }).getById({ unitId: taskTypeArgs.unitId });
     }
 
     const { taskTypeEnumOptions, tags, ...rawTaskType } = taskTypeArgs;
@@ -73,7 +73,7 @@ export const create = authedMutation({
     });
 
     for (const tagId of tags) {
-      await tagQueries({ ctx }).getOne({ tagId });
+      await tagQueries({ ctx }).getById({ tagId });
       await ctx.db.insert("tagTaskTypes", {
         taskTypeId: newTaskTypeId,
         tagId,
@@ -124,11 +124,11 @@ export const update = authedMutation({
   args: updateTaskTypeConvexSchema,
   rateLimit: { name: "updateTaskType" },
   handler: async (ctx, { taskTypeId, ...taskTypeArgs }) => {
-    const originalTaskType = await taskTypeQueries({ ctx }).getOne({
+    const originalTaskType = await taskTypeQueries({ ctx }).getById({
       taskTypeId,
     });
 
-    const existingTaskTypes = await taskTypeQueries({ ctx }).getAll();
+    const existingTaskTypes = await taskTypeQueries({ ctx }).list();
     await zodParse(
       getUpdateTaskTypeZodSchema({
         existingTaskTypes,
@@ -140,7 +140,7 @@ export const update = authedMutation({
       }
     );
     if (taskTypeArgs.unitId) {
-      await unitQueries({ ctx }).getOne({ unitId: taskTypeArgs.unitId });
+      await unitQueries({ ctx }).getById({ unitId: taskTypeArgs.unitId });
     } else {
       taskTypeArgs.unitId = undefined;
     }
@@ -180,7 +180,7 @@ export const archive = authedMutation({
   handler: async (ctx, { taskTypeIds }) => {
     await Promise.all(
       taskTypeIds.map((taskTypeId) =>
-        taskTypeQueries({ ctx }).getOne({ taskTypeId })
+        taskTypeQueries({ ctx }).getById({ taskTypeId })
       )
     );
     const now = Date.now();

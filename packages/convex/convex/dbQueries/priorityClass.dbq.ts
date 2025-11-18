@@ -5,7 +5,7 @@ import { AuthedQueryCtx } from "../utils/authedFunctions";
 
 export function priorityClassQueries({ ctx }: { ctx: AuthedQueryCtx }) {
   return {
-    getAll() {
+    list() {
       return ctx.db
         .query("priorityClasses")
         .withIndex("by_userId_orderKey", (q) => q.eq("userId", ctx.userId))
@@ -14,7 +14,7 @@ export function priorityClassQueries({ ctx }: { ctx: AuthedQueryCtx }) {
         .collect();
     },
 
-    async getOne({
+    async getById({
       priorityClassId,
     }: {
       priorityClassId: Id<"priorityClasses">;

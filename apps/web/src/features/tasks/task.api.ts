@@ -5,9 +5,7 @@ import { api } from "@gc/convex/api";
 import { useModal } from "@gc/ui";
 
 function useUncompletedExtendedList() {
-  return useSuspenseQuery(
-    convexQuery(api.tasks.getUncompletedExtendedForUserId, {})
-  );
+  return useSuspenseQuery(convexQuery(api.tasks.listUncompletedExtended, {}));
 }
 
 function useRecentlyCompletedExtendedList({
@@ -16,7 +14,7 @@ function useRecentlyCompletedExtendedList({
   completedAfter: number;
 }) {
   return useSuspenseQuery(
-    convexQuery(api.tasks.getRecentlyCompletedExtendedForUserId, {
+    convexQuery(api.tasks.listRecentlyCompletedExtended, {
       completedAfter,
     })
   );

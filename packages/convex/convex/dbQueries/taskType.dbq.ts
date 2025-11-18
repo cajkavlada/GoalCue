@@ -5,7 +5,7 @@ import { AuthedQueryCtx } from "../utils/authedFunctions";
 
 export function taskTypeQueries({ ctx }: { ctx: AuthedQueryCtx }) {
   return {
-    getAll() {
+    list() {
       return ctx.db
         .query("taskTypes")
         .withIndex("by_userId", (q) =>
@@ -14,7 +14,7 @@ export function taskTypeQueries({ ctx }: { ctx: AuthedQueryCtx }) {
         .collect();
     },
 
-    async getOne({ taskTypeId }: { taskTypeId: Id<"taskTypes"> }) {
+    async getById({ taskTypeId }: { taskTypeId: Id<"taskTypes"> }) {
       const taskType = await ctx.db.get(taskTypeId);
       if (!taskType) {
         throw new ConvexError({ message: "Task type not found" });
