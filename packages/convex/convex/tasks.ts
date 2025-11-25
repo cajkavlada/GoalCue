@@ -78,7 +78,7 @@ export const create = authedMutation({
   rateLimit: { name: "createTask" },
   handler: async (ctx, taskArgs) => {
     const parsedDueAt = taskArgs.dueAt ? new Date(taskArgs.dueAt) : undefined;
-    await zodParse(createTaskZodSchema, {
+    zodParse(createTaskZodSchema, {
       ...taskArgs,
       dueAt: parsedDueAt,
     });
@@ -87,7 +87,7 @@ export const create = authedMutation({
       taskTypeId: taskArgs.taskTypeId,
     });
 
-    await zodParse(taskWithCorrectValuesSchema, {
+    zodParse(taskWithCorrectValuesSchema, {
       ...taskArgs,
       valueKind: taskType.valueKind,
       dueAt: parsedDueAt,
@@ -125,7 +125,7 @@ export const update = authedMutation({
   handler: async (ctx, { taskId, ...taskArgs }) => {
     await taskQueries({ ctx }).getById({ taskId });
     const parsedDueAt = taskArgs.dueAt ? new Date(taskArgs.dueAt) : undefined;
-    await zodParse(updateTaskZodSchema, {
+    zodParse(updateTaskZodSchema, {
       ...taskArgs,
       dueAt: parsedDueAt,
     });

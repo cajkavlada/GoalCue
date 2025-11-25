@@ -1,9 +1,9 @@
 import { pick } from "convex-helpers";
+import { convexToZod } from "convex-helpers/server/zod4";
 import { Infer, v } from "convex/values";
 import z from "zod";
 
 import { convexSchemaFromTable } from "../utils/dbSchemaHelpers";
-import { zid } from "../utils/zodv4Helpers";
 import { priorityClassConvexSchema } from "./priorityClass.val";
 import { tagConvexSchema } from "./tag.val";
 import {
@@ -39,18 +39,21 @@ export const createTaskConvexSchema = v.object({
   tags: v.array(v.id("tags")),
 });
 
-// TODO: infer from convex schema when convexToZod supports zod v4
+const createArgsSchema = convexToZod(createTaskConvexSchema);
+
 export const createTaskZodSchema = z
   .object({
+    ...createArgsSchema.pick({
+      description: true,
+      taskTypeId: true,
+      priorityClassId: true,
+      repetitionId: true,
+      initialNumValue: true,
+      completedNumValue: true,
+      tags: true,
+    }).shape,
     title: z.string().min(1),
-    description: z.string().optional(),
-    taskTypeId: zid("taskTypes"),
-    priorityClassId: zid("priorityClasses"),
-    repetitionId: zid("repetitions").optional(),
     dueAt: z.date().optional(),
-    initialNumValue: z.number().optional(),
-    completedNumValue: z.number().optional(),
-    tags: z.array(zid("tags")),
   })
   .superRefine(checkEqualInitialAndCompletedNumValues);
 
@@ -62,7 +65,13 @@ const taskWithoutNumValues = createTaskZodSchema.omit({
   completedNumValue: true,
 }).shape;
 
-export const taskWithCorrectValuesSchema = z.union([
+export const taskWithCorrectValuesSchema = z.discriminatedUnion("valueKind", [
+  z
+    .object({
+      valueKind: z.literal("boolean"),
+      ...taskWithoutNumValues,
+    })
+    .strict(),
   z
     .object({
       valueKind: z.literal("number"),
@@ -71,12 +80,6 @@ export const taskWithCorrectValuesSchema = z.union([
         initialNumValue: true,
         completedNumValue: true,
       }).shape,
-    })
-    .strict(),
-  z
-    .object({
-      valueKind: z.literal("boolean"),
-      ...taskWithoutNumValues,
     })
     .strict(),
   z
@@ -101,16 +104,20 @@ export const updateTaskConvexSchema = v.object({
   tags: v.array(v.id("tags")),
 });
 
+const updateArgsSchema = convexToZod(updateTaskConvexSchema);
+
 export const updateTaskZodSchema = z
   .object({
-    title: z.string(),
-    description: z.string().optional(),
-    priorityClassId: zid("priorityClasses"),
-    repetitionId: zid("repetitions").optional(),
+    ...updateArgsSchema.pick({
+      description: true,
+      priorityClassId: true,
+      repetitionId: true,
+      initialNumValue: true,
+      completedNumValue: true,
+      tags: true,
+    }).shape,
+    title: z.string().min(1),
     dueAt: z.date().optional(),
-    initialNumValue: z.number().optional(),
-    completedNumValue: z.number().optional(),
-    tags: z.array(zid("tags")),
   })
   .superRefine(checkEqualInitialAndCompletedNumValues);
 

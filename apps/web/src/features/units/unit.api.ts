@@ -9,7 +9,7 @@ import { translatePregeneratedItem } from "@/utils/translate-pregenerated-items"
 
 function useList() {
   return useSuspenseQuery({
-    ...convexQuery(api.units.list, {}),
+    ...convexQuery(api.units.list),
     select: (data) => data.map(translatePregeneratedItem),
   });
 }

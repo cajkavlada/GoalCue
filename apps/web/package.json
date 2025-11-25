@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@clerk/localizations": "^3.25.6",
-    "@convex-dev/react-query": "0.0.0-alpha.11",
+    "@convex-dev/react-query": "0.1.0",
     "@dnd-kit/abstract": "^0.1.21",
     "@dnd-kit/dom": "^0.1.21",
     "@dnd-kit/react": "^0.1.21",

@@ -2,7 +2,7 @@ import { literals } from "convex-helpers/validators";
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
-import { TAG_COLORS } from "./constants/tagColors";
+import { TAG_COLORS, tagKinds } from "./constants/tag";
 
 export const tagDbSchema = {
   tags: defineTable({
@@ -12,9 +12,7 @@ export const tagDbSchema = {
       v.union(...TAG_COLORS.map((color) => v.literal(color.value)))
     ),
     userId: v.string(),
-    kind: v.optional(
-      literals("project", "area", "context", "timeframe", "label")
-    ),
+    kind: v.optional(literals(...tagKinds)),
     archivedAt: v.optional(v.number()),
   }).index("by_userId_name", ["userId", "archivedAt", "name"]),
   tagTasks: defineTable({

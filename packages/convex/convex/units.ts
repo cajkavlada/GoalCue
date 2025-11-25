@@ -25,7 +25,7 @@ export const create = authedMutation({
   rateLimit: { name: "createUnit" },
   handler: async (ctx, unitArgs) => {
     const existingUnits = await unitQueries({ ctx }).list();
-    await zodParse(getCreateUnitZodSchema({ existingUnits }), unitArgs);
+    zodParse(getCreateUnitZodSchema({ existingUnits }), unitArgs);
 
     return ctx.db.insert("units", {
       ...unitArgs,
@@ -40,7 +40,7 @@ export const update = authedMutation({
   handler: async (ctx, { unitId, ...unitArgs }) => {
     await unitQueries({ ctx }).getById({ unitId });
     const existingUnits = await unitQueries({ ctx }).list();
-    await zodParse(
+    zodParse(
       getUpdateUnitZodSchema({ existingUnits, currentUnitId: unitId }),
       unitArgs
     );

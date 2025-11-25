@@ -16,7 +16,6 @@ export const createPriorityClassConvexSchema = v.object(
   pick(priorityClassConvexSchema.fields, ["name"])
 );
 
-// TODO: infer from convex schema when convexToZod supports zod v4
 export function getCreatePriorityClassZodSchema({
   existingPriorityClasses,
 }: {
@@ -44,7 +43,6 @@ export const updatePriorityClassConvexSchema = v.object({
   ...partial(pick(priorityClassConvexSchema.fields, ["name", "orderKey"])),
 });
 
-// TODO: infer from convex schema when convexToZod supports zod v4
 export function getUpdatePriorityClassZodSchema({
   existingPriorityClasses,
   currentPriorityClassId,

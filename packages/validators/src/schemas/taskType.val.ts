@@ -1,4 +1,5 @@
 import { pick } from "convex-helpers";
+import { convexToZod } from "convex-helpers/server/zod4";
 import { partial } from "convex-helpers/validators";
 import { Infer, v } from "convex/values";
 import z from "zod";
@@ -6,7 +7,6 @@ import z from "zod";
 import { CUSTOM_ERROR_REASONS } from "../utils/customErrorReasons";
 import { convexSchemaFromTable } from "../utils/dbSchemaHelpers";
 import { uniqueField } from "../utils/zodHelpers";
-import { zid } from "../utils/zodv4Helpers";
 import { tagConvexSchema } from "./tag.val";
 import { taskTypeEnumOptionConvexSchema } from "./taskTypeEnumOption.val";
 
@@ -47,41 +47,41 @@ export function getCreateTaskTypeZodSchema({
 }: {
   existingTaskTypes: TaskType[];
 }) {
-  const baseSchema = z.object({
-    name: z
-      .string()
-      .min(1)
-      .pipe(uniqueField({ existing: existingTaskTypes, fieldName: "name" })),
-    tags: z.array(zid("tags")),
-  });
+  const argsSchema = convexToZod(createTaskTypeConvexSchema);
+  const baseSchema = z
+    .object({
+      ...argsSchema.pick({ tags: true }).shape,
+      name: z
+        .string()
+        .min(1)
+        .pipe(uniqueField({ existing: existingTaskTypes, fieldName: "name" })),
+    })
+    .strict();
 
-  return z.union([
+  return z.discriminatedUnion("valueKind", [
     z
       .object({
-        ...baseSchema.shape,
         valueKind: z.literal("boolean"),
+        ...baseSchema.shape,
       })
       .strict(),
     z
       .object({
-        ...baseSchema.shape,
         valueKind: z.literal("number"),
-        initialNumValue: z.number(),
-        completedNumValue: z.number(),
-        unitId: zid("units").optional(),
+        ...baseSchema.shape,
+        ...argsSchema.pick({ unitId: true }).shape,
+        ...argsSchema
+          .pick({ initialNumValue: true, completedNumValue: true })
+          .required().shape,
       })
       .strict()
       .superRefine(checkEqualInitialAndCompletedNumValues),
     z
       .object({
-        ...baseSchema.shape,
         valueKind: z.literal("enum"),
+        ...baseSchema.shape,
         taskTypeEnumOptions: z
-          .array(
-            z.object({
-              name: z.string().min(1),
-            })
-          )
+          .array(z.object({ name: z.string().min(1) }).strict())
           .min(2),
       })
       .strict(),
@@ -118,7 +118,9 @@ export function getUpdateTaskTypeZodSchema({
   existingTaskTypes: TaskType[];
   currentTaskTypeId: TaskType["_id"];
 }) {
+  const argsSchema = convexToZod(updateTaskTypeConvexSchema);
   const baseSchema = z.object({
+    ...argsSchema.pick({ tags: true }).shape,
     name: z
       .string()
       .min(1)
@@ -129,35 +131,40 @@ export function getUpdateTaskTypeZodSchema({
           currentId: currentTaskTypeId,
         })
       ),
-    tags: z.array(zid("tags")),
   });
-  return z.union([
+
+  return z.discriminatedUnion("valueKind", [
     z
       .object({
-        ...baseSchema.shape,
         valueKind: z.literal("boolean"),
+        ...baseSchema.shape,
       })
       .strict(),
     z
       .object({
-        ...baseSchema.shape,
         valueKind: z.literal("number"),
-        initialNumValue: z.number(),
-        completedNumValue: z.number(),
-        unitId: zid("units").optional(),
+        ...baseSchema.shape,
+        ...argsSchema.pick({ unitId: true }).shape,
+        ...argsSchema
+          .pick({ initialNumValue: true, completedNumValue: true })
+          .required().shape,
       })
       .strict()
       .superRefine(checkEqualInitialAndCompletedNumValues),
     z
       .object({
-        ...baseSchema.shape,
         valueKind: z.literal("enum"),
+        ...baseSchema.shape,
         taskTypeEnumOptions: z
           .array(
-            z.object({
-              name: z.string().min(1),
-              _id: zid("taskTypeEnumOptions").optional(),
-            })
+            z
+              .object({
+                name: z.string().min(1),
+                _id: convexToZod(
+                  taskTypeEnumOptionConvexSchema
+                ).shape._id.optional(),
+              })
+              .strict()
           )
           .min(2),
       })
