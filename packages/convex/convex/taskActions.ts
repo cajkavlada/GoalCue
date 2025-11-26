@@ -1,9 +1,9 @@
 import { ConvexError, v } from "convex/values";
 
 import {
-  addTaskActionAdvancedSchema,
   addTaskActionConvexSchema,
-  taskActionWithValuesSchema,
+  addTaskActionZodSchema,
+  taskActionWithBorderValuesSchema,
   taskConvexSchema,
   zodParse,
 } from "@gc/validators";
@@ -21,14 +21,14 @@ export const add = authedMutation({
   handler: async (ctx, input) => {
     const { taskId, ...action } = input;
 
-    await zodParse(addTaskActionAdvancedSchema, input);
+    zodParse(addTaskActionZodSchema, input);
 
     const task = await taskQueries({ ctx }).getById({ taskId });
     const taskType = await taskTypeQueries({ ctx }).getById({
       taskTypeId: task.taskTypeId,
     });
 
-    const checkedNewTaskValues = checkTaskValues({
+    const checkedNewTaskValues = await evalutateTaskActionValues({
       valueKind: task.valueKind,
       ...action,
       ...(task.valueKind === "number"
@@ -47,20 +47,13 @@ export const add = authedMutation({
   },
 });
 
-function checkTaskValues(
+async function evalutateTaskActionValues(
   data: Pick<Doc<"taskActions">, "boolValue" | "numValue" | "enumOptionId"> &
     Pick<Doc<"tasks">, "valueKind" | "initialNumValue" | "completedNumValue"> &
     Pick<Doc<"taskTypes">, "completedEnumOptionId">
 ) {
-  const parseValuesError = new ConvexError({
-    message: `Provide correct value for a task action. Value kind is ${data.valueKind}.`,
-  });
-  const parsed = taskActionWithValuesSchema.safeParse(data);
+  const values = zodParse(taskActionWithBorderValuesSchema, data);
 
-  if (parsed.error) {
-    throw parseValuesError;
-  }
-  const values = parsed.data;
   if (values.valueKind === "boolean") {
     return {
       completedAt: values.boolValue ? Date.now() : undefined,
@@ -86,7 +79,9 @@ function checkTaskValues(
       currentEnumOptionId: values.enumOptionId as Id<"taskTypeEnumOptions">,
     };
   }
-  throw parseValuesError;
+  throw new ConvexError({
+    message: `Provide correct value for a task action. Value kind is ${data.valueKind}.`,
+  });
 }
 
 type TaskWithBorderValues = Doc<"tasks"> &

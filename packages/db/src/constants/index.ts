@@ -1,1 +1,1 @@
-export * from "./tagColors";
+export * from "./tag";

@@ -54,21 +54,21 @@ export const listExtended = authedQuery({
 export const create = authedMutation({
   args: createTaskTypeConvexSchema,
   rateLimit: { name: "createTaskType" },
-  handler: async (ctx, taskTypeArgs) => {
+  handler: async (ctx, taskTypeExtended) => {
     const existingTaskTypes = await taskTypeQueries({ ctx }).list();
-    await zodParse(
+    zodParse(
       getCreateTaskTypeZodSchema({ existingTaskTypes }),
-      taskTypeArgs
+      taskTypeExtended
     );
 
-    if (taskTypeArgs.unitId) {
-      await unitQueries({ ctx }).getById({ unitId: taskTypeArgs.unitId });
+    if (taskTypeExtended.unitId) {
+      await unitQueries({ ctx }).getById({ unitId: taskTypeExtended.unitId });
     }
 
-    const { taskTypeEnumOptions, tags, ...rawTaskType } = taskTypeArgs;
+    const { taskTypeEnumOptions, tags, ...taskTypeBase } = taskTypeExtended;
 
     const newTaskTypeId = await ctx.db.insert("taskTypes", {
-      ...rawTaskType,
+      ...taskTypeBase,
       userId: ctx.userId,
     });
 
@@ -129,7 +129,7 @@ export const update = authedMutation({
     });
 
     const existingTaskTypes = await taskTypeQueries({ ctx }).list();
-    await zodParse(
+    zodParse(
       getUpdateTaskTypeZodSchema({
         existingTaskTypes,
         currentTaskTypeId: taskTypeId,

@@ -25,7 +25,7 @@ export const create = authedMutation({
   rateLimit: { name: "createTag" },
   handler: async (ctx, tagArgs) => {
     const existingTags = await tagQueries({ ctx }).list();
-    await zodParse(getCreateTagZodSchema({ existingTags }), tagArgs);
+    zodParse(getCreateTagZodSchema({ existingTags }), tagArgs);
     return ctx.db.insert("tags", {
       ...tagArgs,
       userId: ctx.userId,
@@ -39,7 +39,7 @@ export const update = authedMutation({
   handler: async (ctx, { tagId, ...tagArgs }) => {
     await tagQueries({ ctx }).getById({ tagId });
     const existingTags = await tagQueries({ ctx }).list();
-    await zodParse(
+    zodParse(
       getUpdateTagZodSchema({ existingTags, currentTagId: tagId }),
       tagArgs
     );

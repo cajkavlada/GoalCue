@@ -1,4 +1,5 @@
 import { pick } from "convex-helpers";
+import { convexToZod } from "convex-helpers/server/zod4";
 import { Infer, v } from "convex/values";
 import z from "zod";
 
@@ -14,19 +15,17 @@ export const createUnitConvexSchema = v.object(
   pick(unitConvexSchema.fields, ["name", "symbol"])
 );
 
-// TODO: infer from convex schema when convexToZod supports zod v4
 export function getCreateUnitZodSchema({
   existingUnits,
 }: {
   existingUnits: Unit[];
 }) {
-  return z
-    .object({
+  return convexToZod(createUnitConvexSchema)
+    .extend({
       name: z
         .string()
         .min(1)
         .pipe(uniqueField({ existing: existingUnits, fieldName: "name" })),
-      symbol: z.string().optional(),
     })
     .strict();
 }
@@ -39,7 +38,6 @@ export const updateUnitConvexSchema = v.object({
   ...pick(unitConvexSchema.fields, ["name", "symbol"]),
 });
 
-// TODO: infer from convex schema when convexToZod supports zod v4
 export function getUpdateUnitZodSchema({
   existingUnits,
   currentUnitId,
@@ -47,8 +45,8 @@ export function getUpdateUnitZodSchema({
   existingUnits: Unit[];
   currentUnitId: Unit["_id"];
 }) {
-  return z
-    .object({
+  return convexToZod(updateUnitConvexSchema.omit("unitId"))
+    .extend({
       name: z
         .string()
         .min(1)
@@ -59,7 +57,6 @@ export function getUpdateUnitZodSchema({
             currentId: currentUnitId,
           })
         ),
-      symbol: z.string().optional(),
     })
     .strict();
 }

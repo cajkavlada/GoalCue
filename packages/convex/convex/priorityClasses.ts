@@ -1,4 +1,4 @@
-import { ConvexError, v } from "convex/values";
+import { v } from "convex/values";
 import { generateKeyBetween } from "fractional-indexing";
 
 import {
@@ -29,11 +29,7 @@ export const create = authedMutation({
       ctx,
     }).list();
 
-    if (existingPriorityClasses.length === 0) {
-      throw new ConvexError({ message: "No priority classes found" });
-    }
-
-    await zodParse(
+    zodParse(
       getCreatePriorityClassZodSchema({
         existingPriorityClasses,
       }),
@@ -55,7 +51,7 @@ export const update = authedMutation({
     const existingPriorityClasses = await priorityClassQueries({
       ctx,
     }).list();
-    await zodParse(
+    zodParse(
       getUpdatePriorityClassZodSchema({
         existingPriorityClasses,
         currentPriorityClassId: priorityClassId,

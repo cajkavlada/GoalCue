@@ -32,3 +32,11 @@ export const TAG_COLORS = [
 ] as const;
 
 export type TagColor = (typeof TAG_COLORS)[number]["value"] | undefined;
+
+export const tagKinds = [
+  "project",
+  "area",
+  "context",
+  "timeframe",
+  "label",
+] as const;
