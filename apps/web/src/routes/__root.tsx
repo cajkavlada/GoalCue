@@ -1,6 +1,6 @@
 import { UseAuthReturn } from "@clerk/types";
 import { TanStackDevtools } from "@tanstack/react-devtools";
-import { FormDevtoolsPlugin } from "@tanstack/react-form-devtools";
+import { formDevtoolsPlugin } from "@tanstack/react-form-devtools";
 import { QueryClient } from "@tanstack/react-query";
 import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools";
 import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
@@ -34,7 +34,7 @@ function RootComponent() {
             name: "TanStack Router",
             render: <TanStackRouterDevtoolsPanel />,
           },
-          FormDevtoolsPlugin(),
+          formDevtoolsPlugin(),
         ]}
       />
     </>

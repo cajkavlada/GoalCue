@@ -1,7 +1,8 @@
 import { CircleQuestionMark, Plus } from "lucide-react";
+import z from "zod";
 
 import { Id } from "@gc/convex/types";
-import { useAppForm } from "@gc/form";
+import { asFormValidator, useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
 import { ErrorSuspense } from "@gc/react-kit";
 import { Drawer, DrawerButton, SelectItem, Tooltip } from "@gc/ui";
@@ -32,6 +33,10 @@ export function TaskTypeCreateDrawer(props: TaskTypeCreateFormProps) {
   );
 }
 
+export type CreateTaskTypeArgsVal = z.infer<
+  ReturnType<typeof getCreateTaskTypeZodSchema>
+>;
+
 function TaskTypeCreateForm({ onCreate }: TaskTypeCreateFormProps) {
   const { data: units } = unitApi.useList();
   const { data: tags } = tagApi.useList();
@@ -46,7 +51,10 @@ function TaskTypeCreateForm({ onCreate }: TaskTypeCreateFormProps) {
       tags: [],
     } as CreateTaskTypeArgs,
     validators: {
-      onBlur: getCreateTaskTypeZodSchema({ existingTaskTypes: taskTypes }),
+      // temporary solution asFormValidator caused by mismatch of zod schema input and output for convex zid field
+      onBlur: asFormValidator(
+        getCreateTaskTypeZodSchema({ existingTaskTypes: taskTypes })
+      ),
     },
     onSubmit: async ({ value }) => {
       // strip dndId from enum options

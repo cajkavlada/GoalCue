@@ -2,7 +2,7 @@ import { addDays, endOfDay } from "date-fns";
 import { Plus } from "lucide-react";
 import z from "zod";
 
-import { useAppForm } from "@gc/form";
+import { asFormValidator, useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
 import { getLocale } from "@gc/i18n/runtime";
 import { ErrorSuspense } from "@gc/react-kit";
@@ -58,10 +58,13 @@ function TaskCreateForm() {
   const form = useAppForm({
     defaultValues,
     validators: {
-      onBlur: createTaskZodSchema.safeExtend({
-        useDueAt: z.boolean(),
-        dueAt: createTaskZodSchema.shape.dueAt.unwrap(),
-      }),
+      // temporary solution asFormValidator caused by mismatch of zod schema input and output for convex zid field
+      onBlur: asFormValidator(
+        createTaskZodSchema.safeExtend({
+          useDueAt: z.boolean(),
+          dueAt: createTaskZodSchema.shape.dueAt.unwrap(),
+        })
+      ),
     },
     onSubmit: async ({ value }) => {
       const { dueAt, useDueAt, ...rest } = value;

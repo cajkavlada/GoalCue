@@ -26,8 +26,8 @@ catalogs:
       specifier: ^1.29.3
       version: 1.29.3
     convex-helpers:
-      specifier: ^0.1.105
-      version: 0.1.105
+      specifier: ^0.1.106
+      version: 0.1.106
   eslint:
     eslint:
       specifier: ^9.37.0
@@ -60,17 +60,17 @@ catalogs:
       version: 19.2.0
   tanstack:
     '@tanstack/devtools-vite':
-      specifier: ^0.3.6
-      version: 0.3.6
+      specifier: ^0.3.11
+      version: 0.3.11
     '@tanstack/react-devtools':
-      specifier: ^0.7.6
-      version: 0.7.6
+      specifier: ^0.8.2
+      version: 0.8.2
     '@tanstack/react-form':
-      specifier: ^1.23.5
-      version: 1.23.6
+      specifier: ^1.26.0
+      version: 1.26.0
     '@tanstack/react-form-devtools':
-      specifier: ^0.1.7
-      version: 0.1.7
+      specifier: ^0.2.2
+      version: 0.2.2
     '@tanstack/react-query':
       specifier: ^5.90.2
       version: 5.90.2
@@ -151,7 +151,7 @@ importers:
         version: 0.13.8(typescript@5.9.3)(zod@4.1.12)
       '@tanstack/react-form':
         specifier: catalog:tanstack
-        version: 1.23.6(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+        version: 1.26.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       '@tanstack/react-query':
         specifier: catalog:tanstack
         version: 5.90.2(react@19.2.0)
@@ -206,13 +206,13 @@ importers:
         version: 4.1.14(vite@7.1.9(@types/node@24.7.1)(jiti@2.6.1)(lightningcss@1.30.1)(tsx@4.20.6))
       '@tanstack/devtools-vite':
         specifier: catalog:tanstack
-        version: 0.3.6(vite@7.1.9(@types/node@24.7.1)(jiti@2.6.1)(lightningcss@1.30.1)(tsx@4.20.6))
+        version: 0.3.11(vite@7.1.9(@types/node@24.7.1)(jiti@2.6.1)(lightningcss@1.30.1)(tsx@4.20.6))
       '@tanstack/react-devtools':
         specifier: catalog:tanstack
-        version: 0.7.6(@types/react-dom@19.2.1(@types/react@19.2.2))(@types/react@19.2.2)(csstype@3.1.3)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(solid-js@1.9.9)
+        version: 0.8.2(@types/react-dom@19.2.1(@types/react@19.2.2))(@types/react@19.2.2)(csstype@3.1.3)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(solid-js@1.9.9)
       '@tanstack/react-form-devtools':
         specifier: catalog:tanstack
-        version: 0.1.7(csstype@3.1.3)(react@19.2.0)(solid-js@1.9.9)
+        version: 0.2.2(@types/react@19.2.2)(csstype@3.1.3)(react@19.2.0)(solid-js@1.9.9)
       '@tanstack/react-query-devtools':
         specifier: catalog:tanstack
         version: 5.90.2(@tanstack/react-query@5.90.2(react@19.2.0))(react@19.2.0)
@@ -309,7 +309,7 @@ importers:
         version: 1.29.3(@clerk/clerk-react@5.51.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)
       convex-helpers:
         specifier: catalog:convex
-        version: 0.1.105(convex@1.29.3(@clerk/clerk-react@5.51.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0))(react@19.2.0)(typescript@5.9.3)(zod@4.1.12)
+        version: 0.1.106(convex@1.29.3(@clerk/clerk-react@5.51.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0))(react@19.2.0)(typescript@5.9.3)(zod@4.1.12)
       fractional-indexing:
         specifier: catalog:common
         version: 3.2.0
@@ -346,7 +346,7 @@ importers:
         version: 1.29.3(@clerk/clerk-react@5.51.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)
       convex-helpers:
         specifier: catalog:convex
-        version: 0.1.105(convex@1.29.3(@clerk/clerk-react@5.51.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0))(react@19.2.0)(typescript@5.9.3)(zod@4.1.12)
+        version: 0.1.106(convex@1.29.3(@clerk/clerk-react@5.51.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0))(react@19.2.0)(typescript@5.9.3)(zod@4.1.12)
     devDependencies:
       '@gc/eslint-config':
         specifier: workspace:*
@@ -383,7 +383,7 @@ importers:
         version: link:../utils
       '@tanstack/react-form':
         specifier: catalog:tanstack
-        version: 1.23.6(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+        version: 1.26.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       lucide-react:
         specifier: ^0.525.0
         version: 0.525.0(react@19.2.0)
@@ -639,7 +639,7 @@ importers:
         version: link:../db
       convex-helpers:
         specifier: catalog:convex
-        version: 0.1.105(convex@1.29.3(@clerk/clerk-react@5.51.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0))(react@19.2.0)(typescript@5.9.3)(zod@4.1.12)
+        version: 0.1.106(convex@1.29.3(@clerk/clerk-react@5.51.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0))(react@19.2.0)(typescript@5.9.3)(zod@4.1.12)
       zod:
         specifier: catalog:common
         version: 4.1.12
@@ -1989,8 +1989,18 @@ packages:
     peerDependencies:
       solid-js: ^1.6.12
 
+  '@solid-primitives/resize-observer@2.1.3':
+    resolution: {integrity: sha512-zBLje5E06TgOg93S7rGPldmhDnouNGhvfZVKOp+oG2XU8snA+GoCSSCz1M+jpNAg5Ek2EakU5UVQqL152WmdXQ==}
+    peerDependencies:
+      solid-js: ^1.6.12
+
   '@solid-primitives/rootless@1.5.2':
     resolution: {integrity: sha512-9HULb0QAzL2r47CCad0M+NKFtQ+LrGGNHZfteX/ThdGvKIg2o2GYhBooZubTCd/RTu2l2+Nw4s+dEfiDGvdrrQ==}
+    peerDependencies:
+      solid-js: ^1.6.12
+
+  '@solid-primitives/static-store@0.1.2':
+    resolution: {integrity: sha512-ReK+5O38lJ7fT+L6mUFvUr6igFwHBESZF+2Ug842s7fvlVeBdIVEdTCErygff6w7uR6+jrr7J8jQo+cYrEq4Iw==}
     peerDependencies:
       solid-js: ^1.6.12
 
@@ -2114,23 +2124,17 @@ packages:
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7
 
-  '@tanstack/devtools-client@0.0.2':
-    resolution: {integrity: sha512-j4XPrLjaZ8GaUe9Lt0QOyfrv0Q2jy/9Og5nLQM5/cFcOLxuBp5mXR/fFrA9/9oVCIld/CxetMEac8CwayXVTHQ==}
+  '@tanstack/devtools-client@0.0.4':
+    resolution: {integrity: sha512-LefnH9KE9uRDEWifc3QDcooskA8ikfs41bybDTgpYQpyTUspZnaEdUdya9Hry0KYxZ8nos0S3nNbsP79KHqr6Q==}
     engines: {node: '>=18'}
 
-  '@tanstack/devtools-event-bus@0.3.2':
-    resolution: {integrity: sha512-yJT2As/drc+Epu0nsqCsJaKaLcaNGufiNxSlp/+/oeTD0jsBxF9/PJBfh66XVpYXkKr97b8689mSu7QMef0Rrw==}
+  '@tanstack/devtools-event-bus@0.3.3':
+    resolution: {integrity: sha512-lWl88uLAz7ZhwNdLH6A3tBOSEuBCrvnY9Fzr5JPdzJRFdM5ZFdyNWz1Bf5l/F3GU57VodrN0KCFi9OA26H5Kpg==}
     engines: {node: '>=18'}
 
-  '@tanstack/devtools-event-client@0.3.3':
-    resolution: {integrity: sha512-RfV+OPV/M3CGryYqTue684u10jUt55PEqeBOnOtCe6tAmHI9Iqyc8nHeDhWPEV9715gShuauFVaMc9RiUVNdwg==}
+  '@tanstack/devtools-event-client@0.3.5':
+    resolution: {integrity: sha512-RL1f5ZlfZMpghrCIdzl6mLOFLTuhqmPNblZgBaeKfdtk5rfbjykurv+VfYydOFXj0vxVIoA2d/zT7xfD7Ph8fw==}
     engines: {node: '>=18'}
-
-  '@tanstack/devtools-ui@0.3.5':
-    resolution: {integrity: sha512-DU8OfLntngnph+Tb7ivQvh4F4w+rDu6r01fXlhjq/Nmgdr0gtsOox4kdmyq5rCs+C6aPgP3M7+BE+fv4dN+VvA==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      solid-js: '>=1.9.7'
 
   '@tanstack/devtools-ui@0.4.2':
     resolution: {integrity: sha512-xvALRLeD+TYjaLx9f9OrRBBZITAYPIk7RH8LRiESUQHw7lZO/sBU1ggrcSePh7TwKWXl9zLmtUi+7xVIS+j/dQ==}
@@ -2138,26 +2142,44 @@ packages:
     peerDependencies:
       solid-js: '>=1.9.7'
 
-  '@tanstack/devtools-vite@0.3.6':
-    resolution: {integrity: sha512-OYzyRVxHvrEMJLYIicD5HekQTrQeEqVGpEEHnQuAXmZydRh4qXebUBV+XYDaz+AA6woRuAzvYXALCwBq0kNMfw==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      vite: ^6.0.0 || ^7.0.0
-
-  '@tanstack/devtools@0.6.20':
-    resolution: {integrity: sha512-7Sw6bWvwKsHDNLg+8v7xOXhE5tzwx6/KgLWSSP55pJ86wpSXYdIm89vvXm4ED1lgKfEU5l3f4Y6QVagU4rgRiQ==}
+  '@tanstack/devtools-ui@0.4.4':
+    resolution: {integrity: sha512-5xHXFyX3nom0UaNfiOM92o6ziaHjGo3mcSGe2HD5Xs8dWRZNpdZ0Smd0B9ddEhy0oB+gXyMzZgUJb9DmrZV0Mg==}
     engines: {node: '>=18'}
     peerDependencies:
       solid-js: '>=1.9.7'
 
-  '@tanstack/form-core@1.24.2':
-    resolution: {integrity: sha512-qc2YFhM0PsxjLbZ7Fn5ErX9kz/Wr6gmd4m47Nf3OFfsFbI1O2B5AQLwt9OApMs19CDeNiqe/zTSK+ayeHaDJNQ==}
+  '@tanstack/devtools-utils@0.0.4':
+    resolution: {integrity: sha512-oEZzBQqX6V9oTmDAj6W45iGDRbCO3B/UMTqwktTaagCPDUDRTDFBVUcdYs+QXVNaE6JQ/jDHmIHig/5bG4ot5g==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@types/react': '>=19.0.0'
+      react: '>=19.0.0'
+      solid-js: '>=1.9.7'
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      react:
+        optional: true
+      solid-js:
+        optional: true
 
-  '@tanstack/form-core@1.24.3':
-    resolution: {integrity: sha512-e+HzSD49NWr4aIqJWtPPzmi+/phBJAP3nSPN8dvxwmJWqAxuB/cH138EcmCFf3+oA7j3BXvwvTY0I+8UweGPjQ==}
+  '@tanstack/devtools-vite@0.3.11':
+    resolution: {integrity: sha512-t5jaWJNgkXOQTxuNrwkz71cN86zPZnLJY2Rz0IaMDgjb0ib1EKHeRgdqHMR/2YL96yhCHHDCHroBQXsw5Da4dg==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      vite: ^6.0.0 || ^7.0.0
 
-  '@tanstack/form-devtools@0.1.7':
-    resolution: {integrity: sha512-bXgZEnKMEKwf3v0SZz63HKiH6C8UUazFsy5O/GI6xGhYR/2TlQiAyJB9NuY3gFo1J5CRBh93m2ekH4S5D/6Ulg==}
+  '@tanstack/devtools@0.8.2':
+    resolution: {integrity: sha512-ltVS+MpOrA37CiVunSOCcXctaDnQOJV6FPE5Y2uLq3m8b0spmHwp0edp1PRd2CMG4LnGIlRf7lYdhHa2p9CHNA==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      solid-js: '>=1.9.7'
+
+  '@tanstack/form-core@1.26.0':
+    resolution: {integrity: sha512-CVSrNwnRt8V0vULOr82slIckaB7w7dOMKF+GMP9rmbaCBzXHJt+JQRj4NiH4PyPz31DAJoFE+BxcrhcVU2ZjTw==}
+
+  '@tanstack/form-devtools@0.2.2':
+    resolution: {integrity: sha512-pzILXEj5jBy8pU6UpefPx+TVFAAcmO5Ln9kxgzRXmeIynkL+JIGVHgUdlIk3hLgA3eF5dwBcgz6C+5rT07fuIQ==}
     peerDependencies:
       solid-js: '>=1.9.9'
 
@@ -2165,14 +2187,18 @@ packages:
     resolution: {integrity: sha512-UCHM2uS0t/uSszqPEo+SBSSoQVeQ+LlOWAVBl5SA7+AedeAbKafIPjFn8huZCXNLAYb0WKV2+wETr7lDK9uz7g==}
     engines: {node: '>=12'}
 
+  '@tanstack/pacer@0.15.4':
+    resolution: {integrity: sha512-vGY+CWsFZeac3dELgB6UZ4c7OacwsLb8hvL2gLS6hTgy8Fl0Bm/aLokHaeDIP+q9F9HUZTnp360z9uv78eg8pg==}
+    engines: {node: '>=18'}
+
   '@tanstack/query-core@5.90.2':
     resolution: {integrity: sha512-k/TcR3YalnzibscALLwxeiLUub6jN5EDLwKDiO7q5f4ICEoptJ+n9+7vcEFy5/x/i6Q+Lb/tXrsKCggf5uQJXQ==}
 
   '@tanstack/query-devtools@5.90.1':
     resolution: {integrity: sha512-GtINOPjPUH0OegJExZ70UahT9ykmAhmtNVcmtdnOZbxLwT7R5OmRztR5Ahe3/Cu7LArEmR6/588tAycuaWb1xQ==}
 
-  '@tanstack/react-devtools@0.7.6':
-    resolution: {integrity: sha512-fP0jY7yed0HVIEhs+rjn8wZqABD/6TUiq6SV8jlyYP8NBK2Jfq3ce+IRw5w+N7KBzEokveLQFktxoLNpt3ZOkA==}
+  '@tanstack/react-devtools@0.8.2':
+    resolution: {integrity: sha512-D1oG2QivpAmiT4iq7PxbsajmoYmtnhwg9gEK7q9mDiVcnyPjwnhg1ujDvKIzP+ZaRTkQzpJYwtTmS9DzYp8Akg==}
     engines: {node: '>=18'}
     peerDependencies:
       '@types/react': '>=16.8'
@@ -2180,15 +2206,15 @@ packages:
       react: '>=16.8'
       react-dom: '>=16.8'
 
-  '@tanstack/react-form-devtools@0.1.7':
-    resolution: {integrity: sha512-9Wh1+WyQ6QeQUeMnkYwnTyIa9mDnyuyGiUF93tCkvEgDbSkmKQ/4x8nvh2/CLREw9ZDxsQomgZSUqVX1FeoYrA==}
+  '@tanstack/react-form-devtools@0.2.2':
+    resolution: {integrity: sha512-92Pt9brrePWoEL+9pphbJ5oOgLoei3JMrrdxQhDoit2INWbnBdG6yV7eDzpYbFail0oAUKWsYqcHTWGBvin50Q==}
     peerDependencies:
       react: ^17.0.0 || ^18.0.0 || ^19.0.0
 
-  '@tanstack/react-form@1.23.6':
-    resolution: {integrity: sha512-cz8Nskpe2zo24lJd0ky0hO7NOqV/U7drQ2XiK3bxt94v5hnMQtUOno6mtJ6Tvwy0p8xKwSN76SvnpU+tp8YMQA==}
+  '@tanstack/react-form@1.26.0':
+    resolution: {integrity: sha512-G4AvmZ0tBMkxbsWB/gAfn5hH/8GSTXDR72DqVl1IjNULAn5XFFiWr4Xq5msbwgMruFNhLKyO4hxzwvwRXyCmmw==}
     peerDependencies:
-      '@tanstack/react-start': ^1.130.10
+      '@tanstack/react-start': '*'
       react: ^17.0.0 || ^18.0.0 || ^19.0.0
     peerDependenciesMeta:
       '@tanstack/react-start':
@@ -2591,12 +2617,12 @@ packages:
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
 
-  convex-helpers@0.1.105:
-    resolution: {integrity: sha512-B6EUQsBpLFcXpa1g/9Zsc7EaFHdaeMlPLCa/snSD+4hRBFMWKJjT589dZ/0Z40taBOQWC2tb81ciTNr4ctJb2w==}
+  convex-helpers@0.1.106:
+    resolution: {integrity: sha512-hWRe3yDaAVHMe4CUYw1YoQLiPZ1KIx6Kbf0w6UcRDx1BXpJgMCl3GVIMiSeYiA0PkbwjnIwGWIvoUVKloG5Tyw==}
     hasBin: true
     peerDependencies:
       '@standard-schema/spec': ^1.0.0
-      convex: ^1.24.0
+      convex: ^1.25.4
       hono: ^4.0.5
       react: ^17.0.2 || ^18.0.0 || ^19.0.0
       typescript: ^5.5
@@ -2676,9 +2702,6 @@ packages:
     resolution: {integrity: sha512-z2S+W9X73hAUUki+N+9Za2lBlun89zigOyGrsax+KUQ6wKW4ZoWpEYBkGhQjwAjjDCkWxhY0VKEhk8wzY7F5cA==}
     engines: {node: '>=0.10.0'}
 
-  decode-formdata@0.9.0:
-    resolution: {integrity: sha512-q5uwOjR3Um5YD+ZWPOF/1sGHVW9A5rCrRwITQChRXlmPkxDFBqCm4jNTIVdGHNH9OnR+V9MoZVgRhsFb+ARbUw==}
-
   dedent@1.5.1:
     resolution: {integrity: sha512-+LxW+KLWxu3HW3M2w2ympwtqPrqYRzU8fqi6Fhd18fBALe15blJPI/I4+UHveMVG6lJqB4JNd4UG0S5cnVHwIg==}
     peerDependencies:
@@ -2713,9 +2736,6 @@ packages:
 
   detect-node-es@1.1.0:
     resolution: {integrity: sha512-ypdmJU/TbBby2Dxibuv7ZLW3Bs1QEmM7nHjEANfohJLvE0XVujisn1qPJcZxg+qDucsr+bP6fLD1rPS3AhJ7EQ==}
-
-  devalue@5.3.2:
-    resolution: {integrity: sha512-UDsjUbpQn9kvm68slnrs+mfxwFkIflOhkanmyabZ8zOYk8SMEIbJ3TK+88g70hSIeytu4y18f0z/hYHMTrXIWw==}
 
   diff@8.0.2:
     resolution: {integrity: sha512-sSuxWU5j5SR9QQji/o2qMvqRNYRDOcBTgsJ/DeCf4iSN4gW+gNMXM7wFIP+fdXZxoNiAnHUTGjCr+TSWXdRDKg==}
@@ -5310,7 +5330,20 @@ snapshots:
       '@solid-primitives/utils': 6.3.2(solid-js@1.9.9)
       solid-js: 1.9.9
 
+  '@solid-primitives/resize-observer@2.1.3(solid-js@1.9.9)':
+    dependencies:
+      '@solid-primitives/event-listener': 2.4.3(solid-js@1.9.9)
+      '@solid-primitives/rootless': 1.5.2(solid-js@1.9.9)
+      '@solid-primitives/static-store': 0.1.2(solid-js@1.9.9)
+      '@solid-primitives/utils': 6.3.2(solid-js@1.9.9)
+      solid-js: 1.9.9
+
   '@solid-primitives/rootless@1.5.2(solid-js@1.9.9)':
+    dependencies:
+      '@solid-primitives/utils': 6.3.2(solid-js@1.9.9)
+      solid-js: 1.9.9
+
+  '@solid-primitives/static-store@0.1.2(solid-js@1.9.9)':
     dependencies:
       '@solid-primitives/utils': 6.3.2(solid-js@1.9.9)
       solid-js: 1.9.9
@@ -5407,26 +5440,18 @@ snapshots:
       tailwindcss: 4.1.14
       vite: 7.1.9(@types/node@24.7.1)(jiti@2.6.1)(lightningcss@1.30.1)(tsx@4.20.6)
 
-  '@tanstack/devtools-client@0.0.2':
+  '@tanstack/devtools-client@0.0.4':
     dependencies:
-      '@tanstack/devtools-event-client': 0.3.3
+      '@tanstack/devtools-event-client': 0.3.5
 
-  '@tanstack/devtools-event-bus@0.3.2':
+  '@tanstack/devtools-event-bus@0.3.3':
     dependencies:
       ws: 8.18.3
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@tanstack/devtools-event-client@0.3.3': {}
-
-  '@tanstack/devtools-ui@0.3.5(csstype@3.1.3)(solid-js@1.9.9)':
-    dependencies:
-      clsx: 2.1.1
-      goober: 2.1.18(csstype@3.1.3)
-      solid-js: 1.9.9
-    transitivePeerDependencies:
-      - csstype
+  '@tanstack/devtools-event-client@0.3.5': {}
 
   '@tanstack/devtools-ui@0.4.2(csstype@3.1.3)(solid-js@1.9.9)':
     dependencies:
@@ -5436,28 +5461,50 @@ snapshots:
     transitivePeerDependencies:
       - csstype
 
-  '@tanstack/devtools-vite@0.3.6(vite@7.1.9(@types/node@24.7.1)(jiti@2.6.1)(lightningcss@1.30.1)(tsx@4.20.6))':
+  '@tanstack/devtools-ui@0.4.4(csstype@3.1.3)(solid-js@1.9.9)':
+    dependencies:
+      clsx: 2.1.1
+      goober: 2.1.18(csstype@3.1.3)
+      solid-js: 1.9.9
+    transitivePeerDependencies:
+      - csstype
+
+  '@tanstack/devtools-utils@0.0.4(@types/react@19.2.2)(csstype@3.1.3)(react@19.2.0)(solid-js@1.9.9)':
+    dependencies:
+      '@tanstack/devtools-ui': 0.4.2(csstype@3.1.3)(solid-js@1.9.9)
+    optionalDependencies:
+      '@types/react': 19.2.2
+      react: 19.2.0
+      solid-js: 1.9.9
+    transitivePeerDependencies:
+      - csstype
+
+  '@tanstack/devtools-vite@0.3.11(vite@7.1.9(@types/node@24.7.1)(jiti@2.6.1)(lightningcss@1.30.1)(tsx@4.20.6))':
     dependencies:
       '@babel/core': 7.28.4
       '@babel/generator': 7.28.3
       '@babel/parser': 7.28.4
       '@babel/traverse': 7.28.4
       '@babel/types': 7.28.4
-      '@tanstack/devtools-client': 0.0.2
-      '@tanstack/devtools-event-bus': 0.3.2
+      '@tanstack/devtools-client': 0.0.4
+      '@tanstack/devtools-event-bus': 0.3.3
       chalk: 5.6.2
       launch-editor: 2.11.1
+      picomatch: 4.0.3
       vite: 7.1.9(@types/node@24.7.1)(jiti@2.6.1)(lightningcss@1.30.1)(tsx@4.20.6)
     transitivePeerDependencies:
       - bufferutil
       - supports-color
       - utf-8-validate
 
-  '@tanstack/devtools@0.6.20(csstype@3.1.3)(solid-js@1.9.9)':
+  '@tanstack/devtools@0.8.2(csstype@3.1.3)(solid-js@1.9.9)':
     dependencies:
+      '@solid-primitives/event-listener': 2.4.3(solid-js@1.9.9)
       '@solid-primitives/keyboard': 1.3.3(solid-js@1.9.9)
-      '@tanstack/devtools-event-bus': 0.3.2
-      '@tanstack/devtools-ui': 0.4.2(csstype@3.1.3)(solid-js@1.9.9)
+      '@solid-primitives/resize-observer': 2.1.3(solid-js@1.9.9)
+      '@tanstack/devtools-client': 0.0.4
+      '@tanstack/devtools-event-bus': 0.3.3
+      '@tanstack/devtools-ui': 0.4.4(csstype@3.1.3)(solid-js@1.9.9)
       clsx: 2.1.1
       goober: 2.1.18(csstype@3.1.3)
       solid-js: 1.9.9
@@ -5466,36 +5513,40 @@ snapshots:
       - csstype
       - utf-8-validate
 
-  '@tanstack/form-core@1.24.2':
+  '@tanstack/form-core@1.26.0':
     dependencies:
-      '@tanstack/devtools-event-client': 0.3.3
+      '@tanstack/devtools-event-client': 0.3.5
+      '@tanstack/pacer': 0.15.4
       '@tanstack/store': 0.7.7
 
-  '@tanstack/form-core@1.24.3':
+  '@tanstack/form-devtools@0.2.2(@types/react@19.2.2)(csstype@3.1.3)(react@19.2.0)(solid-js@1.9.9)':
     dependencies:
-      '@tanstack/devtools-event-client': 0.3.3
-      '@tanstack/store': 0.7.7
-
-  '@tanstack/form-devtools@0.1.7(csstype@3.1.3)(solid-js@1.9.9)':
-    dependencies:
-      '@tanstack/devtools-ui': 0.3.5(csstype@3.1.3)(solid-js@1.9.9)
-      '@tanstack/form-core': 1.24.3
+      '@tanstack/devtools-ui': 0.4.4(csstype@3.1.3)(solid-js@1.9.9)
+      '@tanstack/devtools-utils': 0.0.4(@types/react@19.2.2)(csstype@3.1.3)(react@19.2.0)(solid-js@1.9.9)
+      '@tanstack/form-core': 1.26.0
       clsx: 2.1.1
       dayjs: 1.11.18
       goober: 2.1.18(csstype@3.1.3)
       solid-js: 1.9.9
     transitivePeerDependencies:
+      - '@types/react'
       - csstype
+      - react
 
   '@tanstack/history@1.132.31': {}
+
+  '@tanstack/pacer@0.15.4':
+    dependencies:
+      '@tanstack/devtools-event-client': 0.3.5
+      '@tanstack/store': 0.7.7
 
   '@tanstack/query-core@5.90.2': {}
 
   '@tanstack/query-devtools@5.90.1': {}
 
-  '@tanstack/react-devtools@0.7.6(@types/react-dom@19.2.1(@types/react@19.2.2))(@types/react@19.2.2)(csstype@3.1.3)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(solid-js@1.9.9)':
+  '@tanstack/react-devtools@0.8.2(@types/react-dom@19.2.1(@types/react@19.2.2))(@types/react@19.2.2)(csstype@3.1.3)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(solid-js@1.9.9)':
     dependencies:
-      '@tanstack/devtools': 0.6.20(csstype@3.1.3)(solid-js@1.9.9)
+      '@tanstack/devtools': 0.8.2(csstype@3.1.3)(solid-js@1.9.9)
       '@types/react': 19.2.2
       '@types/react-dom': 19.2.1(@types/react@19.2.2)
       react: 19.2.0
@@ -5506,20 +5557,20 @@ snapshots:
       - solid-js
       - utf-8-validate
 
-  '@tanstack/react-form-devtools@0.1.7(csstype@3.1.3)(react@19.2.0)(solid-js@1.9.9)':
+  '@tanstack/react-form-devtools@0.2.2(@types/react@19.2.2)(csstype@3.1.3)(react@19.2.0)(solid-js@1.9.9)':
     dependencies:
-      '@tanstack/form-devtools': 0.1.7(csstype@3.1.3)(solid-js@1.9.9)
+      '@tanstack/devtools-utils': 0.0.4(@types/react@19.2.2)(csstype@3.1.3)(react@19.2.0)(solid-js@1.9.9)
+      '@tanstack/form-devtools': 0.2.2(@types/react@19.2.2)(csstype@3.1.3)(react@19.2.0)(solid-js@1.9.9)
       react: 19.2.0
     transitivePeerDependencies:
+      - '@types/react'
       - csstype
       - solid-js
 
-  '@tanstack/react-form@1.23.6(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
+  '@tanstack/react-form@1.26.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
     dependencies:
-      '@tanstack/form-core': 1.24.2
+      '@tanstack/form-core': 1.26.0
       '@tanstack/react-store': 0.7.7(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      decode-formdata: 0.9.0
-      devalue: 5.3.2
       react: 19.2.0
     transitivePeerDependencies:
       - react-dom
@@ -6060,7 +6111,7 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  convex-helpers@0.1.105(convex@1.29.3(@clerk/clerk-react@5.51.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0))(react@19.2.0)(typescript@5.9.3)(zod@4.1.12):
+  convex-helpers@0.1.106(convex@1.29.3(@clerk/clerk-react@5.51.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0))(react@19.2.0)(typescript@5.9.3)(zod@4.1.12):
     dependencies:
       convex: 1.29.3(@clerk/clerk-react@5.51.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)
     optionalDependencies:
@@ -6118,8 +6169,6 @@ snapshots:
 
   decamelize@1.2.0: {}
 
-  decode-formdata@0.9.0: {}
-
   dedent@1.5.1: {}
 
   deep-is@0.1.4: {}
@@ -6143,8 +6192,6 @@ snapshots:
   detect-libc@2.1.2: {}
 
   detect-node-es@1.1.0: {}
-
-  devalue@5.3.2: {}
 
   diff@8.0.2: {}
 

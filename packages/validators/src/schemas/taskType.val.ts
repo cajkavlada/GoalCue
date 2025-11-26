@@ -41,7 +41,6 @@ export const createTaskTypeConvexSchema = v.object({
   tags: v.array(v.id("tags")),
 });
 
-// TODO: infer from convex schema when convexToZod supports zod v4
 export function getCreateTaskTypeZodSchema({
   existingTaskTypes,
 }: {

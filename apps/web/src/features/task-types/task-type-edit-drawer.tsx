@@ -1,7 +1,7 @@
 import { Plus } from "lucide-react";
 import { nanoid } from "nanoid";
 
-import { useAppForm } from "@gc/form";
+import { asFormValidator, useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
 import { ErrorSuspense } from "@gc/react-kit";
 import { Drawer, DrawerButton, SelectItem } from "@gc/ui";
@@ -85,10 +85,13 @@ export function TaskTypeEditForm({
   const form = useAppForm({
     defaultValues,
     validators: {
-      onBlur: getUpdateTaskTypeZodSchema({
-        existingTaskTypes: taskTypes,
-        currentTaskTypeId: editedTaskType._id,
-      }),
+      // temporary solution asFormValidator caused by mismatch of zod schema input and output for convex zid field
+      onBlur: asFormValidator(
+        getUpdateTaskTypeZodSchema({
+          existingTaskTypes: taskTypes,
+          currentTaskTypeId: editedTaskType._id,
+        })
+      ),
     },
     onSubmit: async ({ value }) => {
       // strip dndId from enum options
