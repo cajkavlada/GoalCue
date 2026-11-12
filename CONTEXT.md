@@ -51,3 +51,15 @@ A Task to reply to a message through its Source link. Its description may contai
 
 **Learned preference**:
 A planning preference derived from previous Tasks, Events, or manual corrections, attributable to its contributing sources.
+
+**Session**:
+A scheduled portion of a Task or recurring Occurrence. A Task or Occurrence may span multiple Sessions across days.
+
+**Occurrence**:
+One instance of recurring work, with its own progress and completion state.
+
+**Effort estimate**:
+The expected working time needed to complete a Task or Occurrence, distinct from recorded time spent and output progress.
+
+**Progress measure**:
+The primary way completion is tracked for a Task or Occurrence: done/not done, time, percentage, or a quantity such as pages or distance.
