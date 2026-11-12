@@ -63,3 +63,18 @@ The expected working time needed to complete a Task or Occurrence, distinct from
 
 **Progress measure**:
 The primary way completion is tracked for a Task or Occurrence: done/not done, time, percentage, or a quantity such as pages or distance.
+
+**Priority**:
+A Task's importance, expressed as low, normal, high, or critical, distinct from deadline pressure.
+
+**Urgency**:
+Deadline pressure based on remaining effort and compatible availability before the deadline, including a safety margin.
+
+**Firm deadline**:
+A required completion date whose violation makes unfinished work overdue.
+
+**Preferred finish date**:
+A desired completion date that guides placement but may slip.
+
+**Pin**:
+An explicit restriction preventing automatic movement of a Session, without granting permission to violate planning boundaries.
