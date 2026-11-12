@@ -39,3 +39,15 @@ Unscheduled time retained within availability, with a preferred amount and a pro
 
 **Leisure Task**:
 A flexible Task representing a leisure activity, distinct from an explicitly protected period.
+
+**Source**:
+A calendar, mail folder or label, or manually imported dataset from which GoalCue derives planning records. Source-level permissions govern access and AI processing.
+
+**Source excerpt**:
+Relevant source content retained to explain a derived Task or Event, rather than a complete copy of the original item.
+
+**Reply Task**:
+A Task to reply to a message through its Source link. Its description may contain a recommended reply with missing manual inputs clearly highlighted.
+
+**Learned preference**:
+A planning preference derived from previous Tasks, Events, or manual corrections, attributable to its contributing sources.
