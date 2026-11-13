@@ -141,3 +141,12 @@ A recurring Task to review selected spam or junk mail in the user's mail app, wi
 
 **Review batch**:
 A bounded set of messages selected at the start of an inbox-review or spam-cleanup Occurrence.
+
+**Owner-funded connection**:
+An AI provider connection paid for by the GoalCue owner and available to other users only through an explicit access grant.
+
+**Personal AI connection**:
+An AI provider connection using a user's own credentials and billed directly by that provider, distinct from an Owner-funded connection.
+
+**AI allowance**:
+A spending ceiling for AI processing over a defined period, distinct from reserved funds or a guaranteed allocation of a shared budget.
