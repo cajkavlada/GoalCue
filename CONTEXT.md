@@ -111,3 +111,9 @@ The declared set of source records covered by a refresh, such as a Jira board or
 
 **Field mapping**:
 A correspondence between source fields and GoalCue planning fields, including source-specific status and priority meanings.
+
+**Check-in**:
+A report of a Session's outcome: finished, partial, not done, still working, or unknown. Recorded progress is distinct from scheduled time.
+
+**Daily review**:
+A grouped review of pending Check-ins, retaining each Session's identity and allowing outcomes to remain unknown.
