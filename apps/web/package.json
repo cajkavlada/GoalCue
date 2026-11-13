@@ -45,6 +45,7 @@
     "@gc/tailwind-config": "workspace:*",
     "@gc/typescript-config": "workspace:*",
     "@ianvs/prettier-plugin-sort-imports": "catalog:prettier",
+    "@inlang/paraglide-js": "2.2.0",
     "@tailwindcss/vite": "^4.1.11",
     "@tanstack/devtools-vite": "catalog:tanstack",
     "@tanstack/react-devtools": "catalog:tanstack",

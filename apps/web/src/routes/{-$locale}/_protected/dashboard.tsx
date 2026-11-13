@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { TaskCard } from "@/features/tasks/task-card";
+import { ErrorSuspense } from "@gc/react-kit";
+
+import { DayView } from "@/features/tasks/day-view";
 
 export const Route = createFileRoute("/{-$locale}/_protected/dashboard")({
   component: RouteComponent,
@@ -8,8 +10,8 @@ export const Route = createFileRoute("/{-$locale}/_protected/dashboard")({
 
 function RouteComponent() {
   return (
-    <div className="flex h-full justify-center p-4">
-      <TaskCard />
-    </div>
+    <ErrorSuspense>
+      <DayView />
+    </ErrorSuspense>
   );
 }

@@ -30,17 +30,17 @@ export function TaskListItem({
   return (
     <div
       className={cn(
-        "flex select-none items-center gap-2 px-2",
+        "flex min-w-0 select-none flex-wrap items-center gap-2 rounded px-1 py-1",
         isItemSelected && "bg-accent text-accent-foreground"
       )}
       onClick={toggleSelectItem}
     >
       <TruncateWithTooltip
         text={task.title}
-        className="mr-auto"
+        className="min-w-0 flex-1 basis-24"
       />
       <div
-        className="flex items-center gap-2"
+        className="flex min-w-0 max-w-full flex-wrap items-center gap-2"
         onClick={(e) => e.stopPropagation()}
       >
         {task.valueKind === "boolean" && (
@@ -51,6 +51,7 @@ export function TaskListItem({
         )}
         {task.valueKind === "number" && (
           <NumberTaskActionInput
+            key={task.progressMeasure}
             task={task}
             completedAfter={completedAfter}
           />

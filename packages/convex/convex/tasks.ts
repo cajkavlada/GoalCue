@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { generateKeyBetween } from "fractional-indexing";
 
 import {
@@ -76,7 +76,8 @@ export const getExtendedById = authedQuery({
 export const create = authedMutation({
   args: createTaskConvexSchema,
   rateLimit: { name: "createTask" },
-  handler: async (ctx, taskArgs) => {
+  handler: async (ctx, input) => {
+    const taskArgs = { ...input, ...progressValues(input) };
     const parsedDueAt = taskArgs.dueAt ? new Date(taskArgs.dueAt) : undefined;
     zodParse(createTaskZodSchema, {
       ...taskArgs,
@@ -87,18 +88,31 @@ export const create = authedMutation({
       taskTypeId: taskArgs.taskTypeId,
     });
 
-    zodParse(taskWithCorrectValuesSchema, {
-      ...taskArgs,
-      valueKind: taskType.valueKind,
-      dueAt: parsedDueAt,
+    const valueKind = taskArgs.progressMeasure
+      ? taskArgs.progressMeasure === "done"
+        ? "boolean"
+        : "number"
+      : taskType.valueKind;
+    await priorityClassQueries({ ctx }).getById({
+      priorityClassId: taskArgs.priorityClassId,
     });
+    zodParse(
+      taskWithCorrectValuesSchema,
+      Object.fromEntries(
+        Object.entries({
+          ...taskArgs,
+          valueKind,
+          dueAt: parsedDueAt,
+        }).filter(([, value]) => value !== undefined)
+      )
+    );
 
     const { tags, ...rawTask } = taskArgs;
 
     const newTaskId = await ctx.db.insert("tasks", {
       ...rawTask,
       userId: ctx.userId,
-      valueKind: taskType.valueKind,
+      valueKind,
       priorityIndex: generateKeyBetween(
         null,
         await getFirstPriorityIndexInClass(ctx, rawTask.priorityClassId)
@@ -123,7 +137,11 @@ export const update = authedMutation({
   args: updateTaskConvexSchema,
   rateLimit: { name: "updateTask" },
   handler: async (ctx, { taskId, ...taskArgs }) => {
-    await taskQueries({ ctx }).getById({ taskId });
+    const existing = await taskQueries({ ctx }).getById({ taskId });
+    await priorityClassQueries({ ctx }).getById({
+      priorityClassId: taskArgs.priorityClassId,
+    });
+    Object.assign(taskArgs, progressValues(taskArgs));
     const parsedDueAt = taskArgs.dueAt ? new Date(taskArgs.dueAt) : undefined;
     zodParse(updateTaskZodSchema, {
       ...taskArgs,
@@ -139,6 +157,22 @@ export const update = authedMutation({
     await ctx.db.patch(taskId, {
       ...rawTask,
       dueAt: taskArgs.dueAt ?? undefined,
+      effortMinutes: taskArgs.effortMinutes,
+      ...(taskArgs.progressMeasure
+        ? {
+            valueKind:
+              taskArgs.progressMeasure === "done"
+                ? ("boolean" as const)
+                : ("number" as const),
+            ...(taskArgs.progressMeasure !== existing.progressMeasure
+              ? {
+                  completedAt: undefined,
+                  currentNumValue: 0,
+                  currentEnumOptionId: undefined,
+                }
+              : {}),
+          }
+        : {}),
     });
   },
 });
@@ -196,4 +230,19 @@ async function getFirstPriorityIndexInClass(
       .order("asc")
       .first()
   )?.priorityIndex;
+}
+
+function progressValues(input: {
+  progressMeasure?: "done" | "time" | "percentage" | "quantity";
+  completedNumValue?: number;
+}) {
+  if (!input.progressMeasure) return {};
+  if (input.progressMeasure === "done")
+    return { initialNumValue: undefined, completedNumValue: undefined };
+  const target =
+    input.progressMeasure === "percentage" ? 100 : input.completedNumValue;
+  if (target === undefined || !Number.isFinite(target) || target <= 0) {
+    throw new ConvexError({ message: "Enter a positive progress target" });
+  }
+  return { initialNumValue: 0, completedNumValue: target };
 }

@@ -118,6 +118,7 @@ Drawer.Footer = function Footer({
       }}
     >
       <Button
+        type="button"
         variant="ghost"
         onClick={() => {
           onCancel?.();

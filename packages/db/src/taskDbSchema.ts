@@ -12,6 +12,13 @@ export const taskDbSchema = {
     priorityClassId: v.id("priorityClasses"),
     priorityIndex: v.string(),
     repetitionId: v.optional(v.id("repetitions")),
+    effortMinutes: v.optional(v.number()),
+    priority: v.optional(literals("low", "normal", "high", "critical")),
+    finishKind: v.optional(literals("firm", "preferred")),
+    progressMeasure: v.optional(
+      literals("done", "time", "percentage", "quantity")
+    ),
+    progressUnit: v.optional(v.string()),
     dueAt: v.optional(v.number()),
     archivedAt: v.optional(v.number()),
     valueKind: literals("boolean", "number", "enum"),
@@ -29,6 +36,15 @@ export const taskDbSchema = {
       "priorityIndex",
     ])
     .index("by_user_priority", ["userId", "priorityClassId", "priorityIndex"]),
+  sessions: defineTable({
+    userId: v.string(),
+    taskId: v.id("tasks"),
+    startAt: v.number(),
+    endAt: v.number(),
+    unscheduledAt: v.optional(v.number()),
+  })
+    .index("by_user_start", ["userId", "startAt"])
+    .index("by_task", ["taskId"]),
   taskActions: defineTable({
     taskId: v.id("tasks"),
     boolValue: v.optional(v.boolean()),

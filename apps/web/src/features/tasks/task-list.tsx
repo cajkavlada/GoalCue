@@ -1,7 +1,7 @@
 import { CircleQuestionMark, ListChecks, Trash2 } from "lucide-react";
 
 import { m } from "@gc/i18n/messages";
-import { useBulkSelect, VirtualList } from "@gc/react-kit";
+import { useBulkSelect } from "@gc/react-kit";
 import {
   ActionMenu,
   Checkbox,
@@ -9,7 +9,6 @@ import {
   Tooltip,
   useModal,
 } from "@gc/ui";
-import { cn } from "@gc/utils";
 import { ExtendedTask } from "@gc/validators";
 
 import { taskActionApi } from "../task-actions/task-action.api";
@@ -20,12 +19,10 @@ export function TaskList({
   tasks,
   completedAfter,
   emptyMessage,
-  className,
 }: {
   tasks: ExtendedTask[];
   completedAfter?: number;
   emptyMessage?: string;
-  className?: string;
 }) {
   const { openDialog } = useModal();
 
@@ -37,7 +34,7 @@ export function TaskList({
   const addToInitialMutation = taskActionApi.useAddToInitial();
 
   return (
-    <div className={cn("flex flex-1 flex-col overflow-hidden", className)}>
+    <div className="flex min-w-0 flex-col">
       {tasks.length === 0 && (
         <div className="text-center text-gray-500">{emptyMessage}</div>
       )}
@@ -91,19 +88,16 @@ export function TaskList({
               </>
             )}
           </div>
-          <div className="flex-1 overflow-hidden">
-            <VirtualList
-              className="h-full"
-              items={tasks}
-              estimateSize={() => 36}
-              renderItem={(task) => (
+          <ul className="min-w-0 space-y-1">
+            {tasks.map((task) => (
+              <li key={task._id}>
                 <TaskListItem
                   task={task}
                   completedAfter={completedAfter}
                 />
-              )}
-            />
-          </div>
+              </li>
+            ))}
+          </ul>
         </>
       )}
     </div>

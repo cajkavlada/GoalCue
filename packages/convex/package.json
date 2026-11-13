@@ -12,7 +12,8 @@
     "check-types": "tsc --noEmit",
     "dev": "pnpx convex dev",
     "lint": "eslint src --max-warnings=0",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@convex-dev/rate-limiter": "catalog:convex",
