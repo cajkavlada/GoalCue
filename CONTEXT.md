@@ -120,3 +120,15 @@ A grouped review of pending Check-ins, retaining each Session's identity and all
 
 **Activity category**:
 An editable classification of a Task's activity, such as work, sport, music, reading, or family, distinct from its Source and Project.
+
+**Job**:
+A work context grouping Jira boards for an individual job, distinct from a Project.
+
+**Board**:
+A grouping of imported Jira Tasks within a Job. A Task may belong to multiple boards without becoming separate work.
+
+**Sprint**:
+A named iteration with an identity and end date shared by its member Tasks, potentially across boards.
+
+**Project time target**:
+An editable weekly amount of time intended for concrete Tasks within a Project, with an optional preferred cadence, distinct from its completion date or total Effort estimate.
