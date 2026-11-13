@@ -117,3 +117,6 @@ A report of a Session's outcome: finished, partial, not done, still working, or 
 
 **Daily review**:
 A grouped review of pending Check-ins, retaining each Session's identity and allowing outcomes to remain unknown.
+
+**Activity category**:
+An editable classification of a Task's activity, such as work, sport, music, reading, or family, distinct from its Source and Project.
