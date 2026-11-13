@@ -87,3 +87,18 @@ A time-limited attempt to restore displaced leisure or borrowed free-time reserv
 
 **Recovery Session**:
 A Session scheduled to fulfil a Recovery request through a leisure activity.
+
+**Location requirement**:
+A physical place or attendance condition needed for a Task or Event, distinct from its preferred or assumed planned location.
+
+**Journey**:
+Travel between physical locations supporting one or more Tasks or Events, with a travel mode and estimated duration.
+
+**Travel margin**:
+Additional time reserved beyond a Journey's estimated route duration to allow for uncertainty.
+
+**Arrival buffer**:
+Time reserved before an Event for arrival and preparation, separate from travel.
+
+**Wrap-up buffer**:
+Time reserved after an Event for finishing activities before the next commitment or Journey.
