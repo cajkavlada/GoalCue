@@ -102,3 +102,12 @@ Time reserved before an Event for arrival and preparation, separate from travel.
 
 **Wrap-up buffer**:
 Time reserved after an Event for finishing activities before the next commitment or Journey.
+
+**Location stay**:
+A period establishing an expected physical location without itself requiring attention or blocking compatible Tasks and Events.
+
+**Import scope**:
+The declared set of source records covered by a refresh, such as a Jira board or a calendar date range.
+
+**Field mapping**:
+A correspondence between source fields and GoalCue planning fields, including source-specific status and priority meanings.
