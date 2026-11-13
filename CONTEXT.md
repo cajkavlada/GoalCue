@@ -132,3 +132,12 @@ A named iteration with an identity and end date shared by its member Tasks, pote
 
 **Project time target**:
 An editable weekly amount of time intended for concrete Tasks within a Project, with an optional preferred cadence, distinct from its completion date or total Effort estimate.
+
+**Inbox-review Task**:
+A recurring Task to review messages from selected mail Sources or labels, distinct from individual message follow-up Tasks.
+
+**Spam-cleanup Task**:
+A recurring Task to review selected spam or junk mail in the user's mail app, with completion recorded independently of mailbox changes.
+
+**Review batch**:
+A bounded set of messages selected at the start of an inbox-review or spam-cleanup Occurrence.
