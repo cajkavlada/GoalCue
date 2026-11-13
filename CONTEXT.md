@@ -78,3 +78,12 @@ A desired completion date that guides placement but may slip.
 
 **Pin**:
 An explicit restriction preventing automatic movement of a Session, without granting permission to violate planning boundaries.
+
+**Leisure displacement**:
+Leisure time removed or shortened by automatic planning to accommodate urgent work, distinct from a manual skip or a move that preserves duration.
+
+**Recovery request**:
+A time-limited attempt to restore displaced leisure or borrowed free-time reserve, without creating an accumulating obligation.
+
+**Recovery Session**:
+A Session scheduled to fulfil a Recovery request through a leisure activity.
