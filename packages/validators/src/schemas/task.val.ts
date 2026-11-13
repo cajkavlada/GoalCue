@@ -33,6 +33,11 @@ export const createTaskConvexSchema = v.object({
     "priorityClassId",
     "repetitionId",
     "dueAt",
+    "effortMinutes",
+    "priority",
+    "finishKind",
+    "progressMeasure",
+    "progressUnit",
     "initialNumValue",
     "completedNumValue",
   ]),
@@ -44,6 +49,10 @@ const createArgsSchema = convexToZod(createTaskConvexSchema);
 export const createTaskZodSchema = z
   .object({
     ...createArgsSchema.pick({
+      priority: true,
+      finishKind: true,
+      progressMeasure: true,
+      progressUnit: true,
       description: true,
       taskTypeId: true,
       priorityClassId: true,
@@ -52,6 +61,7 @@ export const createTaskZodSchema = z
       completedNumValue: true,
       tags: true,
     }).shape,
+    effortMinutes: z.number().positive().finite().optional(),
     title: z.string().min(1),
     dueAt: z.date().optional(),
   })
@@ -98,6 +108,11 @@ export const updateTaskConvexSchema = v.object({
     "priorityClassId",
     "repetitionId",
     "dueAt",
+    "effortMinutes",
+    "priority",
+    "finishKind",
+    "progressMeasure",
+    "progressUnit",
     "initialNumValue",
     "completedNumValue",
   ]),
@@ -109,6 +124,10 @@ const updateArgsSchema = convexToZod(updateTaskConvexSchema);
 export const updateTaskZodSchema = z
   .object({
     ...updateArgsSchema.pick({
+      priority: true,
+      finishKind: true,
+      progressMeasure: true,
+      progressUnit: true,
       description: true,
       priorityClassId: true,
       repetitionId: true,
@@ -116,6 +135,7 @@ export const updateTaskZodSchema = z
       completedNumValue: true,
       tags: true,
     }).shape,
+    effortMinutes: z.number().positive().finite().optional(),
     title: z.string().min(1),
     dueAt: z.date().optional(),
   })

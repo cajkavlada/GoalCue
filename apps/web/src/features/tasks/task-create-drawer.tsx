@@ -46,6 +46,11 @@ function TaskCreateForm() {
   const defaultDueAt = addDays(endOfDay(new Date()), 2);
   const defaultValues: CreateTaskClientArgs = {
     title: "",
+    effortMinutes: undefined,
+    priority: "normal",
+    finishKind: "firm",
+    progressMeasure: undefined,
+    progressUnit: undefined,
     taskTypeId: taskTypes[0]!._id,
     priorityClassId: priorityClasses[0]!._id,
     initialNumValue: taskTypes[0]?.initialNumValue,
@@ -82,6 +87,10 @@ function TaskCreateForm() {
   }) {
     const taskType = taskTypes.find((t) => t._id === value);
     const isNumber = taskType?.valueKind === "number";
+    if (form.state.values.progressMeasure) {
+      form.setFieldValue("tags", taskType?.tags.map((tag) => tag._id) ?? []);
+      return;
+    }
     form.setFieldValue(
       "initialNumValue",
       isNumber ? (taskType?.initialNumValue ?? 0) : undefined
@@ -138,10 +147,15 @@ function TaskCreateForm() {
             </div>
           )}
         </form.AppField>
-        <form.Subscribe selector={(state) => state.values.taskTypeId}>
-          {(taskTypeId) => {
+        <form.Subscribe
+          selector={(state) =>
+            [state.values.taskTypeId, state.values.progressMeasure] as const
+          }
+        >
+          {([taskTypeId, measure]) => {
             const taskType = taskTypes.find((t) => t._id === taskTypeId);
             return (
+              !measure &&
               taskType?.valueKind === "number" && (
                 <div>
                   <div className="flex gap-2">
@@ -167,6 +181,106 @@ function TaskCreateForm() {
               )
             );
           }}
+        </form.Subscribe>
+        <form.AppField name="effortMinutes">
+          {(field) => (
+            <field.Input
+              label={m.planning_effort()}
+              type="number"
+              min="1"
+              onChange={(e) =>
+                field.handleChange(
+                  e.target.value ? Number(e.target.value) : undefined
+                )
+              }
+            />
+          )}
+        </form.AppField>
+        <form.AppField name="priority">
+          {(field) => (
+            <field.Select
+              label={m.planning_priority()}
+              options={["low", "normal", "high", "critical"].map((value) => ({
+                label: {
+                  low: m.planning_low(),
+                  normal: m.planning_normal(),
+                  high: m.planning_high(),
+                  critical: m.planning_critical(),
+                }[value as "low" | "normal" | "high" | "critical"],
+                value,
+              }))}
+            />
+          )}
+        </form.AppField>
+        <form.AppField name="finishKind">
+          {(field) => (
+            <field.Select
+              label={m.planning_finish_kind()}
+              options={[
+                { label: m.planning_firm(), value: "firm" },
+                { label: m.planning_preferred(), value: "preferred" },
+              ]}
+            />
+          )}
+        </form.AppField>
+        <form.AppField
+          name="progressMeasure"
+          listeners={{
+            onChange: ({ value }) => {
+              form.setFieldValue(
+                "initialNumValue",
+                value === "done" ? undefined : 0
+              );
+              form.setFieldValue(
+                "completedNumValue",
+                value === "done"
+                  ? undefined
+                  : value === "percentage"
+                    ? 100
+                    : value === "time"
+                      ? 60
+                      : 10
+              );
+            },
+          }}
+        >
+          {(field) => (
+            <field.Select
+              label={m.planning_measure()}
+              placeholder={m.planning_legacy()}
+              options={[
+                { label: m.planning_done(), value: "done" },
+                { label: m.planning_time(), value: "time" },
+                { label: m.planning_percentage(), value: "percentage" },
+                { label: m.planning_quantity(), value: "quantity" },
+              ]}
+            />
+          )}
+        </form.AppField>
+        <form.Subscribe selector={(state) => state.values.progressMeasure}>
+          {(measure) =>
+            measure &&
+            measure !== "done" && (
+              <>
+                {measure !== "percentage" && (
+                  <form.AppField name="completedNumValue">
+                    {(field) => (
+                      <field.Input
+                        label={m.planning_target()}
+                        type="number"
+                        min="1"
+                      />
+                    )}
+                  </form.AppField>
+                )}
+                {measure === "quantity" && (
+                  <form.AppField name="progressUnit">
+                    {(field) => <field.Input label={m.planning_unit()} />}
+                  </form.AppField>
+                )}
+              </>
+            )
+          }
         </form.Subscribe>
         <form.AppField name="useDueAt">
           {(field) => (
