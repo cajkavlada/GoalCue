@@ -2,6 +2,7 @@ import type { FixedEvent, Interval, PlanningSettings } from "./planning";
 import {
   availabilityOn,
   dayBounds,
+  localDateTime,
   overlaps,
   placementConflicts,
   shiftDate,
@@ -26,6 +27,13 @@ type PlanningSession = Interval & {
   pinned?: boolean;
   manualOverride?: boolean;
   unscheduledAt?: number;
+  checkInUpdatedAt?: number;
+  planningEffortMinutes?: number;
+  checkIn?: {
+    reportedAt: number;
+    timeMinutes: number;
+    remainingMinutes?: number;
+  };
 };
 
 export function planSessions({
@@ -84,7 +92,34 @@ export function planSessions({
   );
   const byId = new Map(eligible.map((t) => [t._id, t]));
   const duration = (s: Interval) => (s.endAt - s.startAt) / 60000;
+  const credit = (s: PlanningSession) =>
+    s.checkIn ? s.checkIn.timeMinutes : duration(s);
   const original = sessions.filter((s) => s.unscheduledAt === undefined);
+  const effort = (task: PlanningTask) => {
+    const reports = original
+      .filter(
+        (s) =>
+          s.taskId === task._id && s.checkIn?.remainingMinutes !== undefined
+      )
+      .sort((a, b) => b.checkIn!.reportedAt - a.checkIn!.reportedAt);
+    const latest = reports[0]?.checkIn;
+    return latest
+      ? latest.remainingMinutes! +
+          original
+            .filter(
+              (s) =>
+                s.taskId === task._id &&
+                (s.checkIn
+                  ? s.checkIn.reportedAt <= latest.reportedAt
+                  : s.endAt <= latest.reportedAt)
+            )
+            .reduce((n, s) => n + credit(s), 0)
+      : (task.effortMinutes ??
+          original.find(
+            (s) =>
+              s.taskId === task._id && s.planningEffortMinutes !== undefined
+          )?.planningEffortMinutes);
+  };
   const urgency = new Map<string, boolean>();
   const pressing = (t: PlanningTask) => {
     if (urgency.has(t._id)) return urgency.get(t._id)!;
@@ -102,8 +137,8 @@ export function planSessions({
       .filter(
         (s) => s.taskId === t._id && s.endAt <= startAt && s.endAt <= t.dueAt!
       )
-      .reduce((n, s) => n + duration(s), 0);
-    const remaining = Math.max(0, (t.effortMinutes ?? 0) - outside);
+      .reduce((n, s) => n + credit(s), 0);
+    const remaining = Math.max(0, (effort(t) ?? 0) - outside);
     const urgent = remaining > 0 && remaining * 1.2 >= capacity;
     urgency.set(t._id, urgent);
     return urgent;
@@ -123,7 +158,28 @@ export function planSessions({
     s.startAt >= startAt &&
     s.endAt <= endAt &&
     !s.pinned &&
+    !s.checkIn &&
     !(s.startAt <= now && now < s.endAt);
+  for (const task of eligible) {
+    if (
+      !original.some(
+        (s) => s.taskId === task._id && s.checkInUpdatedAt !== undefined
+      )
+    )
+      continue;
+    let excess =
+      plan
+        .filter((s) => s.taskId === task._id)
+        .reduce((n, s) => n + credit(s), 0) - (effort(task) ?? Infinity);
+    for (const s of [...plan].sort((a, b) => b.startAt - a.startAt)) {
+      if (excess <= 0) break;
+      if (s.taskId !== task._id || !movable(s) || s.manualOverride !== false)
+        continue;
+      plan = plan.filter((p) => p._id !== s._id);
+      excess -= credit(s);
+      reasons.set(s._id, "Update remaining plan from Check-in");
+    }
+  }
   const invalid = (s: PlanningSession) => {
     const t = byId.get(s.taskId);
     return (
@@ -191,7 +247,8 @@ export function planSessions({
   const place = (
     task: PlanningTask,
     current: PlanningSession[],
-    needed: number
+    needed: number,
+    options?: { date?: string; oneSession?: boolean }
   ) => {
     const result = [...current];
     const minimum = task.minSessionMinutes ?? 15;
@@ -221,6 +278,20 @@ export function planSessions({
       );
     }
     for (const window of free) {
+      const windowDate = localDateTime(window.startAt, settings.timezone).slice(
+        0,
+        10
+      );
+      if (options?.date && windowDate !== options.date) continue;
+      const day = dayBounds(windowDate, settings.timezone);
+      const lowLimit = replanAll
+        ? 1
+        : Math.max(
+            1,
+            original.filter(
+              (s) => s.taskId === task._id && credit(s) > 0 && overlaps(s, day)
+            ).length
+          );
       let cursor = window.startAt;
       const preferred = removed[0];
       if (
@@ -233,6 +304,14 @@ export function planSessions({
       )
         cursor = preferred.startAt;
       while (needed >= minimum && (window.endAt - cursor) / 60000 >= minimum) {
+        if (
+          task.priority === "low" &&
+          !pressing(task) &&
+          result.filter(
+            (s) => s.taskId === task._id && credit(s) > 0 && overlaps(s, day)
+          ).length >= lowLimit
+        )
+          break;
         const previous = removed.shift();
         let minutes = Math.min(
           needed,
@@ -251,15 +330,16 @@ export function planSessions({
         result.push(s);
         needed -= minutes;
         cursor = s.endAt;
+        if (options?.oneSession) return { plan: result, needed };
       }
     }
     return { plan: result, needed };
   };
-  for (const task of ordered) {
-    if (task.automaticSchedulingPaused) continue;
+  const scheduleTask = (task: PlanningTask) => {
+    if (task.automaticSchedulingPaused) return;
     const scheduled = plan
       .filter((s) => s.taskId === task._id)
-      .reduce((n, s) => n + duration(s), 0);
+      .reduce((n, s) => n + credit(s), 0);
     const removedMinutes = original
       .filter(
         (s) => s.taskId === task._id && !plan.some((p) => p._id === s._id)
@@ -267,7 +347,7 @@ export function planSessions({
       .reduce((n, s) => n + duration(s), 0);
     const needed = Math.max(
       0,
-      (task.effortMinutes ?? scheduled + removedMinutes) - scheduled
+      (effort(task) ?? scheduled + removedMinutes) - scheduled
     );
     let attempt = place(task, plan, needed);
     if (
@@ -318,7 +398,71 @@ export function planSessions({
       }
     }
     plan = attempt.plan;
+  };
+  const urgent = ordered.filter(
+    (task) => pressing(task) || task.priority === "critical"
+  );
+  for (const task of urgent) scheduleTask(task);
+  const ordinary = ordered.filter(
+    (task) => !urgent.includes(task) && !task.automaticSchedulingPaused
+  );
+  if (ordinary.length > 1) {
+    for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+      const currentDate = shiftDate(date, dayIndex);
+      const day = dayBounds(currentDate, settings.timezone);
+      const waitingRank = (task: PlanningTask) => {
+        const last = plan
+          .filter(
+            (s) =>
+              s.taskId === task._id && credit(s) > 0 && s.startAt < day.startAt
+          )
+          .sort((a, b) => b.startAt - a.startAt)[0];
+        const lastDate = last
+          ? localDateTime(last.startAt, settings.timezone).slice(0, 10)
+          : shiftDate(date, -1);
+        const waitingDays = Math.max(
+          0,
+          (Date.parse(currentDate) - Date.parse(lastDate)) / 86400000 - 1
+        );
+        return priority[task.priority ?? "normal"] + Math.min(3, waitingDays);
+      };
+      for (let round = 0; round < 3; round++) {
+        const candidates = [...ordinary].sort(
+          (a, b) =>
+            waitingRank(b) - waitingRank(a) ||
+            rank(b) - rank(a) ||
+            (a.dueAt ?? Infinity) - (b.dueAt ?? Infinity) ||
+            a._id.localeCompare(b._id)
+        );
+        for (const task of candidates) {
+          const daily = plan.filter(
+            (s) => s.taskId === task._id && credit(s) > 0 && overlaps(s, day)
+          );
+          if (daily.length >= priority[task.priority ?? "normal"] + 1) continue;
+          const scheduled = plan
+            .filter((s) => s.taskId === task._id)
+            .reduce((sum, s) => sum + credit(s), 0);
+          const needed = Math.max(0, (effort(task) ?? scheduled) - scheduled);
+          const attempt = place(task, plan, needed, {
+            date: currentDate,
+            oneSession: true,
+          });
+          for (const session of attempt.plan) {
+            if (
+              !plan.some((s) => s._id === session._id) &&
+              !reasons.has(session._id)
+            )
+              reasons.set(
+                session._id,
+                "Give Tasks a turn according to Priority and waiting time"
+              );
+          }
+          plan = attempt.plan;
+        }
+      }
+    }
   }
+  for (const task of ordinary) scheduleTask(task);
   const changes = [
     ...original
       .filter((s) => !plan.some((p) => p._id === s._id))
@@ -353,7 +497,7 @@ export function planSessions({
   const shortfalls = eligible
     .filter((t) => !t.automaticSchedulingPaused)
     .flatMap((task) => {
-      if (task.effortMinutes === undefined)
+      if (effort(task) === undefined)
         return [
           {
             taskId: task._id,
@@ -366,8 +510,8 @@ export function planSessions({
         task.finishKind !== "preferred" ? (task.dueAt ?? endAt) : endAt;
       const planned = plan
         .filter((s) => s.taskId === task._id && s.endAt <= until)
-        .reduce((n, s) => n + duration(s), 0);
-      const minutes = Math.max(0, task.effortMinutes - planned);
+        .reduce((n, s) => n + credit(s), 0);
+      const minutes = Math.max(0, effort(task)! - planned);
       return minutes > 0
         ? [
             {
@@ -375,7 +519,9 @@ export function planSessions({
               title: task.title,
               minutes,
               reason:
-                "Insufficient compatible time within the next seven days or before the Firm deadline",
+                task.priority === "low" && !pressing(task)
+                  ? "Remaining effort does not fit at one Session per day within the next seven days, or before the Firm deadline"
+                  : "Insufficient compatible time within the next seven days or before the Firm deadline",
             },
           ]
         : [];

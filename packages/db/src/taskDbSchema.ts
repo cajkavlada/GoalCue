@@ -2,6 +2,40 @@ import { literals } from "convex-helpers/validators";
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
+const sessionFields = {
+  userId: v.string(),
+  taskId: v.id("tasks"),
+  startAt: v.number(),
+  endAt: v.number(),
+  unscheduledAt: v.optional(v.number()),
+  pinned: v.optional(v.boolean()),
+  manualOverride: v.optional(v.boolean()),
+  revision: v.optional(v.number()),
+  automaticReason: v.optional(v.string()),
+  askAfter: v.optional(v.number()),
+  checkInRequestedAt: v.optional(v.number()),
+  checkInUpdatedAt: v.optional(v.number()),
+  planningEffortMinutes: v.optional(v.number()),
+  checkIn: v.optional(
+    v.object({
+      outcome: literals("finished", "progress", "missed"),
+      reportedAt: v.number(),
+      measure: v.optional(literals("done", "time", "percentage", "quantity")),
+      value: v.optional(v.number()),
+      contribution: v.number(),
+      timeMinutes: v.number(),
+      remainingMinutes: v.optional(v.number()),
+      completedAt: v.optional(v.number()),
+      previousCompletedAt: v.optional(v.number()),
+    })
+  ),
+};
+
+const progressSnapshot = {
+  currentNumValue: v.optional(v.number()),
+  completedAt: v.optional(v.number()),
+};
+
 export const taskDbSchema = {
   tasks: defineTable({
     title: v.string(),
@@ -43,19 +77,28 @@ export const taskDbSchema = {
       searchField: "title",
       filterFields: ["userId", "archivedAt", "completedAt"],
     }),
-  sessions: defineTable({
-    userId: v.string(),
-    taskId: v.id("tasks"),
-    startAt: v.number(),
-    endAt: v.number(),
-    unscheduledAt: v.optional(v.number()),
-    pinned: v.optional(v.boolean()),
-    manualOverride: v.optional(v.boolean()),
-    revision: v.optional(v.number()),
-    automaticReason: v.optional(v.string()),
-  })
+  sessions: defineTable(sessionFields)
     .index("by_user_start", ["userId", "startAt"])
     .index("by_task", ["taskId"]),
+  checkInBatches: defineTable({
+    userId: v.string(),
+    outcome: literals("finished", "missed", "later"),
+    undoneAt: v.optional(v.number()),
+    tasks: v.array(
+      v.object({
+        taskId: v.id("tasks"),
+        before: v.object(progressSnapshot),
+        after: v.object(progressSnapshot),
+      })
+    ),
+    sessions: v.array(
+      v.object({
+        sessionId: v.id("sessions"),
+        before: v.optional(v.object(sessionFields)),
+        after: v.object(sessionFields),
+      })
+    ),
+  }).index("by_user", ["userId"]),
   taskActions: defineTable({
     taskId: v.id("tasks"),
     boolValue: v.optional(v.boolean()),

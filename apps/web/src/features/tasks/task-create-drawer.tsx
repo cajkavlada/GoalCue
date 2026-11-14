@@ -199,38 +199,40 @@ function TaskCreateForm() {
             />
           )}
         </form.AppField>
-        <form.AppField name="minSessionMinutes">
-          {(field) => (
-            <field.Input
-              label={m.planning_min_session()}
-              type="number"
-              min="1"
-              max="1440"
-              placeholder="15"
-              onChange={(e) =>
-                field.handleChange(
-                  e.target.value ? Number(e.target.value) : undefined
-                )
-              }
-            />
-          )}
-        </form.AppField>
-        <form.AppField name="maxSessionMinutes">
-          {(field) => (
-            <field.Input
-              label={m.planning_max_session()}
-              type="number"
-              min="1"
-              max="1440"
-              placeholder="60"
-              onChange={(e) =>
-                field.handleChange(
-                  e.target.value ? Number(e.target.value) : undefined
-                )
-              }
-            />
-          )}
-        </form.AppField>
+        <div className="grid grid-cols-2 gap-3">
+          <form.AppField name="minSessionMinutes">
+            {(field) => (
+              <field.Input
+                label={m.planning_min_session()}
+                type="number"
+                min="1"
+                max="1440"
+                placeholder="15"
+                onChange={(e) =>
+                  field.handleChange(
+                    e.target.value ? Number(e.target.value) : undefined
+                  )
+                }
+              />
+            )}
+          </form.AppField>
+          <form.AppField name="maxSessionMinutes">
+            {(field) => (
+              <field.Input
+                label={m.planning_max_session()}
+                type="number"
+                min="1"
+                max="1440"
+                placeholder="60"
+                onChange={(e) =>
+                  field.handleChange(
+                    e.target.value ? Number(e.target.value) : undefined
+                  )
+                }
+              />
+            )}
+          </form.AppField>
+        </div>
         <form.AppField name="automaticSchedulingPaused">
           {(field) => <field.Switch label={m.planning_pause_automatic()} />}
         </form.AppField>

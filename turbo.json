@@ -1,6 +1,6 @@
 {
   "$schema": "https://turborepo.com/schema.json",
-  "globalEnv": ["SSR"],
+  "globalEnv": ["SSR", "DEV"],
   "concurrency": "15",
   "ui": "tui",
   "tasks": {
