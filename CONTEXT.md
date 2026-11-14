@@ -23,10 +23,10 @@ An intermediate checkpoint in a project.
 A reference connecting an imported task or event to the item in its originating service.
 
 **Availability**:
-Time windows in which Tasks may be planned, described by a weekly template and date-specific overrides. Work and personal windows may be shared or separated.
+Time in which Tasks may be planned, covering the full day by default with optional weekly limits and date-specific overrides. Work and personal windows may be shared or separated.
 
 **Protected period**:
-A period reserved against automatic Task placement, such as sleep or explicitly protected leisure time.
+A period reserved against automatic Task placement or shortening, such as a protected minimum for sleep or explicitly protected leisure time.
 
 **Focused Event**:
 An Event requiring full attention, incompatible with simultaneous Tasks.

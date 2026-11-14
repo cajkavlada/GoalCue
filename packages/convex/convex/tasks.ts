@@ -1,3 +1,4 @@
+import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { generateKeyBetween } from "fractional-indexing";
 
@@ -27,6 +28,44 @@ import {
   authedQuery,
   AuthedQueryCtx,
 } from "./utils/authedFunctions";
+
+export const listForDayPanel = authedQuery({
+  args: { search: v.string(), paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { search, paginationOpts }) => {
+    const text = search.trim();
+    const query = text
+      ? ctx.db
+          .query("tasks")
+          .withSearchIndex("search_title", (q) =>
+            q
+              .search("title", text)
+              .eq("userId", ctx.userId)
+              .eq("archivedAt", undefined)
+              .eq("completedAt", undefined)
+          )
+      : ctx.db
+          .query("tasks")
+          .withIndex("by_user_status_priority", (q) =>
+            q
+              .eq("userId", ctx.userId)
+              .eq("archivedAt", undefined)
+              .eq("completedAt", undefined)
+          );
+    const result = await query.paginate({
+      ...paginationOpts,
+      numItems: Math.min(paginationOpts.numItems, 50),
+    });
+    return {
+      ...result,
+      page: result.page.map(({ _id, title, effortMinutes, priority }) => ({
+        _id,
+        title,
+        effortMinutes,
+        priority,
+      })),
+    };
+  },
+});
 
 export const listUncompletedExtended = authedQuery({
   args: {},

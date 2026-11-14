@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { CalendarIcon } from "lucide-react";
 
 import { m } from "@gc/i18n/messages";
@@ -18,6 +18,8 @@ export function DatePicker({
   defaultTime,
   onBlur,
   onInvalidDateError,
+  required,
+  "aria-label": ariaLabel,
 }: {
   value: Date;
   onChange: (date: Date) => void;
@@ -25,7 +27,13 @@ export function DatePicker({
   defaultTime?: "end-of-day";
   onBlur: () => void;
   onInvalidDateError: (error: boolean) => void;
+  required?: boolean;
+  "aria-label"?: string;
 }) {
+  const id = useId();
+  const input = useRef<HTMLInputElement>(null);
+  const focused = useRef(false);
+  const previousValue = useRef(value.getTime());
   const [inputValue, setInputValue] = useState(initialInputValue ?? "");
 
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -34,12 +42,25 @@ export function DatePicker({
   const [error, setError] = useState<boolean>(false);
 
   const locale = getLocale();
+  useEffect(() => {
+    if (previousValue.current !== value.getTime()) {
+      previousValue.current = value.getTime();
+      if (!focused.current) {
+        setInputValue(parseDateToString(value, "full"));
+        setSelectedMonth(value);
+        setError(false);
+        input.current?.setCustomValidity("");
+      }
+    }
+  }, [value]);
 
   function setDateOnly(originalDate: Date, refDate: Date) {
     const newDate = new Date(originalDate);
-    newDate.setFullYear(refDate.getFullYear());
-    newDate.setMonth(refDate.getMonth());
-    newDate.setDate(refDate.getDate());
+    newDate.setFullYear(
+      refDate.getFullYear(),
+      refDate.getMonth(),
+      refDate.getDate()
+    );
     onChange(newDate);
   }
 
@@ -50,8 +71,10 @@ export function DatePicker({
       setDateOnly(value, date);
       setSelectedMonth(date);
       setError(false);
+      input.current?.setCustomValidity("");
     } else {
       setError(true);
+      input.current?.setCustomValidity(m.form_field_date_invalid_date());
     }
   }
 
@@ -60,11 +83,13 @@ export function DatePicker({
     setInputValue(parseDateToString(newDate, "full"));
     setCalendarOpen(false);
     setError(false);
+    input.current?.setCustomValidity("");
     onInvalidDateError(false);
     onBlur();
   }
 
   function handleBlur() {
+    focused.current = false;
     onInvalidDateError(error);
     onBlur();
   }
@@ -72,11 +97,18 @@ export function DatePicker({
   return (
     <InputGroup>
       <InputGroupInput
-        id="date-picker "
+        ref={input}
+        id={id}
+        required={required}
+        aria-label={ariaLabel}
+        aria-invalid={error}
         value={inputValue}
         className="bg-background pr-10"
         onChange={(e) => handleInputChange(e.target.value)}
         onBlur={handleBlur}
+        onFocus={() => {
+          focused.current = true;
+        }}
         onKeyDown={(e) => {
           if (e.key === "ArrowDown") {
             e.preventDefault();
@@ -90,7 +122,7 @@ export function DatePicker({
       >
         <PopoverTrigger asChild>
           <Button
-            id="date-picker"
+            type="button"
             variant="ghost"
             className="absolute right-2 top-1/2 size-6 -translate-y-1/2"
           >
