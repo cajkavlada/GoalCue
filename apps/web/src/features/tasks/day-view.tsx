@@ -8,6 +8,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
+  RefreshCw,
+  Trash2,
 } from "lucide-react";
 
 import { usePaginatedQuery } from "@gc/convex";
@@ -16,10 +18,12 @@ import { Doc, Id } from "@gc/convex/types";
 import { m } from "@gc/i18n/messages";
 import { ErrorSuspense, VirtualList } from "@gc/react-kit";
 import {
+  ActionMenu,
   Button,
   Checkbox,
   Drawer,
   DrawerButton,
+  DropdownMenuItem,
   Input,
   useModal,
 } from "@gc/ui";
@@ -49,6 +53,7 @@ import {
 } from "./schedule-constraints";
 import { TaskCard } from "./task-card";
 import { TaskCreateDrawer } from "./task-create-drawer";
+import { TaskDeleteDialog } from "./task-delete-dialog";
 import { TaskEditDrawer } from "./task-edit-drawer";
 
 type CalendarSession = Doc<"sessions"> & {
@@ -84,6 +89,8 @@ export function DayView() {
     localDateTime(Date.now(), timezone).slice(0, 10)
   );
   const [tasksOpen, setTasksOpen] = useState(true);
+  const [highlightedTaskId, setHighlightedTaskId] =
+    useState<Id<"tasks"> | null>(null);
   const [drag, setDrag] = useState<Gesture | null>(null);
   const [pending, setPending] = useState<Placement | null>(null);
   const [search, setSearch] = useState("");
@@ -113,6 +120,28 @@ export function DayView() {
   const { data: events } = useSuspenseQuery(
     convexQuery(api.planning.listEvents, {})
   );
+  const { data: dayPlan } = useSuspenseQuery(
+    convexQuery(api.planning.getDayPlan, {})
+  );
+  const planDay = useConvexMutation(api.planning.planDay);
+  const replan = useMutation({ mutationFn: planDay });
+  const scheduleTask = useMutation({
+    mutationFn: useConvexMutation(api.planning.scheduleTask),
+  });
+  const [planningError, setPlanningError] = useState("");
+  useEffect(() => {
+    let current = true;
+    setPlanningError("");
+    void planDay({ date: day, timezone }).catch((error: Error) => {
+      if (current) setPlanningError(error.message);
+    });
+    return () => {
+      current = false;
+    };
+  }, [day, timezone, planDay]);
+  const undo = useMutation({
+    mutationFn: useConvexMutation(api.planning.undoPlan),
+  });
   const clock = (instant: number) =>
     new Intl.DateTimeFormat(undefined, {
       timeZone: timezone,
@@ -124,13 +153,27 @@ export function DayView() {
   const save = useMutation({
     mutationFn: useConvexMutation(api.sessions.saveSession),
   });
-  const { openDrawer } = useModal();
+  const { openDrawer, openDialog } = useModal();
+  const openTask = useCallback(
+    (taskId: Id<"tasks">) => {
+      openDrawer(
+        <ErrorSuspense>
+          <DayTaskDetails taskId={taskId} />
+        </ErrorSuspense>
+      );
+    },
+    [openDrawer]
+  );
   const scroll = useRef<HTMLDivElement>(null);
   const surface = useRef<HTMLDivElement>(null);
   const gesture = useRef<Gesture | null>(null);
   const pointer = useRef({ x: 0, y: 0 });
   const { startAt: start, endAt: end } = dayBounds(day, timezone);
   const dayMinutes = (end - start) / MINUTE;
+  const suggestedStart = Math.max(
+    zonedInstant(`${day}T09:00`, timezone),
+    Math.ceil(Date.now() / (15 * MINUTE)) * 15 * MINUTE
+  );
   const today = sessions.filter((s) => s.startAt < end && s.endAt > start);
   const constraints = settings
     ? availabilityOn(day, settings)
@@ -141,7 +184,7 @@ export function DayView() {
   const focusedEvents = dayEvents.filter(
     (event) => event.attention === "focused"
   );
-  const eventPositions = layoutSessions(focusedEvents);
+
   const free = constraints.available.reduce(
     (total, window) =>
       total +
@@ -219,10 +262,10 @@ export function DayView() {
     },
     [sessions, settings, events, inspect, save]
   );
-  const handlers = useRef({ inspect, commit });
+  const handlers = useRef({ inspect, commit, openTask });
   useEffect(() => {
-    handlers.current = { inspect, commit };
-  }, [inspect, commit]);
+    handlers.current = { inspect, commit, openTask };
+  }, [inspect, commit, openTask]);
   useEffect(() => {
     if (scroll.current) scroll.current.scrollTop = 8 * 60 * PX;
   }, [day]);
@@ -292,7 +335,10 @@ export function DayView() {
         endAt: current.endAt,
       };
       if (current.moved && current.valid) handlers.current.commit(placement);
-      else if (!current.moved) handlers.current.inspect(placement);
+      else if (!current.moved) {
+        if (current.kind === "new") handlers.current.openTask(current.taskId);
+        else handlers.current.inspect(placement);
+      }
     };
     const cancel = () => {
       gesture.current = null;
@@ -336,11 +382,10 @@ export function DayView() {
     const placement = {
       taskId,
       sessionId: session?._id,
-      startAt: session?.startAt ?? zonedInstant(`${day}T09:00`, timezone),
+      startAt: session?.startAt ?? suggestedStart,
       endAt:
         session?.endAt ??
-        zonedInstant(`${day}T09:00`, timezone) +
-          Math.min(task?.effortMinutes ?? 45, 45) * MINUTE,
+        suggestedStart + Math.min(task?.effortMinutes ?? 45, 45) * MINUTE,
     };
     if (
       session &&
@@ -400,7 +445,7 @@ export function DayView() {
           },
         ]
     : today;
-  const positions = layoutSessions(rendered);
+  const positions = layoutSessions([...rendered, ...dayEvents]);
 
   return (
     <div className="bg-background flex h-full min-h-0 flex-col">
@@ -422,6 +467,18 @@ export function DayView() {
         </Button>
         <h1 className="mr-auto text-lg font-semibold">{m.planning_day()}</h1>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            disabled={replan.isPending || save.isPending}
+            onClick={() =>
+              replan.mutate({ date: day, timezone, replanAll: true })
+            }
+          >
+            <RefreshCw
+              className={replan.isPending ? "animate-spin" : undefined}
+            />
+            {m.planning_replan_all()}
+          </Button>
           <DrawerButton
             variant="outline"
             drawerContent={<TaskCreateDrawer />}
@@ -533,68 +590,124 @@ export function DayView() {
                     0,
                     (task.effortMinutes ?? 45) - planned
                   );
-                  const placement = {
-                    taskId: task._id,
-                    startAt: zonedInstant(`${day}T09:00`, timezone),
-                    endAt:
-                      zonedInstant(`${day}T09:00`, timezone) +
-                      Math.min(task.effortMinutes ?? 45, 45) * MINUTE,
-                  };
+                  const missingMinutes =
+                    dayPlan?.shortfalls.find(
+                      (shortfall) =>
+                        shortfall.taskId === task._id && shortfall.minutes > 0
+                    )?.minutes ?? Math.max(0, remaining - free);
                   return (
-                    <button
+                    <div
                       key={task._id}
-                      className="bg-background hover:border-primary/50 h-[168px] w-full touch-none overflow-hidden rounded-lg border p-3 text-left"
-                      onPointerDown={(e) => begin(e, task._id, "new")}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          inspect(placement);
-                        }
+                      className="relative"
+                      onPointerEnter={() => setHighlightedTaskId(task._id)}
+                      onPointerLeave={(e) => {
+                        if (!e.currentTarget.contains(document.activeElement))
+                          setHighlightedTaskId(null);
+                      }}
+                      onFocusCapture={() => setHighlightedTaskId(task._id)}
+                      onBlurCapture={(e) => {
+                        if (!e.currentTarget.contains(e.relatedTarget))
+                          setHighlightedTaskId(null);
                       }}
                     >
-                      <div className="flex items-start gap-2">
-                        <GripVertical
-                          size={14}
-                          className="text-muted-foreground mt-1 shrink-0"
-                        />
-                        <span className="line-clamp-2 text-sm font-medium">
-                          {task.title}
-                        </span>
-                      </div>
-                      <p className="text-muted-foreground mt-2 text-xs">
-                        {m.planning_planned({ minutes: Math.round(planned) })} ·{" "}
-                        {
+                      <button
+                        className="bg-background hover:border-primary/50 h-[168px] w-full touch-none overflow-hidden rounded-lg border p-3 pr-10 text-left"
+                        onPointerDown={(e) => begin(e, task._id, "new")}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            openTask(task._id);
+                          }
+                        }}
+                      >
+                        <div className="flex items-start gap-2">
+                          <GripVertical
+                            size={14}
+                            className="text-muted-foreground mt-1 shrink-0"
+                          />
+                          <span className="line-clamp-2 text-sm font-medium">
+                            {task.title}
+                          </span>
+                        </div>
+                        <p className="text-muted-foreground mt-2 text-xs">
+                          {m.planning_planned({ minutes: Math.round(planned) })}{" "}
+                          ·{" "}
+                          {m.planning_session_count({
+                            count: sessions.filter((s) => s.taskId === task._id)
+                              .length,
+                          })}{" "}
+                          ·{" "}
                           {
-                            low: m.planning_low(),
-                            normal: m.planning_normal(),
-                            high: m.planning_high(),
-                            critical: m.planning_critical(),
-                          }[task.priority ?? "normal"]
-                        }
-                      </p>
-                      <p className="text-muted-foreground text-xs">
-                        {task.effortMinutes === undefined
-                          ? m.planning_effort_unknown()
-                          : m.planning_effort_minutes({
-                              minutes: task.effortMinutes,
-                            })}
-                      </p>
-                      {planned === 0 && (
+                            {
+                              low: m.planning_low(),
+                              normal: m.planning_normal(),
+                              high: m.planning_high(),
+                              critical: m.planning_critical(),
+                            }[task.priority ?? "normal"]
+                          }
+                        </p>
                         <p className="text-muted-foreground text-xs">
-                          {m.planning_unscheduled()}
+                          {task.effortMinutes === undefined
+                            ? m.planning_effort_unknown()
+                            : m.planning_effort_minutes({
+                                minutes: task.effortMinutes,
+                              })}
                         </p>
-                      )}
-                      {remaining > free && (
-                        <p
-                          role="status"
-                          className="mt-1 text-xs"
-                        >
-                          {m.planning_shortfall({
-                            minutes: Math.ceil(remaining - free),
-                          })}
-                        </p>
-                      )}
-                    </button>
+                        {task.automaticSchedulingPaused && (
+                          <p className="text-muted-foreground text-xs">
+                            {m.planning_automatic_paused()}
+                          </p>
+                        )}
+                        {planned === 0 && (
+                          <p className="text-muted-foreground text-xs">
+                            {m.planning_unscheduled()}
+                          </p>
+                        )}
+                        {missingMinutes > 0 && (
+                          <p
+                            role="status"
+                            className="mt-1 text-xs"
+                          >
+                            {m.planning_shortfall({
+                              minutes: Math.ceil(missingMinutes),
+                            })}
+                          </p>
+                        )}
+                      </button>
+                      <div
+                        className="absolute right-1 top-1"
+                        onPointerDown={(e) => e.stopPropagation()}
+                      >
+                        <ActionMenu>
+                          <DropdownMenuItem
+                            disabled={
+                              scheduleTask.isPending ||
+                              task.effortMinutes === undefined
+                            }
+                            onSelect={() =>
+                              scheduleTask.mutate({
+                                taskId: task._id,
+                                date: day,
+                                timezone,
+                              })
+                            }
+                          >
+                            <RefreshCw />
+                            {m.planning_schedule_task()}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={() =>
+                              openDialog(
+                                <TaskDeleteDialog taskIds={[task._id]} />
+                              )
+                            }
+                          >
+                            <Trash2 />
+                            {m.delete()}
+                          </DropdownMenuItem>
+                        </ActionMenu>
+                      </div>
+                    </div>
                   );
                 }}
               />
@@ -607,6 +720,99 @@ export function DayView() {
                 </p>
               )}
             </div>
+            <details
+              className="max-h-1/2 shrink-0 overflow-auto border-t px-3 text-sm"
+              open={
+                planningError ||
+                replan.error ||
+                scheduleTask.error ||
+                undo.error
+                  ? true
+                  : undefined
+              }
+            >
+              <summary className="cursor-pointer py-2 font-medium">
+                {m.planning_status()}
+              </summary>
+              <div
+                className="space-y-2 pb-3"
+                aria-live="polite"
+              >
+                <details>
+                  <summary>{m.planning_about_automatic()}</summary>
+                  <p>{m.planning_automatic_hint()}</p>
+                </details>
+                {planningError && <p role="alert">{planningError}</p>}
+                {scheduleTask.error && (
+                  <p role="alert">{scheduleTask.error.message}</p>
+                )}
+                {replan.error && <p role="alert">{replan.error.message}</p>}
+                {undo.error && <p role="alert">{undo.error.message}</p>}
+                {!!dayPlan?.changes.length && (
+                  <details>
+                    <summary>
+                      {m.planning_automatic_changes({
+                        count: dayPlan.changes.length,
+                      })}
+                    </summary>
+                    <ul>
+                      {dayPlan.changes.map((change) => (
+                        <li key={change.sessionId}>
+                          {change.title}: {change.reason}
+                          {change.before && (
+                            <>
+                              {" "}
+                              · {localDateTime(change.before.startAt, timezone)}
+                              –{clock(change.before.endAt)}
+                            </>
+                          )}
+                          {" → "}
+                          {change.after ? (
+                            <>
+                              {localDateTime(change.after.startAt, timezone)}–
+                              {clock(change.after.endAt)}
+                            </>
+                          ) : (
+                            m.planning_unschedule_session()
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                    <Button
+                      variant="outline"
+                      disabled={undo.isPending}
+                      onClick={() => undo.mutate({})}
+                    >
+                      {m.planning_undo_plan()}
+                    </Button>
+                  </details>
+                )}
+                {!!dayPlan?.shortfalls.length && (
+                  <details open>
+                    <summary>{m.planning_shortfalls()}</summary>
+                    <ul>
+                      {dayPlan.shortfalls.map((shortfall) => (
+                        <li key={shortfall.taskId}>
+                          {shortfall.title}:{" "}
+                          {shortfall.minutes > 0 && (
+                            <>{shortfall.minutes} min · </>
+                          )}
+                          {shortfall.reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+                {dayPlan?.conflicts.map((conflict) => (
+                  <p
+                    key={conflict}
+                    role="alert"
+                  >
+                    {conflict}
+                  </p>
+                ))}
+              </div>
+            </details>
             <details
               className="max-h-1/2 shrink-0 overflow-auto border-t px-3"
               onToggle={(e) => setTrackingOpen(e.currentTarget.open)}
@@ -621,34 +827,6 @@ export function DayView() {
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
           {!constraints.available.length && (
             <p className="px-4 py-2 text-sm">{m.constraints_closed()}</p>
-          )}
-          {!!dayEvents.filter((event) => event.attention === "background")
-            .length && (
-            <div
-              aria-label={m.constraints_background()}
-              className="flex shrink-0 flex-wrap gap-2 border-b p-2"
-            >
-              {dayEvents
-                .filter((event) => event.attention === "background")
-                .map((event) => (
-                  <Button
-                    key={event._id}
-                    variant="outline"
-                    className="h-auto max-w-full whitespace-normal text-left"
-                    onClick={() => editEvent(event)}
-                  >
-                    {m.constraints_background()}: {event.title} ·{" "}
-                    {clock(event.startAt)}–{clock(event.endAt)}
-                    {!!eventConflicts(event).length && (
-                      <span role="status">
-                        {" "}
-                        · {m.constraints_conflicts()}:{" "}
-                        {eventConflicts(event).join(", ")}
-                      </span>
-                    )}
-                  </Button>
-                ))}
-            </div>
           )}
           <div
             ref={scroll}
@@ -734,7 +912,7 @@ export function DayView() {
                 return (
                   <div
                     key={session._id}
-                    className={`border-primary/35 bg-accent text-accent-foreground absolute overflow-hidden rounded-md border ${active ? "ring-primary z-20 ring-2" : "z-[1]"}`}
+                    className={`border-primary/35 bg-accent text-accent-foreground absolute overflow-hidden rounded-md border ${active || highlightedTaskId === session.taskId ? "ring-primary z-20 ring-2" : "z-[1]"}`}
                     style={{
                       top:
                         ((Math.max(start, session.startAt) - start) / MINUTE) *
@@ -744,8 +922,8 @@ export function DayView() {
                           Math.max(start, session.startAt)) /
                           MINUTE) *
                         PX,
-                      left: `calc(${(pos.lane / pos.lanes) * (focusedEvents.length ? 60 : 100)}% + 3px)`,
-                      width: `calc(${(focusedEvents.length ? 60 : 100) / pos.lanes}% - 6px)`,
+                      left: `calc(${(pos.lane / pos.lanes) * 100}% + 3px)`,
+                      width: `calc(${100 / pos.lanes}% - 6px)`,
                     }}
                   >
                     {canEdit && session._id !== "preview" && (
@@ -825,8 +1003,8 @@ export function DayView() {
                   </div>
                 );
               })}
-              {focusedEvents.map((event) => {
-                const pos = eventPositions.get(event._id)!;
+              {dayEvents.map((event) => {
+                const pos = positions.get(event._id)!;
                 return (
                   <button
                     key={event._id}
@@ -841,12 +1019,15 @@ export function DayView() {
                           Math.max(start, event.startAt)) /
                           MINUTE) *
                         PX,
-                      left: `calc(${60 + (pos.lane / pos.lanes) * 40}% + 3px)`,
-                      width: `calc(${40 / pos.lanes}% - 6px)`,
+                      left: `calc(${(pos.lane / pos.lanes) * 100}% + 3px)`,
+                      width: `calc(${100 / pos.lanes}% - 6px)`,
                     }}
                   >
                     <p className="font-semibold">
-                      {m.constraints_focused()}: {event.title}
+                      {event.attention === "focused"
+                        ? m.constraints_focused()
+                        : m.constraints_background()}
+                      : {event.title}
                     </p>
                     <p>
                       {clock(event.startAt)}–{clock(event.endAt)}
@@ -897,9 +1078,11 @@ function SessionDetails({ placement }: { placement: Placement }) {
   const [date, setDate] = useState(originalLocal.slice(0, 10));
   const [time, setTime] = useState(originalLocal.slice(11));
   const [duration, setDuration] = useState(
-    (placement.endAt - placement.startAt) / MINUTE
+    Math.ceil((placement.endAt - placement.startAt) / MINUTE)
   );
   const [allowOverlap, setAllowOverlap] = useState(false);
+  const originalSession = sessions.find((s) => s._id === placement.sessionId);
+  const [pinned, setPinned] = useState(originalSession?.pinned ?? false);
   const { openDrawer, closeDrawer } = useModal();
   const save = useMutation({
     mutationFn: useConvexMutation(api.sessions.saveSession),
@@ -943,10 +1126,21 @@ function SessionDetails({ placement }: { placement: Placement }) {
             startAt,
             endAt,
             allowConflict: allowOverlap,
+            pinned,
           });
         }}
       >
         <h3 className="font-medium">{task.title}</h3>
+        {originalSession?.automaticReason && (
+          <p className="text-sm">{originalSession.automaticReason}</p>
+        )}
+        <label className="text-sm">
+          <Checkbox
+            checked={pinned}
+            onCheckedChange={(value) => setPinned(value === true)}
+          />{" "}
+          {m.planning_pin_session()}
+        </label>
         <p className="text-xs">{timezone}</p>
         {timeError && <p role="alert">{timeError}</p>}
         {!!reasons.length && (
@@ -1045,4 +1239,11 @@ function SessionDetails({ placement }: { placement: Placement }) {
       </Drawer.Footer>
     </>
   );
+}
+
+function DayTaskDetails({ taskId }: { taskId: Id<"tasks"> }) {
+  const { data: task } = useSuspenseQuery(
+    convexQuery(api.tasks.getExtendedById, { taskId })
+  );
+  return <TaskEditDrawer editedTask={task} />;
 }

@@ -4,6 +4,7 @@ import { placementConflicts } from "@gc/validators";
 
 import { taskQueries } from "./dbQueries";
 import { authedMutation, authedQuery } from "./utils/authedFunctions";
+import { autoPlan } from "./utils/autoPlan";
 
 export const listSessions = authedQuery({
   args: {},
@@ -41,10 +42,11 @@ export const saveSession = authedMutation({
     endAt: v.number(),
     allowConflict: v.optional(v.boolean()),
     automatic: v.optional(v.boolean()),
+    pinned: v.optional(v.boolean()),
   },
   handler: async (
     ctx,
-    { sessionId, taskId, startAt, endAt, allowConflict, automatic }
+    { sessionId, taskId, startAt, endAt, allowConflict, automatic, pinned }
   ) => {
     const task = await taskQueries({ ctx }).getById({ taskId });
     if (task.archivedAt || task.completedAt)
@@ -56,6 +58,10 @@ export const saveSession = authedMutation({
     ) {
       throw new ConvexError({ message: "Session end must be after its start" });
     }
+    if (!sessionId && startAt < Date.now())
+      throw new ConvexError({
+        message: "A new Session cannot start in the past",
+      });
     const settings = await ctx.db
       .query("planningSettings")
       .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
@@ -79,15 +85,41 @@ export const saveSession = authedMutation({
       ) {
         throw new ConvexError({ message: "Session not found" });
       }
-      await ctx.db.patch(sessionId, { startAt, endAt });
+      if (startAt < Date.now() && startAt !== session.startAt)
+        throw new ConvexError({
+          message: "A Session cannot be moved into the past",
+        });
+      if (
+        automatic &&
+        (session.pinned ||
+          session.manualOverride ||
+          session.startAt <= Date.now())
+      )
+        throw new ConvexError({
+          message: "Preserve pinned, active, and manually placed Sessions",
+        });
+      await ctx.db.patch(sessionId, {
+        startAt,
+        endAt,
+        pinned: pinned ?? session.pinned,
+        manualOverride: !automatic,
+        revision: (session.revision ?? 0) + 1,
+        automaticReason: undefined,
+      });
+      await autoPlan(ctx);
       return sessionId;
     }
-    return await ctx.db.insert("sessions", {
+    const id = await ctx.db.insert("sessions", {
       userId: ctx.userId,
       taskId,
       startAt,
       endAt,
+      pinned,
+      manualOverride: !automatic,
+      revision: 1,
     });
+    await autoPlan(ctx);
+    return id;
   },
 });
 
@@ -98,6 +130,11 @@ export const unscheduleSession = authedMutation({
     const session = await ctx.db.get(sessionId);
     if (!session || session.userId !== ctx.userId)
       throw new ConvexError({ message: "Session not found" });
-    await ctx.db.patch(sessionId, { unscheduledAt: Date.now() });
+    await ctx.db.patch(sessionId, {
+      unscheduledAt: Date.now(),
+      revision: (session.revision ?? 0) + 1,
+    });
+    await ctx.db.patch(session.taskId, { automaticSchedulingPaused: true });
+    await autoPlan(ctx);
   },
 });

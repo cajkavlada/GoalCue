@@ -146,6 +146,34 @@ export function PlanningTimeSettings() {
         protectedDates: [],
       }
   );
+  const [timezoneOptions] = useState(() => {
+    const instant = Math.floor(Date.now() / 60000) * 60000;
+    return [
+      ...new Set([
+        "UTC",
+        settings.timezone,
+        ...Intl.supportedValuesOf("timeZone"),
+      ]),
+    ]
+      .map((value) => {
+        const offset =
+          (Date.parse(localDateTime(instant, value) + "Z") - instant) / 60000;
+        const hours = Math.floor(Math.abs(offset) / 60);
+        const minutes = Math.abs(offset) % 60;
+        const city = value.split("/").slice(1).join(" / ").replaceAll("_", " ");
+        return {
+          value,
+          offset,
+          label:
+            "UTC" +
+            (offset >= 0 ? "+" : "−") +
+            hours +
+            (minutes ? ":" + String(minutes).padStart(2, "0") : "") +
+            (city ? " · " + city : ""),
+        };
+      })
+      .sort((a, b) => a.offset - b.offset || a.label.localeCompare(b.label));
+  });
   const [date, setDate] = useState(() =>
     localDateTime(Date.now(), settings.timezone).slice(0, 10)
   );
@@ -170,12 +198,10 @@ export function PlanningTimeSettings() {
     >
       <label>
         {m.constraints_timezone()}
-        <Input
-          required
+        <Select
           value={settings.timezone}
-          onChange={(e) =>
-            setSettings({ ...settings, timezone: e.target.value })
-          }
+          options={timezoneOptions}
+          onValueChange={(timezone) => setSettings({ ...settings, timezone })}
         />
       </label>
       <p className="text-muted-foreground text-sm">
@@ -476,28 +502,24 @@ export function EventDetails({
     convexQuery(api.sessions.listSessions, {})
   );
   const [title, setTitle] = useState(event?.title ?? "");
-  const [zone, setZone] = useState(event?.timezone ?? timezone);
+  const zone = timezone;
   const [start, setStart] = useState(
-    event ? localDateTime(event.startAt, event.timezone) : `${day}T09:00`
+    event ? localDateTime(event.startAt, timezone) : `${day}T09:00`
   );
   const [end, setEnd] = useState(
-    event ? localDateTime(event.endAt, event.timezone) : `${day}T10:00`
+    event ? localDateTime(event.endAt, timezone) : `${day}T10:00`
   );
   const [startRepeated, setStartRepeated] = useState<"earlier" | "later">(
     event &&
-      zonedInstant(
-        localDateTime(event.startAt, event.timezone),
-        event.timezone
-      ) !== event.startAt
+      zonedInstant(localDateTime(event.startAt, timezone), timezone) !==
+        event.startAt
       ? "later"
       : "earlier"
   );
   const [endRepeated, setEndRepeated] = useState<"earlier" | "later">(
     event &&
-      zonedInstant(
-        localDateTime(event.endAt, event.timezone),
-        event.timezone
-      ) !== event.endAt
+      zonedInstant(localDateTime(event.endAt, timezone), timezone) !==
+        event.endAt
       ? "later"
       : "earlier"
   );
@@ -567,17 +589,6 @@ export function EventDetails({
           value={title}
           onChange={(e) => {
             setTitle(e.target.value);
-            setConfirmed(false);
-          }}
-        />
-      </label>
-      <label>
-        {m.constraints_timezone()}
-        <Input
-          required
-          value={zone}
-          onChange={(e) => {
-            setZone(e.target.value);
             setConfirmed(false);
           }}
         />

@@ -55,6 +55,11 @@ const {
   validatePlanning,
   zonedInstant,
 } = await import("../../validators/src/planning.ts");
+const { planSessions } = await import("../../validators/src/auto-planning.ts");
+
+test.beforeEach((t) => {
+  t.mock.method(Date, "now", () => 100);
+});
 
 function database() {
   const rows = new Map();
@@ -919,4 +924,616 @@ test("Server blocks automatic Task placement in Protected periods even with an o
     }),
     /Outside Availability/
   );
+});
+
+const autoDate = "2030-01-07";
+const autoAt = (time) => at(`${autoDate}T${time}`);
+const autoSettings = {
+  ...settings,
+  restrictAvailability: true,
+  weekly: [{ weekday: 1, start: 540, end: 720 }],
+  protectedWeekly: [],
+};
+const plan = (tasks, sessions = [], extra = {}) =>
+  planSessions({
+    date: autoDate,
+    settings: autoSettings,
+    events: [],
+    tasks,
+    sessions,
+    now: autoAt("08:00"),
+    ...extra,
+  });
+const task = (id, effortMinutes = 60, extra = {}) => ({
+  _id: id,
+  title: id,
+  effortMinutes,
+  ...extra,
+});
+const session = (id, taskId, from, to, extra = {}) => ({
+  _id: id,
+  taskId,
+  startAt: autoAt(from),
+  endAt: autoAt(to),
+  manualOverride: false,
+  ...extra,
+});
+
+test("Automatic planning splits effort around Events and Protected periods within Session limits", () => {
+  const result = plan(
+    [task("read", 180, { minSessionMinutes: 20, maxSessionMinutes: 40 })],
+    [],
+    {
+      settings: {
+        ...autoSettings,
+        protectedDates: [{ date: autoDate, start: 600, end: 620 }],
+      },
+      events: [
+        {
+          title: "Meeting",
+          attention: "focused",
+          startAt: autoAt("09:40"),
+          endAt: autoAt("10:00"),
+        },
+      ],
+    }
+  );
+  const placed = result.changes.map((c) => c.after);
+  assert.equal(placed.length, 4);
+  assert.equal(result.shortfalls[0].minutes, 40);
+  for (const interval of placed) {
+    assert.ok((interval.endAt - interval.startAt) / 60000 >= 20);
+    assert.ok((interval.endAt - interval.startAt) / 60000 <= 40);
+    assert.deepEqual(
+      placementConflicts(
+        interval,
+        {
+          ...autoSettings,
+          protectedDates: [{ date: autoDate, start: 600, end: 620 }],
+        },
+        [
+          {
+            title: "Meeting",
+            attention: "focused",
+            startAt: autoAt("09:40"),
+            endAt: autoAt("10:00"),
+          },
+        ]
+      ),
+      []
+    );
+  }
+});
+
+test("Ordinary Tasks use gaps; minor optimization and deadline extensions leave existing Sessions stable", () => {
+  const existing = session("keep", "existing", "10:00", "11:00");
+  const tasks = [
+    task("existing", 60, { dueAt: autoAt("12:00") }),
+    task("new", 60),
+  ];
+  const first = plan(tasks, [existing]);
+  assert.ok(first.changes.every((c) => c.id !== "keep"));
+  const created = first.changes.map((c) => ({
+    _id: c.id,
+    taskId: c.taskId,
+    ...c.after,
+  }));
+  assert.deepEqual(
+    plan(
+      tasks.map((t) => ({ ...t, dueAt: undefined })),
+      [existing, ...created]
+    ).changes,
+    []
+  );
+});
+
+test("Deadline pressure displaces only flexible lower-priority work and shows the displaced shortfall", () => {
+  const tasks = [
+    task("low", 180, { priority: "low" }),
+    task("due", 60, {
+      priority: "low",
+      dueAt: autoAt("10:00"),
+      finishKind: "firm",
+    }),
+  ];
+  const sessions = [
+    session("first", "low", "09:00", "10:00"),
+    session("stable", "low", "10:00", "11:00"),
+  ];
+  const result = plan(tasks, sessions);
+  assert.ok(
+    result.changes.some(
+      (c) => c.taskId === "due" && c.after.endAt <= autoAt("10:00")
+    )
+  );
+  assert.ok(result.changes.every((c) => c.id !== "stable"));
+  assert.ok(
+    result.changes.some(
+      (c) => c.id === "first" && c.reason.includes("pressing")
+    )
+  );
+  assert.equal(result.shortfalls.find((s) => s.taskId === "low").minutes, 60);
+  assert.equal(tasks[0].effortMinutes, 180);
+  assert.equal(tasks[1].dueAt, autoAt("10:00"));
+});
+
+test("Pins, manual overrides and active Sessions survive pressing work; changed boundaries surface pinned conflicts", () => {
+  const tasks = [
+    task("held", 180),
+    task("critical", 60, { priority: "critical" }),
+  ];
+  const sessions = [
+    session("pin", "held", "09:00", "10:00", { pinned: true }),
+    session("manual", "held", "10:00", "11:00", { manualOverride: true }),
+    session("active", "held", "11:00", "12:00"),
+  ];
+  const result = plan(tasks, sessions, {
+    now: autoAt("11:30"),
+    events: [
+      {
+        title: "New Event",
+        attention: "focused",
+        startAt: autoAt("09:00"),
+        endAt: autoAt("10:00"),
+      },
+    ],
+  });
+  assert.deepEqual(result.changes, []);
+  assert.equal(
+    result.shortfalls.find((s) => s.taskId === "critical").minutes,
+    60
+  );
+  const conflict = plan(tasks, sessions, {
+    events: [
+      {
+        title: "New Event",
+        attention: "focused",
+        startAt: autoAt("09:00"),
+        endAt: autoAt("10:00"),
+      },
+    ],
+  });
+  assert.ok(conflict.conflicts.some((c) => c.includes("pinned")));
+  assert.ok(conflict.changes.every((c) => c.id !== "pin" && c.id !== "manual"));
+});
+
+test("A boundary change moves the affected Session, preserving identity and unrelated placements", () => {
+  const result = plan(
+    [task("affected"), task("stable")],
+    [
+      session("move", "affected", "09:00", "10:00", { manualOverride: true }),
+      session("keep", "stable", "10:00", "11:00"),
+    ],
+    {
+      events: [
+        {
+          title: "Meeting",
+          attention: "focused",
+          startAt: autoAt("09:00"),
+          endAt: autoAt("10:00"),
+        },
+      ],
+    }
+  );
+  assert.equal(result.changes.length, 1);
+  assert.equal(result.changes[0].id, "move");
+  assert.equal(result.changes[0].after.startAt, autoAt("11:00"));
+});
+
+test("Preferred dates may slip, Firm deadlines and missing estimates produce explicit shortfalls", () => {
+  const result = plan([
+    task("preferred", 60, { finishKind: "preferred", dueAt: autoAt("08:00") }),
+    task("firm", 60, { finishKind: "firm", dueAt: autoAt("08:00") }),
+    task("unknown", undefined),
+  ]);
+  assert.ok(result.changes.some((c) => c.taskId === "preferred"));
+  assert.ok(!result.changes.some((c) => c.taskId === "firm"));
+  assert.equal(result.shortfalls.find((s) => s.taskId === "firm").minutes, 60);
+});
+
+test("Automatic plans persist per user, react to Event changes, and undo preserves unrelated manual edits", async () => {
+  const { db, context } = database();
+  const alice = context("alice");
+  await planning.saveSettings._handler(alice, autoSettings);
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Read",
+    effortMinutes: 60,
+    currentNumValue: 12,
+  });
+  await db.insert("tasks", {
+    userId: "bob",
+    title: "Private",
+    effortMinutes: 60,
+  });
+  await planning.planDay._handler(alice, {
+    date: autoDate,
+    timezone: settings.timezone,
+  });
+  const first = await listSessions._handler(context("alice"), {});
+  assert.equal(first.length, 1);
+  assert.equal(first[0].taskId, taskId);
+  assert.equal(await planning.getDayPlan._handler(context("bob"), {}), null);
+  await planning.planDay._handler(alice, {
+    date: autoDate,
+    timezone: settings.timezone,
+  });
+  assert.equal((await listSessions._handler(alice, {}))[0]._id, first[0]._id);
+  const eventId = await planning.saveEvent._handler(alice, {
+    title: "Meeting",
+    startAt: autoAt("09:00"),
+    endAt: autoAt("10:00"),
+    timezone: settings.timezone,
+    attention: "focused",
+  });
+  const moved = (await listSessions._handler(alice, {}))[0];
+  assert.equal(moved._id, first[0]._id);
+  assert.equal(moved.startAt, autoAt("10:00"));
+  await assert.rejects(
+    planning.undoPlan._handler(alice, {}),
+    /no longer possible/
+  );
+  await planning.deleteEvent._handler(alice, { eventId });
+  const otherTask = await db.insert("tasks", {
+    userId: "alice",
+    title: "Manual",
+  });
+  const otherSession = await saveSession._handler(alice, {
+    taskId: otherTask,
+    startAt: autoAt("11:00"),
+    endAt: autoAt("12:00"),
+  });
+  await planning.undoPlan._handler(alice, {});
+  assert.equal((await db.get(moved._id)).startAt, autoAt("09:00"));
+  assert.equal((await db.get(moved._id)).manualOverride, true);
+  assert.equal((await db.get(otherSession)).startAt, autoAt("11:00"));
+  assert.equal((await db.get(taskId)).currentNumValue, 12);
+  await assert.rejects(
+    planning.planDay._handler(context(null), {
+      date: autoDate,
+      timezone: settings.timezone,
+    })
+  );
+});
+
+test("Undoing new automatic Sessions pauses their Task until the user resumes planning", async () => {
+  const { db, context } = database();
+  const alice = context("alice");
+  await planning.saveSettings._handler(alice, autoSettings);
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Read",
+    effortMinutes: 60,
+  });
+  await planning.planDay._handler(alice, {
+    date: autoDate,
+    timezone: settings.timezone,
+  });
+  await planning.undoPlan._handler(alice, {});
+  assert.equal((await db.get(taskId)).automaticSchedulingPaused, true);
+  await planning.planDay._handler(alice, {
+    date: autoDate,
+    timezone: settings.timezone,
+  });
+  assert.deepEqual(await listSessions._handler(alice, {}), []);
+});
+
+test("Undo refuses to overwrite a later edit to an affected Session", async () => {
+  const { db, context } = database();
+  const alice = context("alice");
+  await planning.saveSettings._handler(alice, autoSettings);
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Read",
+    effortMinutes: 60,
+  });
+  await planning.planDay._handler(alice, {
+    date: autoDate,
+    timezone: settings.timezone,
+  });
+  const [s] = await listSessions._handler(alice, {});
+  await saveSession._handler(alice, {
+    sessionId: s._id,
+    taskId,
+    startAt: autoAt("10:00"),
+    endAt: autoAt("11:00"),
+  });
+  await assert.rejects(
+    planning.undoPlan._handler(alice, {}),
+    /plan has changed/
+  );
+  assert.equal((await db.get(s._id)).startAt, autoAt("10:00"));
+});
+
+test("Task creation, bounds edits, and completion trigger automatic planning without changing progress", async () => {
+  const { db, context } = database();
+  const alice = context("alice");
+  await planning.saveSettings._handler(alice, autoSettings);
+  await planning.planDay._handler(alice, {
+    date: autoDate,
+    timezone: settings.timezone,
+  });
+  const taskTypeId = await db.insert("taskTypes", {
+    userId: "alice",
+    valueKind: "boolean",
+  });
+  const priorityClassId = await db.insert("priorityClasses", {
+    userId: "alice",
+  });
+  const taskId = await tasks.create._handler(alice, {
+    title: "Read",
+    taskTypeId,
+    priorityClassId,
+    tags: [],
+    effortMinutes: 90,
+  });
+  assert.equal((await listSessions._handler(alice, {})).length, 2);
+  await tasks.update._handler(alice, {
+    taskId,
+    title: "Read",
+    priorityClassId,
+    tags: [],
+    effortMinutes: 90,
+    minSessionMinutes: 30,
+    maxSessionMinutes: 30,
+  });
+  const resized = await listSessions._handler(alice, {});
+  assert.equal(resized.length, 3);
+  assert.ok(resized.every((s) => s.endAt - s.startAt === 30 * 60000));
+  assert.equal((await db.get(taskId)).completedAt, undefined);
+  await assert.rejects(
+    tasks.update._handler(alice, {
+      taskId,
+      title: "Read",
+      priorityClassId,
+      tags: [],
+      effortMinutes: 90,
+      minSessionMinutes: 60,
+      maxSessionMinutes: 30,
+    }),
+    /Minimum Session duration/
+  );
+  const actions = await import("../convex/taskActions.ts");
+  await actions.addToCompleted._handler(alice, { taskIds: [taskId] });
+  assert.deepEqual(await listSessions._handler(alice, {}), []);
+  assert.equal((await db.get(taskId)).effortMinutes, 90);
+});
+
+test("Automatic Sessions respect real elapsed Availability through DST changes", () => {
+  for (const date of ["2030-03-31", "2030-10-27"]) {
+    const rules = {
+      ...autoSettings,
+      weekly: [{ weekday: 0, start: 120, end: 240 }],
+    };
+    const result = planSessions({
+      date,
+      settings: rules,
+      events: [],
+      tasks: [task("read", 120)],
+      sessions: [],
+      now: dayBounds(date, rules.timezone).startAt,
+    });
+    for (const change of result.changes)
+      assert.deepEqual(placementConflicts(change.after, rules, []), []);
+    const expected = date.includes("03-31") ? 60 : 120;
+    assert.equal(
+      result.changes.reduce(
+        (n, c) => n + (c.after.endAt - c.after.startAt) / 60000,
+        0
+      ),
+      expected
+    );
+    assert.equal(result.shortfalls[0]?.minutes ?? 0, 120 - expected);
+  }
+});
+
+test("Existing manual Sessions without automation metadata retain placement and duration", () => {
+  const legacy = {
+    _id: "legacy",
+    taskId: "manual",
+    startAt: autoAt("09:00"),
+    endAt: autoAt("12:00"),
+  };
+  const result = plan(
+    [task("manual", 180), task("urgent", 60, { priority: "critical" })],
+    [legacy]
+  );
+  assert.deepEqual(result.changes, []);
+  assert.equal(
+    result.shortfalls.find((s) => s.taskId === "urgent").minutes,
+    60
+  );
+});
+
+test("New and moved Sessions cannot start in the past, even with a conflict override", async (t) => {
+  const { db, context } = database();
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Urgent",
+    effortMinutes: 30,
+  });
+  t.mock.method(Date, "now", () => autoAt("11:00"));
+  for (const automatic of [false, true])
+    await assert.rejects(
+      saveSession._handler(context("alice"), {
+        taskId,
+        startAt: autoAt("09:00"),
+        endAt: autoAt("09:30"),
+        automatic,
+        allowConflict: true,
+      }),
+      /past/
+    );
+  const id = await saveSession._handler(context("alice"), {
+    taskId,
+    startAt: autoAt("12:00"),
+    endAt: autoAt("12:30"),
+  });
+  await assert.rejects(
+    saveSession._handler(context("alice"), {
+      sessionId: id,
+      taskId,
+      startAt: autoAt("10:00"),
+      endAt: autoAt("10:30"),
+    }),
+    /past/
+  );
+});
+
+test("Tight Firm deadlines never place new Sessions before now, including when viewing an earlier Day", () => {
+  const now = autoAt("10:47");
+  for (const date of [autoDate, "2030-01-06"]) {
+    const result = plan(
+      [
+        task("urgent", 60, {
+          dueAt: autoAt("11:00"),
+          finishKind: "firm",
+          minSessionMinutes: 5,
+        }),
+      ],
+      [],
+      { now, date }
+    );
+    assert.ok(result.changes.every((c) => !c.after || c.after.startAt >= now));
+    assert.ok(result.shortfalls.some((s) => s.taskId === "urgent"));
+  }
+});
+
+test("Explicit full replanning rebuilds future manual placements while preserving Pins and active Sessions", () => {
+  const tasks = [task("late", 30), task("pinned", 30), task("active", 30)];
+  const sessions = [
+    session("late", "late", "11:00", "11:30", { manualOverride: true }),
+    session("pin", "pinned", "10:00", "10:30", { pinned: true }),
+    session("active", "active", "09:00", "09:30"),
+  ];
+  const now = autoAt("09:10");
+  assert.deepEqual(plan(tasks, sessions, { now }).changes, []);
+  const result = plan(tasks, sessions, { now, replanAll: true });
+  assert.equal(result.changes.length, 1);
+  assert.equal(result.changes[0].id, "late");
+  assert.equal(result.changes[0].after.startAt, autoAt("09:30"));
+});
+
+test("Replan all resumes Tasks paused by unscheduling and persists the resumed state", async () => {
+  const { db, context } = database();
+  const alice = context("alice");
+  await planning.saveSettings._handler(alice, autoSettings);
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Important",
+    effortMinutes: 60,
+    automaticSchedulingPaused: true,
+  });
+  await planning.planDay._handler(alice, {
+    date: autoDate,
+    timezone: settings.timezone,
+    replanAll: true,
+  });
+  const planned = await listSessions._handler(alice, {});
+  assert.equal(
+    planned.reduce((n, s) => n + (s.endAt - s.startAt) / 60000, 0),
+    60
+  );
+  assert.equal((await db.get(taskId)).automaticSchedulingPaused, false);
+});
+
+test("Important's 45-minute manual placement and 15-minute automatic remainder cover its 60-minute estimate", () => {
+  const result = plan(
+    [task("Important", 60, { dueAt: autoAt("12:00"), finishKind: "firm" })],
+    [session("manual", "Important", "09:00", "09:45", { manualOverride: true })]
+  );
+  assert.equal(result.changes.length, 1);
+  assert.equal(
+    (result.changes[0].after.endAt - result.changes[0].after.startAt) / 60000,
+    15
+  );
+  assert.deepEqual(result.shortfalls, []);
+});
+
+test("Urgent work receives its full effort before lower-priority automatic Sessions", () => {
+  const result = plan(
+    [
+      task("Important", 60, {
+        priority: "high",
+        dueAt: autoAt("10:00"),
+        finishKind: "firm",
+      }),
+      task("other", 120, { priority: "low" }),
+    ],
+    [
+      session("other1", "other", "09:00", "10:00"),
+      session("other2", "other", "10:00", "11:00"),
+    ]
+  );
+  assert.equal(
+    result.changes
+      .filter((c) => c.taskId === "Important" && c.after)
+      .reduce((n, c) => n + (c.after.endAt - c.after.startAt) / 60000, 0),
+    60
+  );
+  assert.ok(
+    result.changes
+      .filter((c) => c.taskId === "Important" && c.after)
+      .every((c) => c.after.endAt <= autoAt("10:00"))
+  );
+});
+
+test("Scheduling a single Task resumes that Task without resuming other paused Tasks", async () => {
+  const { db, context } = database();
+  const alice = context("alice");
+  await planning.saveSettings._handler(alice, autoSettings);
+  const selected = await db.insert("tasks", {
+    userId: "alice",
+    title: "Selected",
+    effortMinutes: 60,
+    automaticSchedulingPaused: true,
+  });
+  const other = await db.insert("tasks", {
+    userId: "alice",
+    title: "Other",
+    effortMinutes: 60,
+    automaticSchedulingPaused: true,
+  });
+  await planning.scheduleTask._handler(alice, {
+    taskId: selected,
+    date: autoDate,
+    timezone: settings.timezone,
+  });
+  assert.equal((await db.get(selected)).automaticSchedulingPaused, false);
+  assert.equal((await db.get(other)).automaticSchedulingPaused, true);
+  assert.ok(
+    (await listSessions._handler(alice, {})).every((s) => s.taskId === selected)
+  );
+  await assert.rejects(
+    planning.scheduleTask._handler(context("bob"), {
+      taskId: selected,
+      date: autoDate,
+      timezone: settings.timezone,
+    })
+  );
+});
+
+test("Deleting a Task releases its future pinned Sessions without removing history", async () => {
+  const { db, context } = database();
+  const alice = context("alice");
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Delete sample",
+  });
+  const pinned = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: autoAt("09:00"),
+    endAt: autoAt("10:00"),
+    pinned: true,
+  });
+  const historical = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: 1,
+    endAt: 99,
+  });
+  await tasks.archive._handler(alice, { taskIds: [taskId] });
+  assert.equal((await db.get(pinned)).unscheduledAt, 100);
+  assert.equal((await db.get(historical)).unscheduledAt, undefined);
 });

@@ -35,6 +35,33 @@ export const fixedEventFields = {
   attention: v.union(v.literal("focused"), v.literal("background")),
 };
 export const planningDbSchema = {
+  dayPlans: defineTable({
+    userId: v.string(),
+    date: v.string(),
+    timezone: v.string(),
+    changes: v.array(
+      v.object({
+        sessionId: v.id("sessions"),
+        taskId: v.id("tasks"),
+        title: v.string(),
+        reason: v.string(),
+        revision: v.number(),
+        before: v.optional(
+          v.object({ startAt: v.number(), endAt: v.number() })
+        ),
+        after: v.optional(v.object({ startAt: v.number(), endAt: v.number() })),
+      })
+    ),
+    shortfalls: v.array(
+      v.object({
+        taskId: v.id("tasks"),
+        title: v.string(),
+        minutes: v.number(),
+        reason: v.string(),
+      })
+    ),
+    conflicts: v.array(v.string()),
+  }).index("by_user", ["userId"]),
   planningSettings: defineTable({
     userId: v.string(),
     ...planningFields,

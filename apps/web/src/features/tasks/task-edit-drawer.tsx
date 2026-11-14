@@ -46,6 +46,9 @@ function TaskEditForm({ editedTask }: { editedTask: ExtendedTask }) {
   const defaultValues: UpdateTaskClientArgs = {
     title: editedTask.title,
     effortMinutes: editedTask.effortMinutes,
+    minSessionMinutes: editedTask.minSessionMinutes,
+    maxSessionMinutes: editedTask.maxSessionMinutes,
+    automaticSchedulingPaused: editedTask.automaticSchedulingPaused ?? false,
     priority: editedTask.priority ?? "normal",
     finishKind: editedTask.finishKind ?? "firm",
     progressMeasure: editedTask.progressMeasure,
@@ -138,6 +141,41 @@ function TaskEditForm({ editedTask }: { editedTask: ExtendedTask }) {
             />
           )}
         </form.AppField>
+        <form.AppField name="minSessionMinutes">
+          {(field) => (
+            <field.Input
+              label={m.planning_min_session()}
+              type="number"
+              min="1"
+              max="1440"
+              placeholder="15"
+              onChange={(e) =>
+                field.handleChange(
+                  e.target.value ? Number(e.target.value) : undefined
+                )
+              }
+            />
+          )}
+        </form.AppField>
+        <form.AppField name="maxSessionMinutes">
+          {(field) => (
+            <field.Input
+              label={m.planning_max_session()}
+              type="number"
+              min="1"
+              max="1440"
+              placeholder="60"
+              onChange={(e) =>
+                field.handleChange(
+                  e.target.value ? Number(e.target.value) : undefined
+                )
+              }
+            />
+          )}
+        </form.AppField>
+        <form.AppField name="automaticSchedulingPaused">
+          {(field) => <field.Switch label={m.planning_pause_automatic()} />}
+        </form.AppField>
         <form.AppField name="priority">
           {(field) => (
             <field.Select
@@ -151,17 +189,6 @@ function TaskEditForm({ editedTask }: { editedTask: ExtendedTask }) {
                 }[value as "low" | "normal" | "high" | "critical"],
                 value,
               }))}
-            />
-          )}
-        </form.AppField>
-        <form.AppField name="finishKind">
-          {(field) => (
-            <field.Select
-              label={m.planning_finish_kind()}
-              options={[
-                { label: m.planning_firm(), value: "firm" },
-                { label: m.planning_preferred(), value: "preferred" },
-              ]}
             />
           )}
         </form.AppField>
@@ -232,20 +259,33 @@ function TaskEditForm({ editedTask }: { editedTask: ExtendedTask }) {
         <form.Subscribe selector={(state) => state.values.useDueAt}>
           {(useDueAt) =>
             useDueAt && (
-              <form.AppField name="dueAt">
-                {(field) => (
-                  <field.DatePicker
-                    label={m.tasks_form_field_dueAt_label()}
-                    defaultTime="end-of-day"
-                    initialInputValue={parseDateToString(
-                      editedTask.dueAt
-                        ? new Date(editedTask.dueAt)
-                        : defaultDueAt,
-                      "full"
-                    )}
-                  />
-                )}
-              </form.AppField>
+              <>
+                <form.AppField name="finishKind">
+                  {(field) => (
+                    <field.Select
+                      label={m.planning_finish_kind()}
+                      options={[
+                        { label: m.planning_firm(), value: "firm" },
+                        { label: m.planning_preferred(), value: "preferred" },
+                      ]}
+                    />
+                  )}
+                </form.AppField>
+                <form.AppField name="dueAt">
+                  {(field) => (
+                    <field.DatePicker
+                      label={m.tasks_form_field_dueAt_label()}
+                      defaultTime="end-of-day"
+                      initialInputValue={parseDateToString(
+                        editedTask.dueAt
+                          ? new Date(editedTask.dueAt)
+                          : defaultDueAt,
+                        "full"
+                      )}
+                    />
+                  )}
+                </form.AppField>
+              </>
             )
           }
         </form.Subscribe>

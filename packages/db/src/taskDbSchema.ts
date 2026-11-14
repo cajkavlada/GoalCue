@@ -13,6 +13,9 @@ export const taskDbSchema = {
     priorityIndex: v.string(),
     repetitionId: v.optional(v.id("repetitions")),
     effortMinutes: v.optional(v.number()),
+    minSessionMinutes: v.optional(v.number()),
+    maxSessionMinutes: v.optional(v.number()),
+    automaticSchedulingPaused: v.optional(v.boolean()),
     priority: v.optional(literals("low", "normal", "high", "critical")),
     finishKind: v.optional(literals("firm", "preferred")),
     progressMeasure: v.optional(
@@ -46,6 +49,10 @@ export const taskDbSchema = {
     startAt: v.number(),
     endAt: v.number(),
     unscheduledAt: v.optional(v.number()),
+    pinned: v.optional(v.boolean()),
+    manualOverride: v.optional(v.boolean()),
+    revision: v.optional(v.number()),
+    automaticReason: v.optional(v.string()),
   })
     .index("by_user_start", ["userId", "startAt"])
     .index("by_task", ["taskId"]),
