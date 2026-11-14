@@ -39,9 +39,13 @@ Priority and deadline Urgency are separate. Firm deadlines create overdue work i
 
 ### 4.1 Availability
 
-Availability is defined by a weekly template plus date-specific additions, removals, replacements, and closed days. Overrides take precedence. Initial setup should be minimal; learned changes to recurring availability require user acceptance.
+The full day is available for planning by default, every day of the year. No weekly setup is required. Availability is an optional restriction: users may enable weekly time limits and add date-specific additions, removals, replacements, or closed days. Overrides take precedence over the weekly limits or the full-day default. Protected periods remain enforced independently of Availability settings. Learned changes to recurring availability require user acceptance.
 
-Work and personal Tasks share availability by default. Users can optionally require work Tasks to use work windows and personal Tasks to use personal windows. Sleep, explicitly protected periods, focused Events, and required travel constrain automatic placement. A user may explicitly override a single placement after seeing a conflict; that override does not change recurring rules.
+Sleep, meals, and other routines are represented by recurring Tasks with a preferred duration and explicit limits on movement or shortening. Only the flexible portion may move or shrink automatically within those user-defined limits. A protected minimum or an explicitly Protected period cannot be borrowed automatically; an individual exception requires an explicit user choice. Users do not need to encode the same routine as both unavailable time and a Task.
+
+This full-day default and routine model supersede the mandatory weekly-template interpretation of Wayfinder #201. Recurring routine controls are delivered with recurrence; the Availability settings do not introduce a second routine editor.
+
+Work and personal Tasks share availability by default. Users can optionally require work Tasks to use work windows and personal Tasks to use personal windows. Protected minimums for routines, explicitly Protected periods, focused Events, and required travel constrain automatic placement. A user may explicitly override a single placement after seeing a conflict; that override does not change recurring rules.
 
 ### 4.2 Events and overlaps
 

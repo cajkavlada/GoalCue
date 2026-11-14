@@ -5,6 +5,7 @@ Support recurring Tasks as distinct Occurrences with their own progress and comp
 ## Acceptance criteria
 
 - [ ] A user can create and edit a recurring Task with a recurrence rule and end condition.
+- [ ] Routines such as sleep and meals support a preferred duration and explicit limits on movement or shortening; automatic planning may use only the flexible portion and preserves protected minimums.
 - [ ] Each Occurrence has independent progress, Sessions, and completion state.
 - [ ] Missed Occurrences expire by default; optional carry-forward follows the configured rule.
 - [ ] Editing a recurring series supports this-and-future changes and an occurrence-only change.

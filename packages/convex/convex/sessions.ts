@@ -1,5 +1,7 @@
 import { ConvexError, v } from "convex/values";
 
+import { placementConflicts } from "@gc/validators";
+
 import { taskQueries } from "./dbQueries";
 import { authedMutation, authedQuery } from "./utils/authedFunctions";
 
@@ -17,7 +19,13 @@ export const listSessions = authedQuery({
           const task = await taskQueries({ ctx }).getById({
             taskId: session.taskId,
           });
-          return task.archivedAt ? null : { ...session, taskTitle: task.title };
+          return task.archivedAt
+            ? null
+            : {
+                ...session,
+                taskTitle: task.title,
+                taskCompletedAt: task.completedAt,
+              };
         })
     );
     return visible.filter((session) => session !== null);
@@ -31,8 +39,13 @@ export const saveSession = authedMutation({
     taskId: v.id("tasks"),
     startAt: v.number(),
     endAt: v.number(),
+    allowConflict: v.optional(v.boolean()),
+    automatic: v.optional(v.boolean()),
   },
-  handler: async (ctx, { sessionId, taskId, startAt, endAt }) => {
+  handler: async (
+    ctx,
+    { sessionId, taskId, startAt, endAt, allowConflict, automatic }
+  ) => {
     const task = await taskQueries({ ctx }).getById({ taskId });
     if (task.archivedAt || task.completedAt)
       throw new ConvexError({ message: "Schedule an active Task" });
@@ -43,6 +56,19 @@ export const saveSession = authedMutation({
     ) {
       throw new ConvexError({ message: "Session end must be after its start" });
     }
+    const settings = await ctx.db
+      .query("planningSettings")
+      .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
+      .first();
+    const events = (
+      await ctx.db
+        .query("fixedEvents")
+        .withIndex("by_user_start", (q) => q.eq("userId", ctx.userId))
+        .collect()
+    ).filter((e) => e.deletedAt === undefined);
+    const conflicts = placementConflicts({ startAt, endAt }, settings, events);
+    if (conflicts.length && (automatic || !allowConflict))
+      throw new ConvexError({ message: conflicts.join("; ") });
     if (sessionId) {
       const session = await ctx.db.get(sessionId);
       if (

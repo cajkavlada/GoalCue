@@ -35,7 +35,11 @@ export const taskDbSchema = {
       "priorityClassId",
       "priorityIndex",
     ])
-    .index("by_user_priority", ["userId", "priorityClassId", "priorityIndex"]),
+    .index("by_user_priority", ["userId", "priorityClassId", "priorityIndex"])
+    .searchIndex("search_title", {
+      searchField: "title",
+      filterFields: ["userId", "archivedAt", "completedAt"],
+    }),
   sessions: defineTable({
     userId: v.string(),
     taskId: v.id("tasks"),

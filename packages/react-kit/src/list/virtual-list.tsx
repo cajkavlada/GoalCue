@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { PartialKeys, useVirtualizer } from "@tanstack/react-virtual";
 
 import { cn } from "@gc/utils";
@@ -12,11 +12,13 @@ export function VirtualList<T>({
   items,
   className,
   renderItem,
+  onEndReached,
   ...props
 }: {
   items: T[];
   className?: string;
   renderItem: (item: T) => React.ReactNode;
+  onEndReached?: () => void;
 } & VirtualizerOptions) {
   const parentRef = useRef(null);
 
@@ -25,6 +27,12 @@ export function VirtualList<T>({
     getScrollElement: () => parentRef.current,
     ...props,
   });
+  const virtualItems = rowVirtualizer.getVirtualItems();
+  const lastVisibleIndex = virtualItems[virtualItems.length - 1]?.index;
+  useEffect(() => {
+    if (lastVisibleIndex !== undefined && lastVisibleIndex >= items.length - 5)
+      onEndReached?.();
+  }, [lastVisibleIndex, items.length, onEndReached]);
   return (
     <div
       ref={parentRef}
@@ -34,9 +42,9 @@ export function VirtualList<T>({
         className="relative w-full"
         style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
       >
-        {rowVirtualizer.getVirtualItems().map((virtualItem) => (
+        {virtualItems.map((virtualItem) => (
           <li
-            key={virtualItem.index}
+            key={virtualItem.key}
             className="absolute left-0 top-0 w-full"
             style={{
               height: `${virtualItem.size}px`,

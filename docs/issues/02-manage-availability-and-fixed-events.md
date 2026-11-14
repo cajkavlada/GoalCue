@@ -4,11 +4,11 @@ Let a user define recurring weekly Availability, date-specific overrides, Protec
 
 ## Acceptance criteria
 
-- [ ] A user can set a weekly Availability template and add, remove, replace, or close time on a specific date.
-- [ ] A user can create, edit, and delete fixed Events with timezone-aware start and end times.
-- [ ] Events can be marked focused or as allowing compatible background activity; overlap conflicts are visible.
-- [ ] Protected periods prevent automatic Task placement.
-- [ ] Availability and Events appear in the Day view and remain correct across daylight-saving transitions.
+- [x] The full day is available by default without setup. A user can optionally enable weekly Availability limits and add, remove, replace, or close time on a specific date.
+- [x] A user can create, edit, and delete fixed Events with timezone-aware start and end times.
+- [x] Events can be marked focused or as allowing compatible background activity; overlap conflicts are visible.
+- [x] Protected periods prevent automatic Task placement.
+- [x] Availability and Events appear in the Day view and remain correct across daylight-saving transitions.
 
 ## Blocked by
 
