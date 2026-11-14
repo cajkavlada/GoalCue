@@ -34,6 +34,9 @@ export const createTaskConvexSchema = v.object({
     "repetitionId",
     "dueAt",
     "effortMinutes",
+    "minSessionMinutes",
+    "maxSessionMinutes",
+    "automaticSchedulingPaused",
     "priority",
     "finishKind",
     "progressMeasure",
@@ -50,6 +53,7 @@ export const createTaskZodSchema = z
   .object({
     ...createArgsSchema.pick({
       priority: true,
+      automaticSchedulingPaused: true,
       finishKind: true,
       progressMeasure: true,
       progressUnit: true,
@@ -62,10 +66,20 @@ export const createTaskZodSchema = z
       tags: true,
     }).shape,
     effortMinutes: z.number().positive().finite().optional(),
+    minSessionMinutes: z.number().int().min(1).max(1440).optional(),
+    maxSessionMinutes: z.number().int().min(1).max(1440).optional(),
     title: z.string().min(1),
     dueAt: z.date().optional(),
   })
-  .superRefine(checkEqualInitialAndCompletedNumValues);
+  .superRefine(checkEqualInitialAndCompletedNumValues)
+  .refine(
+    (task) => (task.minSessionMinutes ?? 15) <= (task.maxSessionMinutes ?? 60),
+    {
+      message: "Minimum Session duration must not exceed maximum",
+      params: { reason: "Minimum Session duration must not exceed maximum" },
+      path: ["minSessionMinutes"],
+    }
+  );
 
 export type CreateTaskArgs = z.infer<typeof createTaskZodSchema>;
 
@@ -109,6 +123,9 @@ export const updateTaskConvexSchema = v.object({
     "repetitionId",
     "dueAt",
     "effortMinutes",
+    "minSessionMinutes",
+    "maxSessionMinutes",
+    "automaticSchedulingPaused",
     "priority",
     "finishKind",
     "progressMeasure",
@@ -125,6 +142,7 @@ export const updateTaskZodSchema = z
   .object({
     ...updateArgsSchema.pick({
       priority: true,
+      automaticSchedulingPaused: true,
       finishKind: true,
       progressMeasure: true,
       progressUnit: true,
@@ -136,9 +154,19 @@ export const updateTaskZodSchema = z
       tags: true,
     }).shape,
     effortMinutes: z.number().positive().finite().optional(),
+    minSessionMinutes: z.number().int().min(1).max(1440).optional(),
+    maxSessionMinutes: z.number().int().min(1).max(1440).optional(),
     title: z.string().min(1),
     dueAt: z.date().optional(),
   })
-  .superRefine(checkEqualInitialAndCompletedNumValues);
+  .superRefine(checkEqualInitialAndCompletedNumValues)
+  .refine(
+    (task) => (task.minSessionMinutes ?? 15) <= (task.maxSessionMinutes ?? 60),
+    {
+      message: "Minimum Session duration must not exceed maximum",
+      params: { reason: "Minimum Session duration must not exceed maximum" },
+      path: ["minSessionMinutes"],
+    }
+  );
 
 export type UpdateTaskArgs = z.infer<typeof updateTaskZodSchema>;

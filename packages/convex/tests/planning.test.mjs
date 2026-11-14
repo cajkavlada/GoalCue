@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { createRequire, registerHooks } from "node:module";
 import test from "node:test";
 import { fileURLToPath, URL } from "node:url";
+import { runInNewContext } from "node:vm";
 
 const require = createRequire(new URL("../package.json", import.meta.url));
 const ts = require("typescript");
@@ -41,9 +42,8 @@ registerHooks({
     return next(url, context);
   },
 });
-const { saveSession, listSessions, unscheduleSession } = await import(
-  "../convex/sessions.ts"
-);
+const { saveSession, listSessions, unscheduleSession, reportCheckIn } =
+  await import("../convex/sessions.ts");
 const tasks = await import("../convex/tasks.ts");
 const planning = await import("../convex/planning.ts");
 const {
@@ -55,6 +55,11 @@ const {
   validatePlanning,
   zonedInstant,
 } = await import("../../validators/src/planning.ts");
+const { planSessions } = await import("../../validators/src/auto-planning.ts");
+
+test.beforeEach((t) => {
+  t.mock.method(Date, "now", () => 100);
+});
 
 function database() {
   const rows = new Map();
@@ -919,4 +924,2279 @@ test("Server blocks automatic Task placement in Protected periods even with an o
     }),
     /Outside Availability/
   );
+});
+
+const autoDate = "2030-01-07";
+const autoAt = (time) => at(`${autoDate}T${time}`);
+const autoSettings = {
+  ...settings,
+  restrictAvailability: true,
+  weekly: [{ weekday: 1, start: 540, end: 720 }],
+  protectedWeekly: [],
+};
+const plan = (tasks, sessions = [], extra = {}) =>
+  planSessions({
+    date: autoDate,
+    settings: autoSettings,
+    events: [],
+    tasks,
+    sessions,
+    now: autoAt("08:00"),
+    ...extra,
+  });
+const task = (id, effortMinutes = 60, extra = {}) => ({
+  _id: id,
+  title: id,
+  effortMinutes,
+  ...extra,
+});
+const session = (id, taskId, from, to, extra = {}) => ({
+  _id: id,
+  taskId,
+  startAt: autoAt(from),
+  endAt: autoAt(to),
+  manualOverride: false,
+  ...extra,
+});
+
+test("Automatic planning splits effort around Events and Protected periods within Session limits", () => {
+  const result = plan(
+    [task("read", 180, { minSessionMinutes: 20, maxSessionMinutes: 40 })],
+    [],
+    {
+      settings: {
+        ...autoSettings,
+        protectedDates: [{ date: autoDate, start: 600, end: 620 }],
+      },
+      events: [
+        {
+          title: "Meeting",
+          attention: "focused",
+          startAt: autoAt("09:40"),
+          endAt: autoAt("10:00"),
+        },
+      ],
+    }
+  );
+  const placed = result.changes.map((c) => c.after);
+  assert.equal(placed.length, 4);
+  assert.equal(result.shortfalls[0].minutes, 40);
+  for (const interval of placed) {
+    assert.ok((interval.endAt - interval.startAt) / 60000 >= 20);
+    assert.ok((interval.endAt - interval.startAt) / 60000 <= 40);
+    assert.deepEqual(
+      placementConflicts(
+        interval,
+        {
+          ...autoSettings,
+          protectedDates: [{ date: autoDate, start: 600, end: 620 }],
+        },
+        [
+          {
+            title: "Meeting",
+            attention: "focused",
+            startAt: autoAt("09:40"),
+            endAt: autoAt("10:00"),
+          },
+        ]
+      ),
+      []
+    );
+  }
+});
+
+test("Ordinary Tasks use gaps; minor optimization and deadline extensions leave existing Sessions stable", () => {
+  const existing = session("keep", "existing", "10:00", "11:00");
+  const tasks = [
+    task("existing", 60, { dueAt: autoAt("12:00") }),
+    task("new", 60),
+  ];
+  const first = plan(tasks, [existing]);
+  assert.ok(first.changes.every((c) => c.id !== "keep"));
+  const created = first.changes.map((c) => ({
+    _id: c.id,
+    taskId: c.taskId,
+    ...c.after,
+  }));
+  assert.deepEqual(
+    plan(
+      tasks.map((t) => ({ ...t, dueAt: undefined })),
+      [existing, ...created]
+    ).changes,
+    []
+  );
+});
+
+test("Deadline pressure displaces only flexible lower-priority work and shows the displaced shortfall", () => {
+  const tasks = [
+    task("low", 180, { priority: "low" }),
+    task("due", 60, {
+      priority: "low",
+      dueAt: autoAt("10:00"),
+      finishKind: "firm",
+    }),
+  ];
+  const sessions = [
+    session("first", "low", "09:00", "10:00"),
+    session("stable", "low", "10:00", "11:00"),
+  ];
+  const result = plan(tasks, sessions);
+  assert.ok(
+    result.changes.some(
+      (c) => c.taskId === "due" && c.after.endAt <= autoAt("10:00")
+    )
+  );
+  assert.ok(result.changes.every((c) => c.id !== "stable"));
+  assert.ok(
+    result.changes.some(
+      (c) => c.id === "first" && c.reason.includes("pressing")
+    )
+  );
+  assert.equal(result.shortfalls.find((s) => s.taskId === "low").minutes, 60);
+  assert.equal(tasks[0].effortMinutes, 180);
+  assert.equal(tasks[1].dueAt, autoAt("10:00"));
+});
+
+test("Pins, manual overrides and active Sessions survive pressing work; changed boundaries surface pinned conflicts", () => {
+  const tasks = [
+    task("held", 180),
+    task("critical", 60, { priority: "critical" }),
+  ];
+  const sessions = [
+    session("pin", "held", "09:00", "10:00", { pinned: true }),
+    session("manual", "held", "10:00", "11:00", { manualOverride: true }),
+    session("active", "held", "11:00", "12:00"),
+  ];
+  const result = plan(tasks, sessions, {
+    now: autoAt("11:30"),
+    events: [
+      {
+        title: "New Event",
+        attention: "focused",
+        startAt: autoAt("09:00"),
+        endAt: autoAt("10:00"),
+      },
+    ],
+  });
+  assert.deepEqual(result.changes, []);
+  assert.equal(
+    result.shortfalls.find((s) => s.taskId === "critical").minutes,
+    60
+  );
+  const conflict = plan(tasks, sessions, {
+    events: [
+      {
+        title: "New Event",
+        attention: "focused",
+        startAt: autoAt("09:00"),
+        endAt: autoAt("10:00"),
+      },
+    ],
+  });
+  assert.ok(conflict.conflicts.some((c) => c.includes("pinned")));
+  assert.ok(conflict.changes.every((c) => c.id !== "pin" && c.id !== "manual"));
+});
+
+test("A boundary change moves the affected Session, preserving identity and unrelated placements", () => {
+  const result = plan(
+    [task("affected"), task("stable")],
+    [
+      session("move", "affected", "09:00", "10:00", { manualOverride: true }),
+      session("keep", "stable", "10:00", "11:00"),
+    ],
+    {
+      events: [
+        {
+          title: "Meeting",
+          attention: "focused",
+          startAt: autoAt("09:00"),
+          endAt: autoAt("10:00"),
+        },
+      ],
+    }
+  );
+  assert.equal(result.changes.length, 1);
+  assert.equal(result.changes[0].id, "move");
+  assert.equal(result.changes[0].after.startAt, autoAt("11:00"));
+});
+
+test("Preferred dates may slip, Firm deadlines and missing estimates produce explicit shortfalls", () => {
+  const result = plan([
+    task("preferred", 60, { finishKind: "preferred", dueAt: autoAt("08:00") }),
+    task("firm", 60, { finishKind: "firm", dueAt: autoAt("08:00") }),
+    task("unknown", undefined),
+  ]);
+  assert.ok(result.changes.some((c) => c.taskId === "preferred"));
+  assert.ok(!result.changes.some((c) => c.taskId === "firm"));
+  assert.equal(result.shortfalls.find((s) => s.taskId === "firm").minutes, 60);
+});
+
+test("Automatic plans persist per user, react to Event changes, and undo preserves unrelated manual edits", async () => {
+  const { db, context } = database();
+  const alice = context("alice");
+  await planning.saveSettings._handler(alice, autoSettings);
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Read",
+    effortMinutes: 60,
+    currentNumValue: 12,
+  });
+  await db.insert("tasks", {
+    userId: "bob",
+    title: "Private",
+    effortMinutes: 60,
+  });
+  await planning.planDay._handler(alice, {
+    date: autoDate,
+    timezone: settings.timezone,
+  });
+  const first = await listSessions._handler(context("alice"), {});
+  assert.equal(first.length, 1);
+  assert.equal(first[0].taskId, taskId);
+  assert.equal(await planning.getDayPlan._handler(context("bob"), {}), null);
+  await planning.planDay._handler(alice, {
+    date: autoDate,
+    timezone: settings.timezone,
+  });
+  assert.equal((await listSessions._handler(alice, {}))[0]._id, first[0]._id);
+  const eventId = await planning.saveEvent._handler(alice, {
+    title: "Meeting",
+    startAt: autoAt("09:00"),
+    endAt: autoAt("10:00"),
+    timezone: settings.timezone,
+    attention: "focused",
+  });
+  const moved = (await listSessions._handler(alice, {}))[0];
+  assert.equal(moved._id, first[0]._id);
+  assert.equal(moved.startAt, autoAt("10:00"));
+  await assert.rejects(
+    planning.undoPlan._handler(alice, {}),
+    /no longer possible/
+  );
+  await planning.deleteEvent._handler(alice, { eventId });
+  const otherTask = await db.insert("tasks", {
+    userId: "alice",
+    title: "Manual",
+  });
+  const otherSession = await saveSession._handler(alice, {
+    taskId: otherTask,
+    startAt: autoAt("11:00"),
+    endAt: autoAt("12:00"),
+  });
+  await planning.undoPlan._handler(alice, {});
+  assert.equal((await db.get(moved._id)).startAt, autoAt("09:00"));
+  assert.equal((await db.get(moved._id)).manualOverride, true);
+  assert.equal((await db.get(otherSession)).startAt, autoAt("11:00"));
+  assert.equal((await db.get(taskId)).currentNumValue, 12);
+  await assert.rejects(
+    planning.planDay._handler(context(null), {
+      date: autoDate,
+      timezone: settings.timezone,
+    })
+  );
+});
+
+test("Undoing new automatic Sessions pauses their Task until the user resumes planning", async () => {
+  const { db, context } = database();
+  const alice = context("alice");
+  await planning.saveSettings._handler(alice, autoSettings);
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Read",
+    effortMinutes: 60,
+  });
+  await planning.planDay._handler(alice, {
+    date: autoDate,
+    timezone: settings.timezone,
+  });
+  await planning.undoPlan._handler(alice, {});
+  assert.equal((await db.get(taskId)).automaticSchedulingPaused, true);
+  await planning.planDay._handler(alice, {
+    date: autoDate,
+    timezone: settings.timezone,
+  });
+  assert.deepEqual(await listSessions._handler(alice, {}), []);
+});
+
+test("Undo refuses to overwrite a later edit to an affected Session", async () => {
+  const { db, context } = database();
+  const alice = context("alice");
+  await planning.saveSettings._handler(alice, autoSettings);
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Read",
+    effortMinutes: 60,
+  });
+  await planning.planDay._handler(alice, {
+    date: autoDate,
+    timezone: settings.timezone,
+  });
+  const [s] = await listSessions._handler(alice, {});
+  await saveSession._handler(alice, {
+    sessionId: s._id,
+    taskId,
+    startAt: autoAt("10:00"),
+    endAt: autoAt("11:00"),
+  });
+  await assert.rejects(
+    planning.undoPlan._handler(alice, {}),
+    /plan has changed/
+  );
+  assert.equal((await db.get(s._id)).startAt, autoAt("10:00"));
+});
+
+test("Task creation, bounds edits, and completion trigger automatic planning without changing progress", async () => {
+  const { db, context } = database();
+  const alice = context("alice");
+  await planning.saveSettings._handler(alice, autoSettings);
+  await planning.planDay._handler(alice, {
+    date: autoDate,
+    timezone: settings.timezone,
+  });
+  const taskTypeId = await db.insert("taskTypes", {
+    userId: "alice",
+    valueKind: "boolean",
+  });
+  const priorityClassId = await db.insert("priorityClasses", {
+    userId: "alice",
+  });
+  const taskId = await tasks.create._handler(alice, {
+    title: "Read",
+    taskTypeId,
+    priorityClassId,
+    tags: [],
+    effortMinutes: 90,
+  });
+  assert.equal((await listSessions._handler(alice, {})).length, 2);
+  await tasks.update._handler(alice, {
+    taskId,
+    title: "Read",
+    priorityClassId,
+    tags: [],
+    effortMinutes: 90,
+    minSessionMinutes: 30,
+    maxSessionMinutes: 30,
+  });
+  const resized = await listSessions._handler(alice, {});
+  assert.equal(resized.length, 3);
+  assert.ok(resized.every((s) => s.endAt - s.startAt === 30 * 60000));
+  assert.equal((await db.get(taskId)).completedAt, undefined);
+  await assert.rejects(
+    tasks.update._handler(alice, {
+      taskId,
+      title: "Read",
+      priorityClassId,
+      tags: [],
+      effortMinutes: 90,
+      minSessionMinutes: 60,
+      maxSessionMinutes: 30,
+    }),
+    /Minimum Session duration/
+  );
+  const actions = await import("../convex/taskActions.ts");
+  await actions.addToCompleted._handler(alice, { taskIds: [taskId] });
+  assert.deepEqual(await listSessions._handler(alice, {}), []);
+  assert.equal((await db.get(taskId)).effortMinutes, 90);
+});
+
+test("Automatic Sessions respect real elapsed Availability through DST changes", () => {
+  for (const date of ["2030-03-31", "2030-10-27"]) {
+    const rules = {
+      ...autoSettings,
+      weekly: [{ weekday: 0, start: 120, end: 240 }],
+    };
+    const result = planSessions({
+      date,
+      settings: rules,
+      events: [],
+      tasks: [task("read", 120)],
+      sessions: [],
+      now: dayBounds(date, rules.timezone).startAt,
+    });
+    for (const change of result.changes)
+      assert.deepEqual(placementConflicts(change.after, rules, []), []);
+    const expected = date.includes("03-31") ? 60 : 120;
+    assert.equal(
+      result.changes.reduce(
+        (n, c) => n + (c.after.endAt - c.after.startAt) / 60000,
+        0
+      ),
+      expected
+    );
+    assert.equal(result.shortfalls[0]?.minutes ?? 0, 120 - expected);
+  }
+});
+
+test("Existing manual Sessions without automation metadata retain placement and duration", () => {
+  const legacy = {
+    _id: "legacy",
+    taskId: "manual",
+    startAt: autoAt("09:00"),
+    endAt: autoAt("12:00"),
+  };
+  const result = plan(
+    [task("manual", 180), task("urgent", 60, { priority: "critical" })],
+    [legacy]
+  );
+  assert.deepEqual(result.changes, []);
+  assert.equal(
+    result.shortfalls.find((s) => s.taskId === "urgent").minutes,
+    60
+  );
+});
+
+test("New and moved Sessions cannot start in the past, even with a conflict override", async (t) => {
+  const { db, context } = database();
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Urgent",
+    effortMinutes: 30,
+  });
+  t.mock.method(Date, "now", () => autoAt("11:00"));
+  for (const automatic of [false, true])
+    await assert.rejects(
+      saveSession._handler(context("alice"), {
+        taskId,
+        startAt: autoAt("09:00"),
+        endAt: autoAt("09:30"),
+        automatic,
+        allowConflict: true,
+      }),
+      /past/
+    );
+  const id = await saveSession._handler(context("alice"), {
+    taskId,
+    startAt: autoAt("12:00"),
+    endAt: autoAt("12:30"),
+  });
+  await assert.rejects(
+    saveSession._handler(context("alice"), {
+      sessionId: id,
+      taskId,
+      startAt: autoAt("10:00"),
+      endAt: autoAt("10:30"),
+    }),
+    /past/
+  );
+});
+
+test("Tight Firm deadlines never place new Sessions before now, including when viewing an earlier Day", () => {
+  const now = autoAt("10:47");
+  for (const date of [autoDate, "2030-01-06"]) {
+    const result = plan(
+      [
+        task("urgent", 60, {
+          dueAt: autoAt("11:00"),
+          finishKind: "firm",
+          minSessionMinutes: 5,
+        }),
+      ],
+      [],
+      { now, date }
+    );
+    assert.ok(result.changes.every((c) => !c.after || c.after.startAt >= now));
+    assert.ok(result.shortfalls.some((s) => s.taskId === "urgent"));
+  }
+});
+
+test("Explicit full replanning rebuilds future manual placements while preserving Pins and active Sessions", () => {
+  const tasks = [task("late", 30), task("pinned", 30), task("active", 30)];
+  const sessions = [
+    session("late", "late", "11:00", "11:30", { manualOverride: true }),
+    session("pin", "pinned", "10:00", "10:30", { pinned: true }),
+    session("active", "active", "09:00", "09:30"),
+  ];
+  const now = autoAt("09:10");
+  assert.deepEqual(plan(tasks, sessions, { now }).changes, []);
+  const result = plan(tasks, sessions, { now, replanAll: true });
+  assert.equal(result.changes.length, 1);
+  assert.equal(result.changes[0].id, "late");
+  assert.equal(result.changes[0].after.startAt, autoAt("09:30"));
+});
+
+test("Replan all resumes Tasks paused by unscheduling and persists the resumed state", async () => {
+  const { db, context } = database();
+  const alice = context("alice");
+  await planning.saveSettings._handler(alice, autoSettings);
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Important",
+    effortMinutes: 60,
+    automaticSchedulingPaused: true,
+  });
+  await planning.planDay._handler(alice, {
+    date: autoDate,
+    timezone: settings.timezone,
+    replanAll: true,
+  });
+  const planned = await listSessions._handler(alice, {});
+  assert.equal(
+    planned.reduce((n, s) => n + (s.endAt - s.startAt) / 60000, 0),
+    60
+  );
+  assert.equal((await db.get(taskId)).automaticSchedulingPaused, false);
+});
+
+test("Important's 45-minute manual placement and 15-minute automatic remainder cover its 60-minute estimate", () => {
+  const result = plan(
+    [task("Important", 60, { dueAt: autoAt("12:00"), finishKind: "firm" })],
+    [session("manual", "Important", "09:00", "09:45", { manualOverride: true })]
+  );
+  assert.equal(result.changes.length, 1);
+  assert.equal(
+    (result.changes[0].after.endAt - result.changes[0].after.startAt) / 60000,
+    15
+  );
+  assert.deepEqual(result.shortfalls, []);
+});
+
+test("Urgent work receives its full effort before lower-priority automatic Sessions", () => {
+  const result = plan(
+    [
+      task("Important", 60, {
+        priority: "high",
+        dueAt: autoAt("10:00"),
+        finishKind: "firm",
+      }),
+      task("other", 120, { priority: "low" }),
+    ],
+    [
+      session("other1", "other", "09:00", "10:00"),
+      session("other2", "other", "10:00", "11:00"),
+    ]
+  );
+  assert.equal(
+    result.changes
+      .filter((c) => c.taskId === "Important" && c.after)
+      .reduce((n, c) => n + (c.after.endAt - c.after.startAt) / 60000, 0),
+    60
+  );
+  assert.ok(
+    result.changes
+      .filter((c) => c.taskId === "Important" && c.after)
+      .every((c) => c.after.endAt <= autoAt("10:00"))
+  );
+});
+
+test("Scheduling a single Task resumes that Task without resuming other paused Tasks", async () => {
+  const { db, context } = database();
+  const alice = context("alice");
+  await planning.saveSettings._handler(alice, autoSettings);
+  const selected = await db.insert("tasks", {
+    userId: "alice",
+    title: "Selected",
+    effortMinutes: 60,
+    automaticSchedulingPaused: true,
+  });
+  const other = await db.insert("tasks", {
+    userId: "alice",
+    title: "Other",
+    effortMinutes: 60,
+    automaticSchedulingPaused: true,
+  });
+  await planning.scheduleTask._handler(alice, {
+    taskId: selected,
+    date: autoDate,
+    timezone: settings.timezone,
+  });
+  assert.equal((await db.get(selected)).automaticSchedulingPaused, false);
+  assert.equal((await db.get(other)).automaticSchedulingPaused, true);
+  assert.ok(
+    (await listSessions._handler(alice, {})).every((s) => s.taskId === selected)
+  );
+  await assert.rejects(
+    planning.scheduleTask._handler(context("bob"), {
+      taskId: selected,
+      date: autoDate,
+      timezone: settings.timezone,
+    })
+  );
+});
+
+test("Deleting a Task releases its future pinned Sessions without removing history", async () => {
+  const { db, context } = database();
+  const alice = context("alice");
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Delete sample",
+  });
+  const pinned = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: autoAt("09:00"),
+    endAt: autoAt("10:00"),
+    pinned: true,
+  });
+  const historical = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: 1,
+    endAt: 99,
+  });
+  await tasks.archive._handler(alice, { taskIds: [taskId] });
+  assert.equal((await db.get(pinned)).unscheduledAt, 100);
+  assert.equal((await db.get(historical)).unscheduledAt, undefined);
+});
+
+test("Check-ins replace additive progress and recorded time; undo preserves another Session's contribution", async () => {
+  const { db, context } = database();
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Read",
+    valueKind: "number",
+    progressMeasure: "quantity",
+    initialNumValue: 0,
+    currentNumValue: 5,
+    completedNumValue: 100,
+  });
+  const first = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: 1,
+    endAt: 50,
+  });
+  const second = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: 51,
+    endAt: 90,
+  });
+  const report = (input) => reportCheckIn._handler(context("alice"), input);
+  await report({
+    sessionId: first,
+    outcome: "progress",
+    value: 10,
+    timeMinutes: 20,
+  });
+  await report({
+    sessionId: second,
+    outcome: "progress",
+    value: 7,
+    timeMinutes: 30,
+  });
+  await report({
+    sessionId: first,
+    outcome: "progress",
+    value: 4,
+    timeMinutes: 8,
+  });
+  assert.equal((await db.get(taskId)).currentNumValue, 16);
+  assert.equal((await db.get(first)).checkIn.timeMinutes, 8);
+  assert.equal((await db.get(second)).checkIn.timeMinutes, 30);
+  await report({ sessionId: first, outcome: "undo" });
+  assert.equal((await db.get(taskId)).currentNumValue, 12);
+  assert.equal((await db.get(first)).checkIn, undefined);
+  await report({ sessionId: first, outcome: "undo" });
+  assert.equal((await db.get(taskId)).currentNumValue, 12);
+});
+
+test("Percentage reports replace values; correcting an earlier report preserves later percentage reports", async (t) => {
+  const { db, context } = database();
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Write",
+    valueKind: "number",
+    progressMeasure: "percentage",
+    currentNumValue: 0,
+    initialNumValue: 0,
+    completedNumValue: 100,
+  });
+  const first = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: 1,
+    endAt: 50,
+  });
+  const second = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: 51,
+    endAt: 90,
+  });
+  const report = (input) => reportCheckIn._handler(context("alice"), input);
+  await report({ sessionId: first, outcome: "progress", value: 20 });
+  t.mock.method(Date, "now", () => 200);
+  await report({ sessionId: second, outcome: "progress", value: 50 });
+  await report({ sessionId: first, outcome: "progress", value: 30 });
+  assert.equal((await db.get(taskId)).currentNumValue, 50);
+  await report({ sessionId: second, outcome: "undo" });
+  assert.equal((await db.get(taskId)).currentNumValue, 30);
+  await report({ sessionId: first, outcome: "undo" });
+  assert.equal((await db.get(taskId)).currentNumValue, 0);
+});
+
+test("Only explicit completion or a measurable target completes work, and completion can be corrected", async () => {
+  const { db, context } = database();
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Work",
+    valueKind: "number",
+    progressMeasure: "time",
+    currentNumValue: 0,
+    initialNumValue: 0,
+    completedNumValue: 60,
+    effortMinutes: 15,
+  });
+  const sessionId = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: 1,
+    endAt: 90,
+  });
+  const report = (input) =>
+    reportCheckIn._handler(context("alice"), { sessionId, ...input });
+  await report({
+    outcome: "progress",
+    value: 20,
+    timeMinutes: 90,
+    remainingMinutes: 0,
+  });
+  assert.equal((await db.get(taskId)).completedAt, undefined);
+  assert.equal((await db.get(taskId)).effortMinutes, 15);
+  await report({ outcome: "progress", value: 60, timeMinutes: 90 });
+  assert.equal((await db.get(taskId)).completedAt, 100);
+  await report({ outcome: "progress", value: 10 });
+  assert.equal((await db.get(taskId)).completedAt, undefined);
+  assert.equal((await db.get(taskId)).currentNumValue, 10);
+  await report({ outcome: "finished" });
+  assert.equal((await db.get(taskId)).currentNumValue, 60);
+  await report({ outcome: "undo" });
+  assert.equal((await db.get(taskId)).completedAt, undefined);
+  assert.equal((await db.get(taskId)).currentNumValue, 0);
+});
+
+test("Unanswered and deferred check-ins remain unknown and preserve future Sessions; a miss replans only the remainder", async (t) => {
+  const now = Date.parse("2030-01-07T10:00Z");
+  t.mock.method(Date, "now", () => now);
+  const { db, context } = database();
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Work",
+    valueKind: "boolean",
+    progressMeasure: "done",
+    effortMinutes: 120,
+  });
+  const sessionId = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: now - 3600000,
+    endAt: now,
+  });
+  const futureId = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: now + 3600000,
+    endAt: now + 7200000,
+    manualOverride: false,
+  });
+  await planning.planDay._handler(context("alice"), {
+    date: "2030-01-07",
+    timezone: "UTC",
+  });
+  assert.equal((await listSessions._handler(context("alice"), {})).length, 2);
+  await reportCheckIn._handler(context("alice"), {
+    sessionId,
+    outcome: "later",
+  });
+  assert.equal((await db.get(sessionId)).checkIn, undefined);
+  assert.equal((await db.get(taskId)).completedAt, undefined);
+  const future = structuredClone(await db.get(futureId));
+  await reportCheckIn._handler(context("alice"), {
+    sessionId,
+    outcome: "missed",
+  });
+  assert.deepEqual(await db.get(futureId), future);
+  const sessions = await listSessions._handler(context("alice"), {});
+  assert.equal(sessions.length, 3);
+  assert.equal((await db.get(sessionId)).unscheduledAt, undefined);
+  assert.equal((await db.get(taskId)).priority, undefined);
+  await reportCheckIn._handler(context("alice"), {
+    sessionId,
+    outcome: "undo",
+  });
+  assert.equal((await listSessions._handler(context("alice"), {})).length, 2);
+});
+
+test("Extensions preserve fixed Events and protected boundaries and minimally move flexible Sessions", async (t) => {
+  const now = Date.parse("2030-01-07T10:00Z");
+  t.mock.method(Date, "now", () => now);
+  const { db, context } = database();
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Work",
+    valueKind: "boolean",
+    effortMinutes: 60,
+  });
+  const otherTaskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Other",
+    valueKind: "boolean",
+    effortMinutes: 60,
+  });
+  const sessionId = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: now - 3600000,
+    endAt: now,
+  });
+  const nextId = await db.insert("sessions", {
+    userId: "alice",
+    taskId: otherTaskId,
+    startAt: now + 60000,
+    endAt: now + 3660000,
+    manualOverride: false,
+  });
+  const eventId = await db.insert("fixedEvents", {
+    userId: "alice",
+    title: "Meeting",
+    startAt: now + 30 * 60000,
+    endAt: now + 60 * 60000,
+    attention: "focused",
+    timezone: "UTC",
+  });
+  const event = structuredClone(await db.get(eventId));
+  await db.insert("dayPlans", {
+    userId: "alice",
+    date: "2030-01-07",
+    timezone: "UTC",
+    changes: [],
+    shortfalls: [],
+    conflicts: [],
+  });
+  await assert.rejects(
+    reportCheckIn._handler(context("alice"), {
+      sessionId,
+      outcome: "working",
+      extensionMinutes: 45,
+    }),
+    /Event: Meeting/
+  );
+  assert.equal((await db.get(sessionId)).endAt, now);
+  await db.insert("planningSettings", {
+    userId: "alice",
+    timezone: "UTC",
+    weekly: [],
+    overrides: [],
+    protectedWeekly: [],
+    protectedDates: [{ date: "2030-01-07", start: 620, end: 630 }],
+  });
+  await assert.rejects(
+    reportCheckIn._handler(context("alice"), {
+      sessionId,
+      outcome: "working",
+      extensionMinutes: 25,
+    }),
+    /Protected period/
+  );
+  await reportCheckIn._handler(context("alice"), {
+    sessionId,
+    outcome: "working",
+    extensionMinutes: 15,
+  });
+  assert.equal((await db.get(sessionId)).endAt, now + 15 * 60000);
+  assert.equal((await db.get(sessionId)).checkIn, undefined);
+  assert.deepEqual(await db.get(eventId), event);
+  assert.ok((await db.get(nextId)).startAt >= now + 15 * 60000);
+});
+
+test("Check-ins enforce ownership, valid progress, and started Sessions", async () => {
+  const { db, context } = database();
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Work",
+    valueKind: "number",
+    progressMeasure: "percentage",
+    currentNumValue: 0,
+    completedNumValue: 100,
+  });
+  const sessionId = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: 1,
+    endAt: 90,
+  });
+  await assert.rejects(
+    reportCheckIn._handler(context("bob"), { sessionId, outcome: "finished" }),
+    /Session not found/
+  );
+  await assert.rejects(
+    reportCheckIn._handler(context(null), { sessionId, outcome: "finished" })
+  );
+  for (const value of [-1, NaN, Infinity, 101])
+    await assert.rejects(
+      reportCheckIn._handler(context("alice"), {
+        sessionId,
+        outcome: "progress",
+        value,
+      })
+    );
+  await assert.rejects(
+    reportCheckIn._handler(context("alice"), {
+      sessionId,
+      outcome: "progress",
+    }),
+    /Enter progress/
+  );
+  await db.patch(sessionId, { startAt: 200, endAt: 300 });
+  await assert.rejects(
+    reportCheckIn._handler(context("alice"), {
+      sessionId,
+      outcome: "finished",
+    }),
+    /not started/
+  );
+  assert.equal((await db.get(taskId)).currentNumValue, 0);
+});
+
+test("Undoing multiple completion reports restores the original completion state", async (t) => {
+  const { db, context } = database();
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Work",
+    valueKind: "boolean",
+    progressMeasure: "done",
+  });
+  const first = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: 1,
+    endAt: 50,
+  });
+  const second = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: 51,
+    endAt: 90,
+  });
+  await reportCheckIn._handler(context("alice"), {
+    sessionId: first,
+    outcome: "finished",
+  });
+  t.mock.method(Date, "now", () => 200);
+  await reportCheckIn._handler(context("alice"), {
+    sessionId: second,
+    outcome: "finished",
+  });
+  await reportCheckIn._handler(context("alice"), {
+    sessionId: first,
+    outcome: "undo",
+  });
+  assert.equal((await db.get(taskId)).completedAt, 100);
+  await reportCheckIn._handler(context("alice"), {
+    sessionId: second,
+    outcome: "undo",
+  });
+  assert.equal((await db.get(taskId)).completedAt, undefined);
+});
+
+test("Missed Sessions without an estimate receive one replacement across repeated replans", async (t) => {
+  const now = Date.parse("2030-01-07T10:00Z");
+  t.mock.method(Date, "now", () => now);
+  const { db, context } = database();
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Work",
+    valueKind: "boolean",
+  });
+  const sessionId = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: now - 3600000,
+    endAt: now,
+  });
+  await planning.planDay._handler(context("alice"), {
+    date: "2030-01-07",
+    timezone: "UTC",
+  });
+  await reportCheckIn._handler(context("alice"), {
+    sessionId,
+    outcome: "missed",
+  });
+  const firstPlan = await listSessions._handler(context("alice"), {});
+  assert.equal(firstPlan.length, 2);
+  await planning.planDay._handler(context("alice"), {
+    date: "2030-01-07",
+    timezone: "UTC",
+  });
+  assert.deepEqual(
+    await listSessions._handler(context("alice"), {}),
+    firstPlan
+  );
+  assert.equal((await db.get(taskId)).effortMinutes, undefined);
+});
+
+test("Remaining effort reduces the future plan while preserving unrelated and pinned Sessions", async (t) => {
+  const now = Date.parse("2030-01-07T10:00Z");
+  t.mock.method(Date, "now", () => now);
+  const { db, context } = database();
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Read",
+    valueKind: "number",
+    progressMeasure: "quantity",
+    currentNumValue: 0,
+    completedNumValue: 200,
+    effortMinutes: 180,
+  });
+  const otherTaskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Other",
+    valueKind: "boolean",
+    effortMinutes: 60,
+  });
+  const sessionId = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: now - 3600000,
+    endAt: now,
+  });
+  const pinnedId = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: now + 3600000,
+    endAt: now + 7200000,
+    pinned: true,
+    manualOverride: false,
+  });
+  await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: now + 7200000,
+    endAt: now + 10800000,
+    manualOverride: false,
+  });
+  const otherId = await db.insert("sessions", {
+    userId: "alice",
+    taskId: otherTaskId,
+    startAt: now + 10800000,
+    endAt: now + 14400000,
+    manualOverride: false,
+  });
+  await planning.planDay._handler(context("alice"), {
+    date: "2030-01-07",
+    timezone: "UTC",
+  });
+  const other = structuredClone(await db.get(otherId));
+  const pinned = structuredClone(await db.get(pinnedId));
+  await reportCheckIn._handler(context("alice"), {
+    sessionId,
+    outcome: "progress",
+    value: 30,
+    timeMinutes: 20,
+    remainingMinutes: 60,
+  });
+  assert.deepEqual(await db.get(otherId), other);
+  assert.deepEqual(await db.get(pinnedId), pinned);
+  const future = (await listSessions._handler(context("alice"), {})).filter(
+    (s) => s.taskId === taskId && s.startAt > now
+  );
+  assert.equal(
+    future.reduce((n, s) => n + (s.endAt - s.startAt) / 60000, 0),
+    60
+  );
+  assert.equal((await db.get(taskId)).effortMinutes, 180);
+  assert.equal((await db.get(taskId)).currentNumValue, 30);
+});
+
+test("Compact check-ins expand the queue on the right and Review opens the complete check-in Drawer", () => {
+  const source = readFileSync(
+    new URL(
+      "../../../apps/web/src/features/tasks/session-check-ins.tsx",
+      import.meta.url
+    ),
+    "utf8"
+  );
+  const file = ts.createSourceFile(
+    "day-view.tsx",
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX
+  );
+  const names = [
+    "SessionCheckInTray",
+    "CheckInCard",
+    "CheckInDrawer",
+    "SessionCheckIn",
+  ];
+  const code = file.statements
+    .filter((s) => names.includes(s.name?.text))
+    .map((s) => s.getText(file).replace(/^export /, ""))
+    .join("\n");
+  let states = [560, false];
+  let stateIndex = 0;
+  let opened;
+  const scope = {
+    React: {
+      createElement: (type, props, ...children) => ({ type, props, children }),
+    },
+    useRef: () => ({ current: null }),
+    useState: (initial) => {
+      const index = stateIndex++;
+      return [
+        states[index] ?? initial,
+        (value) => {
+          states[index] = value;
+        },
+      ];
+    },
+    useEffect: () => {},
+    useModal: () => ({
+      openDrawer: (content) => {
+        opened = content;
+      },
+    }),
+    useMutation: () => ({ mutate: () => {}, isPending: false }),
+    useConvexMutation: () => {},
+    api: { sessions: { reportCheckIn: 0 } },
+    m: new Proxy({}, { get: (_, key) => () => key }),
+    Button: "Button",
+    Check: "Check",
+    Clock3: "Clock3",
+    CircleSlash: "CircleSlash",
+    TimerReset: "TimerReset",
+    History: "History",
+    Input: "Input",
+    Drawer: "Drawer",
+    ErrorSuspense: "ErrorSuspense",
+    CheckInDetails: "CheckInDetails",
+    TaskProgress: "TaskProgress",
+  };
+  const compiled = ts.transpileModule(code, {
+    compilerOptions: { jsx: ts.JsxEmit.React, module: ts.ModuleKind.CommonJS },
+  }).outputText;
+  const components = runInNewContext(
+    compiled + "\n({" + names.join(",") + "})",
+    scope
+  );
+  const sessions = Array.from({ length: 5 }, (_, i) => ({
+    _id: `session-${i}`,
+    taskTitle: `Read ${i}`,
+    startAt: 1,
+    endAt: 50,
+    progressMeasure: "quantity",
+    progressUnit: "pages",
+  }));
+  const tray = components.SessionCheckInTray({ sessions, timezone: "UTC" });
+  const row = tray.children[1];
+  const rowItems = row.children.flat().filter(Boolean);
+  const queue = rowItems.at(-1);
+  assert.equal(queue.type, "Button");
+  assert.equal(queue.props["aria-label"], "check_in_queue");
+  assert.equal(row.children[0].length, 2);
+  queue.props.onClick();
+  stateIndex = 0;
+  const expanded = components.SessionCheckInTray({ sessions, timezone: "UTC" })
+    .children[1];
+  assert.match(expanded.props.className, /overflow-x-auto/);
+  assert.equal(expanded.children[0].length, 5);
+  const card = components.CheckInCard({
+    session: sessions[0],
+    timezone: "UTC",
+    width: 232,
+  });
+  card.props.onClick({ target: { closest: () => null } });
+  const drawer = opened.type(opened.props);
+  assert.equal(drawer.type, "Drawer");
+  assert.equal(drawer.children[0].type, "ErrorSuspense");
+  assert.equal(drawer.children[0].children[0].props.sessionId, sessions[0]._id);
+  states = [];
+  stateIndex = 0;
+  const details = components.SessionCheckIn({ session: sessions[0] });
+  const text = (node) =>
+    typeof node === "string"
+      ? node
+      : (node?.children ?? []).flat(Infinity).map(text).join(" ");
+  const content = text(details);
+  for (const label of [
+    "pages",
+    "check_in_time",
+    "check_in_remaining",
+    "check_in_progress",
+    "check_in_missed",
+    "check_in_working",
+  ])
+    assert.ok(content.includes(label), `${label} remains available in Review`);
+});
+
+test("Legacy Pages Tasks expose quantity units and persist a 43-page check-in", async () => {
+  const { db, context } = database();
+  const unitId = await db.insert("units", {
+    userId: "alice",
+    name: "Page",
+    i18nKey: "units_page",
+  });
+  const taskTypeId = await db.insert("taskTypes", {
+    userId: "alice",
+    name: "Pages",
+    valueKind: "number",
+    unitId,
+  });
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "test book",
+    taskTypeId,
+    valueKind: "number",
+    initialNumValue: 0,
+    currentNumValue: 0,
+    completedNumValue: 523,
+  });
+  const sessionId = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: 1,
+    endAt: 90,
+  });
+  const [session] = await listSessions._handler(context("alice"), {});
+  assert.equal(session.progressMeasure, "quantity");
+  assert.equal(session.progressUnit, "Page");
+  await assert.rejects(
+    reportCheckIn._handler(context("alice"), {
+      sessionId,
+      outcome: "progress",
+    }),
+    /Enter progress/
+  );
+  await reportCheckIn._handler(context("alice"), {
+    sessionId,
+    outcome: "progress",
+    value: 43,
+    timeMinutes: 30,
+    remainingMinutes: 180,
+  });
+  assert.equal((await db.get(taskId)).currentNumValue, 43);
+  assert.equal((await db.get(sessionId)).checkIn.value, 43);
+  assert.equal((await db.get(sessionId)).checkIn.timeMinutes, 30);
+});
+
+test("A book check-in schedules remaining effort across future days and preserves those Sessions on reload", async (t) => {
+  const now = Date.parse("2030-01-07T10:00Z");
+  t.mock.method(Date, "now", () => now);
+  const { db, context } = database();
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Read book",
+    valueKind: "number",
+    progressMeasure: "quantity",
+    progressUnit: "pages",
+    currentNumValue: 0,
+    initialNumValue: 0,
+    completedNumValue: 523,
+    effortMinutes: 240,
+  });
+  await db.insert("planningSettings", {
+    userId: "alice",
+    timezone: "UTC",
+    restrictAvailability: true,
+    weekly: Array.from({ length: 7 }, (_, weekday) => ({
+      weekday,
+      start: 600,
+      end: 660,
+    })),
+    overrides: [],
+    protectedWeekly: [],
+    protectedDates: [],
+  });
+  const sessionId = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: now - 3600000,
+    endAt: now,
+  });
+  await planning.planDay._handler(context("alice"), {
+    date: "2030-01-07",
+    timezone: "UTC",
+  });
+  await reportCheckIn._handler(context("alice"), {
+    sessionId,
+    outcome: "progress",
+    value: 43,
+    timeMinutes: 60,
+    remainingMinutes: 180,
+  });
+  assert.equal((await db.get(taskId)).currentNumValue, 43);
+  const first = await listSessions._handler(context("alice"), {});
+  const planned = first.filter((s) => !s.checkIn);
+  assert.equal(
+    planned.reduce((sum, s) => sum + (s.endAt - s.startAt) / 60000, 0),
+    180
+  );
+  assert.deepEqual(
+    [
+      ...new Set(
+        planned.map((s) => localDateTime(s.startAt, "UTC").slice(0, 10))
+      ),
+    ],
+    ["2030-01-07", "2030-01-08", "2030-01-09"]
+  );
+  await planning.planDay._handler(context("alice"), {
+    date: "2030-01-08",
+    timezone: "UTC",
+  });
+  assert.deepEqual(await listSessions._handler(context("alice"), {}), first);
+});
+
+test("Low-priority work gets at most one new Session per day", () => {
+  const result = plan([task("reading", 180, { priority: "low" })], [], {
+    settings: {
+      ...autoSettings,
+      weekly: Array.from({ length: 7 }, (_, weekday) => ({
+        weekday,
+        start: 540,
+        end: 720,
+      })),
+    },
+  });
+  const dates = result.changes
+    .filter((c) => c.after)
+    .map((c) => localDateTime(c.after.startAt, settings.timezone).slice(0, 10));
+  assert.equal(dates.length, 3);
+  assert.equal(new Set(dates).size, 3);
+  assert.deepEqual(result.shortfalls, []);
+});
+
+test("Variety gives multiple Tasks Sessions before filling one Task's entire effort", () => {
+  const result = plan([task("a", 180), task("b", 180)], [], {
+    settings: {
+      ...autoSettings,
+      weekly: Array.from({ length: 7 }, (_, weekday) => ({
+        weekday,
+        start: 540,
+        end: 720,
+      })),
+    },
+  });
+  const firstDay = result.changes
+    .filter(
+      (c) =>
+        c.after &&
+        c.after.startAt < dayBounds("2030-01-08", settings.timezone).startAt
+    )
+    .sort((a, b) => a.after.startAt - b.after.startAt);
+  assert.deepEqual(
+    firstDay.slice(0, 2).map((c) => c.taskId),
+    ["a", "b"]
+  );
+  assert.deepEqual(result.shortfalls, []);
+});
+
+test("An explicitly requested future check-in retains Session times and persists reported pages", async () => {
+  const { requestCheckIn } = await import("../convex/sessions.ts");
+  const { db, context } = database();
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Read",
+    valueKind: "number",
+    progressMeasure: "quantity",
+    currentNumValue: 0,
+    initialNumValue: 0,
+    completedNumValue: 523,
+  });
+  const sessionId = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: 1000,
+    endAt: 2000,
+  });
+  await assert.rejects(
+    reportCheckIn._handler(context("alice"), {
+      sessionId,
+      outcome: "progress",
+      value: 43,
+    }),
+    /not started/
+  );
+  await assert.rejects(
+    requestCheckIn._handler(context("bob"), { sessionId }),
+    /Session not found/
+  );
+  await requestCheckIn._handler(context("alice"), { sessionId });
+  const session = await db.get(sessionId);
+  assert.equal(session.startAt, 1000);
+  assert.equal(session.endAt, 2000);
+  assert.equal(session.checkInRequestedAt, 100);
+  assert.equal((await db.get(taskId)).currentNumValue, 0);
+  await reportCheckIn._handler(context("alice"), {
+    sessionId,
+    outcome: "progress",
+    value: 43,
+  });
+  assert.equal((await db.get(taskId)).currentNumValue, 43);
+});
+
+test("Typing 43 pages in Review and clicking Made progress sends and persists that value", async () => {
+  const { db, context } = database();
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Book",
+    valueKind: "number",
+    progressMeasure: "quantity",
+    progressUnit: "pages",
+    currentNumValue: 0,
+    initialNumValue: 0,
+    completedNumValue: 523,
+  });
+  const sessionId = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: 1,
+    endAt: 90,
+  });
+  const [session] = await listSessions._handler(context("alice"), {});
+  const source = readFileSync(
+    new URL(
+      "../../../apps/web/src/features/tasks/session-check-ins.tsx",
+      import.meta.url
+    ),
+    "utf8"
+  );
+  const file = ts.createSourceFile(
+    "day-view.tsx",
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX
+  );
+  const fn = file.statements.find((s) => s.name?.text === "SessionCheckIn");
+  const js = ts.transpileModule(fn.getText(file).replace(/^export /, ""), {
+    compilerOptions: { jsx: ts.JsxEmit.React, module: ts.ModuleKind.CommonJS },
+  }).outputText;
+  const states = [];
+  let index = 0;
+  let submitted;
+  let saved;
+  const scope = {
+    React: {
+      createElement: (type, props, ...children) => ({ type, props, children }),
+    },
+    useState: (initial) => {
+      const slot = index++;
+      return [
+        states[slot] ?? initial,
+        (value) => {
+          states[slot] = value;
+        },
+      ];
+    },
+    useConvexMutation: () => (args) => {
+      submitted = args;
+      return reportCheckIn._handler(context("alice"), args);
+    },
+    useMutation: ({ mutationFn }) => ({
+      isPending: false,
+      mutate: (args) => {
+        saved = mutationFn(args);
+      },
+    }),
+    api: { sessions: { reportCheckIn: 0 } },
+    m: new Proxy({}, { get: (_, key) => () => key }),
+    Input: "Input",
+    Button: "Button",
+    TaskProgress: "TaskProgress",
+  };
+  const render = runInNewContext(js + "\nSessionCheckIn", scope);
+  const elements = (node) => [
+    node,
+    ...(node?.children ?? [])
+      .flat(Infinity)
+      .flatMap((child) =>
+        typeof child === "object" && child ? elements(child) : []
+      ),
+  ];
+  const first = render({ session });
+  const amount = elements(first).find((node) => node.type === "Input");
+  amount.props.onChange({ target: { value: "43" } });
+  index = 0;
+  const filled = render({ session });
+  const button = elements(filled).find(
+    (node) =>
+      node.type === "Button" && node.children.includes("check_in_progress")
+  );
+  assert.equal(button.props.disabled, false);
+  button.props.onClick();
+  await saved;
+  assert.equal(submitted.value, 43);
+  assert.equal(submitted.sessionId, sessionId);
+  assert.equal((await db.get(taskId)).currentNumValue, 43);
+  assert.equal((await db.get(sessionId)).checkIn.contribution, 43);
+});
+
+test("Waiting lower-priority Tasks get a turn across days without overriding pressing deadlines", () => {
+  const result = plan(
+    [
+      task("high", 600, { priority: "high" }),
+      task("low", 120, { priority: "low" }),
+    ],
+    [],
+    {
+      settings: {
+        ...autoSettings,
+        weekly: Array.from({ length: 7 }, (_, weekday) => ({
+          weekday,
+          start: 540,
+          end: 600,
+        })),
+      },
+    }
+  );
+  assert.ok(result.changes.some((c) => c.taskId === "low" && c.after));
+  assert.equal(result.changes[0].taskId, "high");
+  const due = plan(
+    [
+      task("urgent", 180, {
+        priority: "low",
+        dueAt: autoAt("12:00"),
+        finishKind: "firm",
+      }),
+      task("other", 60),
+    ],
+    []
+  );
+  assert.equal(
+    due.changes
+      .filter((c) => c.taskId === "urgent" && c.after)
+      .reduce((sum, c) => sum + (c.after.endAt - c.after.startAt) / 60000, 0),
+    180
+  );
+});
+
+function calendarInteractions(sessions = []) {
+  const source = readFileSync(
+    new URL(
+      "../../../apps/web/src/features/tasks/day-view.tsx",
+      import.meta.url
+    ),
+    "utf8"
+  );
+  const file = ts.createSourceFile(
+    "day-view.tsx",
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX
+  );
+  const view = file.statements.find((s) => s.name?.text === "DayView");
+  const declarations = view.body.statements.flatMap((s) =>
+    ts.isVariableStatement(s) ? [...s.declarationList.declarations] : []
+  );
+  const commit = declarations
+    .find((d) => d.name.getText(file) === "commit")
+    .initializer.arguments[0].getText(file);
+  const effect = view.body.statements
+    .find(
+      (s) =>
+        ts.isExpressionStatement(s) &&
+        s.getText(file).includes('addEventListener("pointermove"')
+    )
+    .expression.arguments[0].getText(file);
+  const functions = view.body.statements
+    .filter(
+      (s) =>
+        ts.isFunctionDeclaration(s) &&
+        ["begin", "handleCalendarClick"].includes(s.name.text)
+    )
+    .map((s) => s.getText(file))
+    .join("\n");
+  const callbacks = new Map();
+  const result = { saved: [], opened: [], errors: [], captures: [] };
+  const scope = {
+    Date,
+    MINUTE,
+    PX: 1.4,
+    start: 0,
+    end: 1440 * MINUTE,
+    dayMinutes: 1440,
+    dragging: true,
+    tasks: [],
+    sessions,
+    settings: null,
+    events: [],
+    suggestedStart: 540 * MINUTE,
+    gesture: { current: null },
+    pointer: { current: { x: 0, y: 0 } },
+    suppressClick: { current: false },
+    surface: {
+      current: {
+        getBoundingClientRect: () => ({
+          left: 100,
+          right: 500,
+          top: 0,
+          bottom: 2016,
+        }),
+      },
+    },
+    scroll: {
+      current: {
+        scrollTop: 0,
+        getBoundingClientRect: () => ({
+          left: 100,
+          right: 500,
+          top: 0,
+          bottom: 2016,
+        }),
+      },
+    },
+    save: {
+      isPending: false,
+      mutate: (placement) => result.saved.push(placement),
+    },
+    setPending: () => {},
+    setDrag: () => {},
+    setInteractionError: (value) => result.errors.push(value),
+    inspect: (placement) => result.opened.push(placement),
+    openTask: (taskId) => result.opened.push(taskId),
+    placementConflicts,
+    adjustSession,
+    snapMinutes: (n) => Math.round(n / 15) * 15,
+    m: new Proxy({}, { get: (_, key) => () => key }),
+    handlers: { current: {} },
+    window: {
+      addEventListener: (name, fn) => callbacks.set(name, fn),
+      removeEventListener: (name) => callbacks.delete(name),
+      setInterval: () => 1,
+      clearInterval: () => {},
+    },
+  };
+  const js = ts.transpileModule(
+    functions +
+      "\nconst commit = " +
+      commit +
+      ";\nconst attach = " +
+      effect +
+      ";",
+    { compilerOptions: { module: ts.ModuleKind.CommonJS } }
+  ).outputText;
+  const api = runInNewContext(
+    js +
+      '\n({begin, commit, attach, click: typeof handleCalendarClick === "undefined" ? undefined : handleCalendarClick})',
+    scope
+  );
+  scope.handlers.current = {
+    commit: api.commit,
+    inspect: scope.inspect,
+    openTask: scope.openTask,
+  };
+  const cleanup = api.attach();
+  const event = (minute) => ({
+    pointerId: 1,
+    button: 0,
+    clientX: 200,
+    clientY: minute * 1.4,
+    preventDefault: () => {},
+    stopPropagation: () => {},
+    currentTarget: { setPointerCapture: (id) => result.captures.push(id) },
+  });
+  return {
+    ...result,
+    begin: (kind, session, minute = 555) =>
+      api.begin(event(minute), session.taskId, kind, session),
+    move: (minute) => callbacks.get("pointermove")(event(minute)),
+    finish: (minute) => callbacks.get("pointerup")(event(minute)),
+    click: () => api.click?.(event(555), () => scope.inspect("click")),
+    cleanup,
+  };
+}
+
+test("Session details open from a regular click, never during pointerdown or pointerup", () => {
+  const ui = calendarInteractions();
+  const session = {
+    _id: "s",
+    taskId: "t",
+    startAt: 540 * MINUTE,
+    endAt: 600 * MINUTE,
+  };
+  ui.begin("move", session);
+  ui.finish(555);
+  assert.equal(ui.opened.length, 0);
+  ui.click();
+  assert.equal(ui.opened.length, 1);
+  ui.cleanup();
+});
+
+test("Dragging onto a flexible automatic Session saves and replans instead of opening details", () => {
+  const other = {
+    _id: "other",
+    taskId: "other-task",
+    startAt: 600 * MINUTE,
+    endAt: 660 * MINUTE,
+    manualOverride: false,
+  };
+  const ui = calendarInteractions([other]);
+  ui.begin("move", {
+    _id: "s",
+    taskId: "t",
+    startAt: 540 * MINUTE,
+    endAt: 600 * MINUTE,
+  });
+  ui.move(615);
+  ui.finish(615);
+  ui.click();
+  assert.equal(ui.opened.length, 0);
+  assert.equal(ui.saved.length, 1);
+  assert.equal(ui.saved[0].startAt, 600 * MINUTE);
+  ui.cleanup();
+});
+
+test("Dragging and both resize handles save only the intended time changes and suppress the trailing click", () => {
+  const session = {
+    _id: "s",
+    taskId: "t",
+    startAt: 540 * MINUTE,
+    endAt: 600 * MINUTE,
+  };
+  for (const [kind, from, to, expectedStart, expectedEnd] of [
+    ["move", 555, 585, 570, 630],
+    ["start", 540, 555, 555, 600],
+    ["end", 600, 630, 540, 630],
+  ]) {
+    const ui = calendarInteractions();
+    ui.begin(kind, session, from);
+    assert.deepEqual(ui.captures, [1]);
+    ui.move(to);
+    ui.finish(to);
+    ui.click();
+    assert.equal(ui.opened.length, 0);
+    assert.equal(ui.saved.length, 1);
+    assert.equal(ui.saved[0].startAt, expectedStart * MINUTE);
+    assert.equal(ui.saved[0].endAt, expectedEnd * MINUTE);
+    ui.cleanup();
+  }
+});
+
+test("Blocked drops show a conflict without opening details; completed Sessions open only on click", () => {
+  const session = {
+    _id: "s",
+    taskId: "t",
+    startAt: 540 * MINUTE,
+    endAt: 600 * MINUTE,
+  };
+  const ui = calendarInteractions([
+    {
+      _id: "pin",
+      taskId: "other",
+      taskTitle: "Pinned work",
+      startAt: 600 * MINUTE,
+      endAt: 660 * MINUTE,
+      pinned: true,
+      manualOverride: false,
+    },
+  ]);
+  ui.begin("move", session);
+  ui.move(615);
+  ui.finish(615);
+  ui.click();
+  assert.equal(ui.opened.length, 0);
+  assert.equal(ui.saved.length, 0);
+  assert.match(ui.errors.at(-1), /Pinned work/);
+  ui.cleanup();
+  const completed = calendarInteractions();
+  completed.begin("move", { ...session, taskCompletedAt: 42 });
+  assert.equal(completed.opened.length, 0);
+  completed.click();
+  assert.equal(completed.opened.length, 1);
+  completed.cleanup();
+});
+
+test("Batch completion deduplicates Tasks, reports every selected Session, and undoes atomically", async () => {
+  const { batchCheckIn, undoBatchCheckIn } = await import(
+    "../convex/sessions.ts"
+  );
+  const { db, context } = database();
+  const book = await db.insert("tasks", {
+    userId: "alice",
+    title: "Book",
+    valueKind: "number",
+    progressMeasure: "quantity",
+    initialNumValue: 0,
+    currentNumValue: 0,
+    completedNumValue: 523,
+  });
+  const mail = await db.insert("tasks", {
+    userId: "alice",
+    title: "Email",
+    valueKind: "boolean",
+    progressMeasure: "done",
+  });
+  const a = await db.insert("sessions", {
+    userId: "alice",
+    taskId: book,
+    startAt: 1,
+    endAt: 20,
+  });
+  const b = await db.insert("sessions", {
+    userId: "alice",
+    taskId: book,
+    startAt: 21,
+    endAt: 40,
+  });
+  const c = await db.insert("sessions", {
+    userId: "alice",
+    taskId: mail,
+    startAt: 41,
+    endAt: 60,
+  });
+  const other = await db.insert("sessions", {
+    userId: "alice",
+    taskId: mail,
+    startAt: 61,
+    endAt: 80,
+  });
+  const untouched = structuredClone(await db.get(other));
+  const id = await batchCheckIn._handler(context("alice"), {
+    sessionIds: [a, b, c, a],
+    outcome: "finished",
+  });
+  assert.equal((await db.get(book)).currentNumValue, 523);
+  assert.equal((await db.get(mail)).completedAt, 100);
+  assert.equal(
+    (await db.get(a)).checkIn.contribution +
+      (await db.get(b)).checkIn.contribution,
+    523
+  );
+  for (const sessionId of [a, b, c])
+    assert.equal((await db.get(sessionId)).checkIn.outcome, "finished");
+  assert.deepEqual(await db.get(other), untouched);
+  await db.patch(book, { title: "New title" });
+  const saved = await db.get(id);
+  await db.patch(id, {
+    tasks: JSON.parse(JSON.stringify(saved.tasks)),
+    sessions: JSON.parse(JSON.stringify(saved.sessions)),
+  });
+  await undoBatchCheckIn._handler(context("alice"), { batchId: id });
+  assert.equal((await db.get(book)).currentNumValue, 0);
+  assert.equal((await db.get(book)).completedAt, undefined);
+  assert.equal((await db.get(book)).title, "New title");
+  assert.equal((await db.get(mail)).completedAt, undefined);
+  for (const sessionId of [a, b, c])
+    assert.equal((await db.get(sessionId)).checkIn, undefined);
+  await undoBatchCheckIn._handler(context("alice"), { batchId: id });
+  assert.deepEqual(await db.get(other), untouched);
+});
+
+test("A missed batch replans once and its undo restores unknown outcomes and the prior plan", async (t) => {
+  const { batchCheckIn, undoBatchCheckIn } = await import(
+    "../convex/sessions.ts"
+  );
+  const now = Date.parse("2030-01-07T10:00Z");
+  t.mock.method(Date, "now", () => now);
+  const { db, context } = database();
+  const ids = [];
+  for (const title of ["Book", "Email"]) {
+    const taskId = await db.insert("tasks", {
+      userId: "alice",
+      title,
+      valueKind: "boolean",
+      effortMinutes: 60,
+    });
+    ids.push(
+      await db.insert("sessions", {
+        userId: "alice",
+        taskId,
+        startAt: now - 3600000,
+        endAt: now,
+      })
+    );
+  }
+  await planning.planDay._handler(context("alice"), {
+    date: "2030-01-07",
+    timezone: "UTC",
+  });
+  const batchId = await batchCheckIn._handler(context("alice"), {
+    sessionIds: ids,
+    outcome: "missed",
+  });
+  assert.equal((await listSessions._handler(context("alice"), {})).length, 4);
+  await undoBatchCheckIn._handler(context("alice"), { batchId });
+  const restored = await listSessions._handler(context("alice"), {});
+  assert.equal(restored.length, 2);
+  assert.ok(restored.every((s) => s.checkIn === undefined));
+});
+
+test("Batch actions prevalidate every Session and enforce ownership without partial writes", async () => {
+  const { batchCheckIn, undoBatchCheckIn } = await import(
+    "../convex/sessions.ts"
+  );
+  const { db, context } = database();
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Book",
+    valueKind: "boolean",
+  });
+  const a = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: 1,
+    endAt: 30,
+  });
+  const future = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: 1000,
+    endAt: 2000,
+  });
+  const foreign = await db.insert("sessions", {
+    userId: "bob",
+    taskId,
+    startAt: 1,
+    endAt: 30,
+  });
+  const before = structuredClone(await db.get(a));
+  await assert.rejects(
+    batchCheckIn._handler(context("alice"), {
+      sessionIds: [a, future],
+      outcome: "missed",
+    }),
+    /every selected/
+  );
+  await assert.rejects(
+    batchCheckIn._handler(context("alice"), {
+      sessionIds: [a, foreign],
+      outcome: "finished",
+    }),
+    /Session not found/
+  );
+  assert.deepEqual(await db.get(a), before);
+  const batchId = await batchCheckIn._handler(context("alice"), {
+    sessionIds: [a],
+    outcome: "later",
+  });
+  assert.equal((await db.get(a)).askAfter, 100 + 30 * 60000);
+  assert.equal((await db.get(a)).checkIn, undefined);
+  await assert.rejects(
+    undoBatchCheckIn._handler(context("bob"), { batchId }),
+    /Batch not found/
+  );
+  await undoBatchCheckIn._handler(context("alice"), { batchId });
+  assert.equal((await db.get(a)).askAfter, undefined);
+});
+
+test("Batch undo preserves later progress corrections", async () => {
+  const { batchCheckIn, undoBatchCheckIn } = await import(
+    "../convex/sessions.ts"
+  );
+  const { db, context } = database();
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Book",
+    valueKind: "number",
+    progressMeasure: "quantity",
+    initialNumValue: 0,
+    currentNumValue: 0,
+    completedNumValue: 523,
+  });
+  const sessionId = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: 1,
+    endAt: 30,
+  });
+  const batchId = await batchCheckIn._handler(context("alice"), {
+    sessionIds: [sessionId],
+    outcome: "finished",
+  });
+  await reportCheckIn._handler(context("alice"), {
+    sessionId,
+    outcome: "progress",
+    value: 43,
+  });
+  await assert.rejects(
+    undoBatchCheckIn._handler(context("alice"), { batchId }),
+    /progress changed/
+  );
+  assert.equal((await db.get(taskId)).currentNumValue, 43);
+});
+
+test("Session selection supports replacement, Ctrl toggles, Shift ranges and Ctrl-Shift unions", async () => {
+  const { selectSessionRows } = await import(
+    "../../../apps/web/src/features/tasks/day-calendar-layout.ts"
+  );
+  const rows = ["a", "b", "c", "d", "e"];
+  let state = selectSessionRows(rows, new Set(), null, "b", false, false);
+  state = selectSessionRows(
+    rows,
+    state.selected,
+    state.anchor,
+    "d",
+    true,
+    false
+  );
+  assert.deepEqual([...state.selected], ["b", "c", "d"]);
+  state = selectSessionRows(
+    rows,
+    state.selected,
+    state.anchor,
+    "a",
+    false,
+    true
+  );
+  state = selectSessionRows(
+    rows,
+    state.selected,
+    state.anchor,
+    "b",
+    false,
+    true
+  );
+  assert.deepEqual([...state.selected], ["c", "d", "a"]);
+  state = selectSessionRows(
+    rows,
+    state.selected,
+    state.anchor,
+    "e",
+    true,
+    true
+  );
+  assert.deepEqual([...state.selected], ["c", "d", "a", "b", "e"]);
+  state = selectSessionRows(
+    rows,
+    state.selected,
+    state.anchor,
+    "a",
+    false,
+    false
+  );
+  assert.deepEqual([...state.selected], ["a"]);
+});
+
+test("Batch undo refuses to restore Sessions into a new fixed Event", async (t) => {
+  const { batchCheckIn, undoBatchCheckIn } = await import(
+    "../convex/sessions.ts"
+  );
+  const now = Date.parse("2030-01-07T10:00Z");
+  t.mock.method(Date, "now", () => now);
+  const { db, context } = database();
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Book",
+    valueKind: "boolean",
+    effortMinutes: 120,
+  });
+  const sessionId = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: now - 3600000,
+    endAt: now,
+  });
+  const future = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: now + 3600000,
+    endAt: now + 7200000,
+    manualOverride: false,
+  });
+  await planning.planDay._handler(context("alice"), {
+    date: "2030-01-07",
+    timezone: "UTC",
+  });
+  const batchId = await batchCheckIn._handler(context("alice"), {
+    sessionIds: [sessionId],
+    outcome: "finished",
+  });
+  assert.notEqual((await db.get(future)).unscheduledAt, undefined);
+  await planning.saveEvent._handler(context("alice"), {
+    title: "Meeting",
+    startAt: now + 3600000,
+    endAt: now + 7200000,
+    timezone: "UTC",
+    attention: "focused",
+  });
+  await assert.rejects(
+    undoBatchCheckIn._handler(context("alice"), { batchId }),
+    /no longer feasible/
+  );
+  assert.equal((await db.get(taskId)).completedAt, now);
+});
+
+test("The review panel selects only matching Sessions and offers only universally supported actions", async () => {
+  const { selectSessionRows } = await import(
+    "../../../apps/web/src/features/tasks/day-calendar-layout.ts"
+  );
+  const { supportsBatchCheckIn } = await import(
+    "../../validators/src/planning.ts"
+  );
+  const source = readFileSync(
+    new URL(
+      "../../../apps/web/src/features/tasks/session-check-ins.tsx",
+      import.meta.url
+    ),
+    "utf8"
+  );
+  const file = ts.createSourceFile(
+    "session-check-ins.tsx",
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX
+  );
+  const fn = file.statements.find((s) => s.name?.text === "SessionReviewPanel");
+  const js = ts.transpileModule(fn.getText(file).replace(/^export /, ""), {
+    compilerOptions: { jsx: ts.JsxEmit.React, module: ts.ModuleKind.CommonJS },
+  }).outputText;
+  const states = [];
+  let index = 0;
+  let sent;
+  let completeCount;
+  const scope = {
+    React: {
+      createElement: (type, props, ...children) => ({ type, props, children }),
+    },
+    useState: (initial) => {
+      const slot = index++;
+      return [
+        states[slot] ?? initial,
+        (value) => {
+          states[slot] =
+            typeof value === "function"
+              ? value(states[slot] ?? initial)
+              : value;
+        },
+      ];
+    },
+    useRef: () => ({ current: null }),
+    useModal: () => ({ openDrawer: () => {} }),
+    useQuery: () => ({ data: null }),
+    convexQuery: () => {},
+    useMutation: () => ({
+      isPending: false,
+      mutate: (args) => {
+        sent = args;
+      },
+    }),
+    useConvexMutation: () => {},
+    api: {
+      sessions: {
+        batchCheckIn: 1,
+        undoBatchCheckIn: 2,
+        getLastCheckInBatch: 3,
+      },
+    },
+    localDateTime,
+    shiftDate: (date) => date,
+    supportsBatchCheckIn,
+    selectSessionRows,
+    m: new Proxy(
+      {
+        check_in_complete_tasks: ({ count }) => {
+          completeCount = count;
+          return "completeTasks";
+        },
+      },
+      { get: (target, key) => target[key] ?? (() => key) }
+    ),
+    Button: "Button",
+    Checkbox: "Checkbox",
+    Input: "Input",
+    X: "X",
+    CheckInDrawer: "CheckInDrawer",
+  };
+  const component = runInNewContext(js + "\nSessionReviewPanel", scope);
+  const sessions = [
+    { _id: "a", taskId: "book", taskTitle: "Book", startAt: 1, endAt: 30 },
+    { _id: "b", taskId: "book", taskTitle: "Book", startAt: 31, endAt: 50 },
+    {
+      _id: "future",
+      taskId: "other",
+      taskTitle: "Other",
+      startAt: 1000,
+      endAt: 2000,
+    },
+  ];
+  const elements = (node) => [
+    node,
+    ...(node?.children ?? [])
+      .flat(Infinity)
+      .flatMap((child) =>
+        typeof child === "object" && child ? elements(child) : []
+      ),
+  ];
+  const render = () => {
+    index = 0;
+    return elements(
+      component({ sessions, timezone: "UTC", now: 100, onClose: () => {} })
+    );
+  };
+  let nodes = render();
+  nodes
+    .find(
+      (node) =>
+        node.type === "Button" &&
+        node.children.includes("check_in_select_matching")
+    )
+    .props.onClick();
+  nodes = render();
+  assert.equal(completeCount, 1);
+  nodes
+    .find(
+      (node) =>
+        node.type === "Button" && node.children.includes("check_in_missed")
+    )
+    .props.onClick();
+  assert.deepEqual([...sent.sessionIds], ["b", "a"]);
+  assert.equal(sent.outcome, "missed");
+  states[0] = "all";
+  nodes = render();
+  nodes
+    .find(
+      (node) =>
+        node.type === "Button" &&
+        node.children.includes("check_in_select_matching")
+    )
+    .props.onClick();
+  nodes = render();
+  assert.equal(
+    nodes.some(
+      (node) =>
+        node.type === "Button" && node.children.includes("completeTasks")
+    ),
+    false
+  );
+  assert.equal(
+    nodes.some(
+      (node) =>
+        node.type === "Button" && node.children.includes("check_in_missed")
+    ),
+    false
+  );
+});
+
+test("Batch undo respects a newly tightened Firm deadline", async (t) => {
+  const { batchCheckIn, undoBatchCheckIn } = await import(
+    "../convex/sessions.ts"
+  );
+  const now = Date.parse("2030-01-07T10:00Z");
+  t.mock.method(Date, "now", () => now);
+  const { db, context } = database();
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Book",
+    valueKind: "boolean",
+    effortMinutes: 120,
+  });
+  const sessionId = await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: now - 3600000,
+    endAt: now,
+  });
+  await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: now + 3600000,
+    endAt: now + 7200000,
+    manualOverride: false,
+  });
+  await planning.planDay._handler(context("alice"), {
+    date: "2030-01-07",
+    timezone: "UTC",
+  });
+  const batchId = await batchCheckIn._handler(context("alice"), {
+    sessionIds: [sessionId],
+    outcome: "finished",
+  });
+  await db.patch(taskId, { finishKind: "firm", dueAt: now + 1800000 });
+  await assert.rejects(
+    undoBatchCheckIn._handler(context("alice"), { batchId }),
+    /no longer feasible/
+  );
+  assert.equal((await db.get(taskId)).completedAt, now);
 });

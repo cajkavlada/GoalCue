@@ -1,6 +1,33 @@
 export const MINUTE = 60_000;
 export const PIXELS_PER_MINUTE = 1.4;
 
+export function selectSessionRows(
+  rows: string[],
+  selected: Set<string>,
+  anchor: string | null,
+  target: string,
+  extend: boolean,
+  toggle: boolean
+) {
+  const index = rows.indexOf(target);
+  const previous = anchor ? rows.indexOf(anchor) : -1;
+  if (index < 0) return { selected, anchor };
+  if (extend && previous >= 0) {
+    const range = rows.slice(
+      Math.min(previous, index),
+      Math.max(previous, index) + 1
+    );
+    return {
+      selected: new Set(toggle ? [...selected, ...range] : range),
+      anchor,
+    };
+  }
+  const next = toggle ? new Set(selected) : new Set<string>();
+  if (toggle && next.has(target)) next.delete(target);
+  else next.add(target);
+  return { selected: next, anchor: target };
+}
+
 export function snapMinutes(minutes: number) {
   return Math.round(minutes / 15) * 15;
 }

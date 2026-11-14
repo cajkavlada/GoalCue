@@ -1,5 +1,6 @@
 export * from "./schemas";
 export * from "./planning";
+export * from "./auto-planning";
 export * from "./utils/customErrorReasons";
 export * from "./utils/zodParse";
 export { TAG_COLORS, type TagColor } from "@gc/db";

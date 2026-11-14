@@ -8,6 +8,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
+  RefreshCw,
+  Trash2,
 } from "lucide-react";
 
 import { usePaginatedQuery } from "@gc/convex";
@@ -16,10 +18,12 @@ import { Doc, Id } from "@gc/convex/types";
 import { m } from "@gc/i18n/messages";
 import { ErrorSuspense, VirtualList } from "@gc/react-kit";
 import {
+  ActionMenu,
   Button,
   Checkbox,
   Drawer,
   DrawerButton,
+  DropdownMenuItem,
   Input,
   useModal,
 } from "@gc/ui";
@@ -34,6 +38,7 @@ import {
   zonedInstant,
 } from "@gc/validators";
 
+import type { CalendarSession } from "./session-check-ins";
 import {
   adjustSession,
   freeDayMinutes,
@@ -47,14 +52,16 @@ import {
   PlanningDatePicker,
   PlanningTimePicker,
 } from "./schedule-constraints";
+import {
+  CheckInDrawer,
+  SessionCheckIn,
+  SessionCheckInTray,
+  SessionReviewPanel,
+} from "./session-check-ins";
 import { TaskCard } from "./task-card";
 import { TaskCreateDrawer } from "./task-create-drawer";
-import { TaskEditDrawer } from "./task-edit-drawer";
-
-type CalendarSession = Doc<"sessions"> & {
-  taskTitle: string;
-  taskCompletedAt?: number;
-};
+import { TaskDeleteDialog } from "./task-delete-dialog";
+import { TaskEditDrawer, TaskProgress } from "./task-edit-drawer";
 
 type Placement = {
   taskId: Id<"tasks">;
@@ -72,6 +79,7 @@ type Gesture = Placement & {
   originY: number;
   moved: boolean;
   valid: boolean;
+  readOnly: boolean;
 };
 
 export function DayView() {
@@ -84,11 +92,15 @@ export function DayView() {
     localDateTime(Date.now(), timezone).slice(0, 10)
   );
   const [tasksOpen, setTasksOpen] = useState(true);
+  const [highlightedTaskId, setHighlightedTaskId] =
+    useState<Id<"tasks"> | null>(null);
   const [drag, setDrag] = useState<Gesture | null>(null);
   const [pending, setPending] = useState<Placement | null>(null);
+  const [interactionError, setInteractionError] = useState("");
   const [search, setSearch] = useState("");
   const [searchText, setSearchText] = useState("");
   const [trackingOpen, setTrackingOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   useEffect(() => {
     const timer = window.setTimeout(() => setSearchText(search.trim()), 250);
     return () => window.clearTimeout(timer);
@@ -113,6 +125,28 @@ export function DayView() {
   const { data: events } = useSuspenseQuery(
     convexQuery(api.planning.listEvents, {})
   );
+  const { data: dayPlan } = useSuspenseQuery(
+    convexQuery(api.planning.getDayPlan, {})
+  );
+  const planDay = useConvexMutation(api.planning.planDay);
+  const replan = useMutation({ mutationFn: planDay });
+  const scheduleTask = useMutation({
+    mutationFn: useConvexMutation(api.planning.scheduleTask),
+  });
+  const [planningError, setPlanningError] = useState("");
+  useEffect(() => {
+    let current = true;
+    setPlanningError("");
+    void planDay({ date: day, timezone }).catch((error: Error) => {
+      if (current) setPlanningError(error.message);
+    });
+    return () => {
+      current = false;
+    };
+  }, [day, timezone, planDay]);
+  const undo = useMutation({
+    mutationFn: useConvexMutation(api.planning.undoPlan),
+  });
   const clock = (instant: number) =>
     new Intl.DateTimeFormat(undefined, {
       timeZone: timezone,
@@ -124,13 +158,28 @@ export function DayView() {
   const save = useMutation({
     mutationFn: useConvexMutation(api.sessions.saveSession),
   });
-  const { openDrawer } = useModal();
+  const { openDrawer, openDialog } = useModal();
+  const openTask = useCallback(
+    (taskId: Id<"tasks">) => {
+      openDrawer(
+        <ErrorSuspense>
+          <DayTaskDetails taskId={taskId} />
+        </ErrorSuspense>
+      );
+    },
+    [openDrawer]
+  );
   const scroll = useRef<HTMLDivElement>(null);
   const surface = useRef<HTMLDivElement>(null);
   const gesture = useRef<Gesture | null>(null);
+  const suppressClick = useRef(false);
   const pointer = useRef({ x: 0, y: 0 });
   const { startAt: start, endAt: end } = dayBounds(day, timezone);
   const dayMinutes = (end - start) / MINUTE;
+  const suggestedStart = Math.max(
+    zonedInstant(`${day}T09:00`, timezone),
+    Math.ceil(Date.now() / (15 * MINUTE)) * 15 * MINUTE
+  );
   const today = sessions.filter((s) => s.startAt < end && s.endAt > start);
   const constraints = settings
     ? availabilityOn(day, settings)
@@ -141,7 +190,7 @@ export function DayView() {
   const focusedEvents = dayEvents.filter(
     (event) => event.attention === "focused"
   );
-  const eventPositions = layoutSessions(focusedEvents);
+
   const free = constraints.available.reduce(
     (total, window) =>
       total +
@@ -202,27 +251,34 @@ export function DayView() {
   );
   const commit = useCallback(
     (placement: Placement) => {
-      const conflict = sessions.some(
+      const conflicts = placementConflicts(placement, settings, events);
+      const blocking = sessions.filter(
         (s) =>
           s._id !== placement.sessionId &&
           s.startAt < placement.endAt &&
-          s.endAt > placement.startAt
+          s.endAt > placement.startAt &&
+          (s.pinned || s.manualOverride !== false || s.startAt <= Date.now())
       );
-      if (conflict || placementConflicts(placement, settings, events).length) {
-        inspect(placement);
+      if (blocking.length || conflicts.length) {
+        setInteractionError(
+          [...conflicts, ...blocking.map((session) => session.taskTitle)].join(
+            "; "
+          )
+        );
         return;
       }
+      setInteractionError("");
       setPending(placement);
       save.mutate(placement, {
         onSettled: () => setPending(null),
       });
     },
-    [sessions, settings, events, inspect, save]
+    [sessions, settings, events, save]
   );
-  const handlers = useRef({ inspect, commit });
+  const handlers = useRef({ commit });
   useEffect(() => {
-    handlers.current = { inspect, commit };
-  }, [inspect, commit]);
+    handlers.current = { commit };
+  }, [commit]);
   useEffect(() => {
     if (scroll.current) scroll.current.scrollTop = 8 * 60 * PX;
   }, [day]);
@@ -264,6 +320,7 @@ export function DayView() {
           Math.abs(pointer.current.x - current.originX) > 4 ||
           Math.abs(pointer.current.y - current.originY) > 4,
         valid:
+          !current.readOnly &&
           pointer.current.x >= rect.left &&
           pointer.current.x <= rect.right &&
           pointer.current.y >= box.top &&
@@ -285,6 +342,7 @@ export function DayView() {
       gesture.current = null;
       setDrag(null);
       if (!current) return;
+      suppressClick.current = current.moved;
       const placement = {
         taskId: current.taskId,
         sessionId: current.sessionId,
@@ -292,9 +350,9 @@ export function DayView() {
         endAt: current.endAt,
       };
       if (current.moved && current.valid) handlers.current.commit(placement);
-      else if (!current.moved) handlers.current.inspect(placement);
     };
     const cancel = () => {
+      suppressClick.current = gesture.current?.moved ?? false;
       gesture.current = null;
       setDrag(null);
     };
@@ -332,27 +390,25 @@ export function DayView() {
     session?: CalendarSession
   ) {
     if (e.button !== 0 || save.isPending) return;
+    suppressClick.current = false;
     const task = tasks.find((t) => t._id === taskId);
     const placement = {
       taskId,
       sessionId: session?._id,
-      startAt: session?.startAt ?? zonedInstant(`${day}T09:00`, timezone),
+      startAt: session?.startAt ?? suggestedStart,
       endAt:
         session?.endAt ??
-        zonedInstant(`${day}T09:00`, timezone) +
-          Math.min(task?.effortMinutes ?? 45, 45) * MINUTE,
+        suggestedStart + Math.min(task?.effortMinutes ?? 45, 45) * MINUTE,
     };
-    if (
+    const readOnly = !!(
       session &&
       (session.startAt < start ||
         session.endAt > end ||
         session.taskCompletedAt !== undefined)
-    ) {
-      inspect(placement);
-      return;
-    }
+    );
     e.preventDefault();
     e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
     const rect = surface.current!.getBoundingClientRect();
     const next: Gesture = {
       ...placement,
@@ -370,10 +426,22 @@ export function DayView() {
       originY: e.clientY,
       moved: false,
       valid: kind !== "new",
+      readOnly,
     };
     pointer.current = { x: e.clientX, y: e.clientY };
     gesture.current = next;
     setDrag(next);
+  }
+
+  function handleCalendarClick(e: React.MouseEvent, action: () => void) {
+    const suppressed = suppressClick.current;
+    suppressClick.current = false;
+    if (suppressed && e.detail !== 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    action();
   }
 
   const candidate = drag?.moved && drag.valid ? drag : pending;
@@ -400,7 +468,16 @@ export function DayView() {
           },
         ]
     : today;
-  const positions = layoutSessions(rendered);
+  const positions = layoutSessions([...rendered, ...dayEvents]);
+  const pendingCheckIns = sessions
+    .filter(
+      (s) =>
+        (s.endAt <= now || s.checkInRequestedAt !== undefined) &&
+        s.taskCompletedAt === undefined &&
+        !s.checkIn &&
+        (s.askAfter ?? 0) <= now
+    )
+    .sort((a, b) => b.endAt - a.endAt || b.startAt - a.startAt);
 
   return (
     <div className="bg-background flex h-full min-h-0 flex-col">
@@ -422,6 +499,18 @@ export function DayView() {
         </Button>
         <h1 className="mr-auto text-lg font-semibold">{m.planning_day()}</h1>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            disabled={replan.isPending || save.isPending}
+            onClick={() =>
+              replan.mutate({ date: day, timezone, replanAll: true })
+            }
+          >
+            <RefreshCw
+              className={replan.isPending ? "animate-spin" : undefined}
+            />
+            {m.planning_replan_all()}
+          </Button>
           <DrawerButton
             variant="outline"
             drawerContent={<TaskCreateDrawer />}
@@ -533,68 +622,121 @@ export function DayView() {
                     0,
                     (task.effortMinutes ?? 45) - planned
                   );
-                  const placement = {
-                    taskId: task._id,
-                    startAt: zonedInstant(`${day}T09:00`, timezone),
-                    endAt:
-                      zonedInstant(`${day}T09:00`, timezone) +
-                      Math.min(task.effortMinutes ?? 45, 45) * MINUTE,
-                  };
+                  const missingMinutes =
+                    dayPlan?.shortfalls.find(
+                      (shortfall) =>
+                        shortfall.taskId === task._id && shortfall.minutes > 0
+                    )?.minutes ?? Math.max(0, remaining - free);
                   return (
-                    <button
+                    <div
                       key={task._id}
-                      className="bg-background hover:border-primary/50 h-[168px] w-full touch-none overflow-hidden rounded-lg border p-3 text-left"
-                      onPointerDown={(e) => begin(e, task._id, "new")}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          inspect(placement);
-                        }
+                      className="relative"
+                      onPointerEnter={() => setHighlightedTaskId(task._id)}
+                      onPointerLeave={(e) => {
+                        if (!e.currentTarget.contains(document.activeElement))
+                          setHighlightedTaskId(null);
+                      }}
+                      onFocusCapture={() => setHighlightedTaskId(task._id)}
+                      onBlurCapture={(e) => {
+                        if (!e.currentTarget.contains(e.relatedTarget))
+                          setHighlightedTaskId(null);
                       }}
                     >
-                      <div className="flex items-start gap-2">
-                        <GripVertical
-                          size={14}
-                          className="text-muted-foreground mt-1 shrink-0"
-                        />
-                        <span className="line-clamp-2 text-sm font-medium">
-                          {task.title}
-                        </span>
-                      </div>
-                      <p className="text-muted-foreground mt-2 text-xs">
-                        {m.planning_planned({ minutes: Math.round(planned) })} ·{" "}
-                        {
-                          {
-                            low: m.planning_low(),
-                            normal: m.planning_normal(),
-                            high: m.planning_high(),
-                            critical: m.planning_critical(),
-                          }[task.priority ?? "normal"]
+                      <button
+                        className="bg-background hover:border-primary/50 h-[168px] w-full touch-none overflow-hidden rounded-lg border p-3 pr-10 text-left"
+                        onPointerDown={(e) => begin(e, task._id, "new")}
+                        onClick={(e) =>
+                          handleCalendarClick(e, () => openTask(task._id))
                         }
-                      </p>
-                      <p className="text-muted-foreground text-xs">
-                        {task.effortMinutes === undefined
-                          ? m.planning_effort_unknown()
-                          : m.planning_effort_minutes({
-                              minutes: task.effortMinutes,
-                            })}
-                      </p>
-                      {planned === 0 && (
+                      >
+                        <div className="flex items-start gap-2">
+                          <GripVertical
+                            size={14}
+                            className="text-muted-foreground mt-1 shrink-0"
+                          />
+                          <span className="line-clamp-2 text-sm font-medium">
+                            {task.title}
+                          </span>
+                        </div>
+                        <p className="text-muted-foreground mt-2 text-xs">
+                          {m.planning_planned({ minutes: Math.round(planned) })}{" "}
+                          ·{" "}
+                          {m.planning_session_count({
+                            count: sessions.filter((s) => s.taskId === task._id)
+                              .length,
+                          })}{" "}
+                          ·{" "}
+                          {
+                            {
+                              low: m.planning_low(),
+                              normal: m.planning_normal(),
+                              high: m.planning_high(),
+                              critical: m.planning_critical(),
+                            }[task.priority ?? "normal"]
+                          }
+                        </p>
                         <p className="text-muted-foreground text-xs">
-                          {m.planning_unscheduled()}
+                          {task.effortMinutes === undefined
+                            ? m.planning_effort_unknown()
+                            : m.planning_effort_minutes({
+                                minutes: task.effortMinutes,
+                              })}
                         </p>
-                      )}
-                      {remaining > free && (
-                        <p
-                          role="status"
-                          className="mt-1 text-xs"
-                        >
-                          {m.planning_shortfall({
-                            minutes: Math.ceil(remaining - free),
-                          })}
-                        </p>
-                      )}
-                    </button>
+                        {task.automaticSchedulingPaused && (
+                          <p className="text-muted-foreground text-xs">
+                            {m.planning_automatic_paused()}
+                          </p>
+                        )}
+                        {planned === 0 && (
+                          <p className="text-muted-foreground text-xs">
+                            {m.planning_unscheduled()}
+                          </p>
+                        )}
+                        {missingMinutes > 0 && (
+                          <p
+                            role="status"
+                            className="mt-1 text-xs"
+                          >
+                            {m.planning_shortfall({
+                              minutes: Math.ceil(missingMinutes),
+                            })}
+                          </p>
+                        )}
+                      </button>
+                      <div
+                        className="absolute right-1 top-1"
+                        onPointerDown={(e) => e.stopPropagation()}
+                      >
+                        <ActionMenu>
+                          <DropdownMenuItem
+                            disabled={
+                              scheduleTask.isPending ||
+                              task.effortMinutes === undefined
+                            }
+                            onSelect={() =>
+                              scheduleTask.mutate({
+                                taskId: task._id,
+                                date: day,
+                                timezone,
+                              })
+                            }
+                          >
+                            <RefreshCw />
+                            {m.planning_schedule_task()}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={() =>
+                              openDialog(
+                                <TaskDeleteDialog taskIds={[task._id]} />
+                              )
+                            }
+                          >
+                            <Trash2 />
+                            {m.delete()}
+                          </DropdownMenuItem>
+                        </ActionMenu>
+                      </div>
+                    </div>
                   );
                 }}
               />
@@ -608,6 +750,99 @@ export function DayView() {
               )}
             </div>
             <details
+              className="max-h-1/2 shrink-0 overflow-auto border-t px-3 text-sm"
+              open={
+                planningError ||
+                replan.error ||
+                scheduleTask.error ||
+                undo.error
+                  ? true
+                  : undefined
+              }
+            >
+              <summary className="cursor-pointer py-2 font-medium">
+                {m.planning_status()}
+              </summary>
+              <div
+                className="space-y-2 pb-3"
+                aria-live="polite"
+              >
+                <details>
+                  <summary>{m.planning_about_automatic()}</summary>
+                  <p>{m.planning_automatic_hint()}</p>
+                </details>
+                {planningError && <p role="alert">{planningError}</p>}
+                {scheduleTask.error && (
+                  <p role="alert">{scheduleTask.error.message}</p>
+                )}
+                {replan.error && <p role="alert">{replan.error.message}</p>}
+                {undo.error && <p role="alert">{undo.error.message}</p>}
+                {!!dayPlan?.changes.length && (
+                  <details>
+                    <summary>
+                      {m.planning_automatic_changes({
+                        count: dayPlan.changes.length,
+                      })}
+                    </summary>
+                    <ul>
+                      {dayPlan.changes.map((change) => (
+                        <li key={change.sessionId}>
+                          {change.title}: {change.reason}
+                          {change.before && (
+                            <>
+                              {" "}
+                              · {localDateTime(change.before.startAt, timezone)}
+                              –{clock(change.before.endAt)}
+                            </>
+                          )}
+                          {" → "}
+                          {change.after ? (
+                            <>
+                              {localDateTime(change.after.startAt, timezone)}–
+                              {clock(change.after.endAt)}
+                            </>
+                          ) : (
+                            m.planning_unschedule_session()
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                    <Button
+                      variant="outline"
+                      disabled={undo.isPending}
+                      onClick={() => undo.mutate({})}
+                    >
+                      {m.planning_undo_plan()}
+                    </Button>
+                  </details>
+                )}
+                {!!dayPlan?.shortfalls.length && (
+                  <details open>
+                    <summary>{m.planning_shortfalls()}</summary>
+                    <ul>
+                      {dayPlan.shortfalls.map((shortfall) => (
+                        <li key={shortfall.taskId}>
+                          {shortfall.title}:{" "}
+                          {shortfall.minutes > 0 && (
+                            <>{shortfall.minutes} min · </>
+                          )}
+                          {shortfall.reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+                {dayPlan?.conflicts.map((conflict) => (
+                  <p
+                    key={conflict}
+                    role="alert"
+                  >
+                    {conflict}
+                  </p>
+                ))}
+              </div>
+            </details>
+            <details
               className="max-h-1/2 shrink-0 overflow-auto border-t px-3"
               onToggle={(e) => setTrackingOpen(e.currentTarget.open)}
             >
@@ -619,249 +854,276 @@ export function DayView() {
           </aside>
         </div>
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {!constraints.available.length && (
-            <p className="px-4 py-2 text-sm">{m.constraints_closed()}</p>
-          )}
-          {!!dayEvents.filter((event) => event.attention === "background")
-            .length && (
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
             <div
-              aria-label={m.constraints_background()}
-              className="flex shrink-0 flex-wrap gap-2 border-b p-2"
+              className="flex min-h-0 flex-1 flex-col"
+              inert={reviewOpen}
+              aria-hidden={reviewOpen}
             >
-              {dayEvents
-                .filter((event) => event.attention === "background")
-                .map((event) => (
-                  <Button
-                    key={event._id}
-                    variant="outline"
-                    className="h-auto max-w-full whitespace-normal text-left"
-                    onClick={() => editEvent(event)}
-                  >
-                    {m.constraints_background()}: {event.title} ·{" "}
-                    {clock(event.startAt)}–{clock(event.endAt)}
-                    {!!eventConflicts(event).length && (
-                      <span role="status">
-                        {" "}
-                        · {m.constraints_conflicts()}:{" "}
-                        {eventConflicts(event).join(", ")}
-                      </span>
-                    )}
-                  </Button>
-                ))}
-            </div>
-          )}
-          <div
-            ref={scroll}
-            className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
-            role="region"
-            aria-label={m.planning_sessions()}
-            tabIndex={0}
-          >
-            <div
-              ref={surface}
-              className="relative ml-28 mr-4"
-              style={{ height: dayMinutes * PX }}
-            >
-              {constraints.available
-                .filter(
-                  (window) => window.startAt !== start || window.endAt !== end
-                )
-                .map((window, index) => (
-                  <div
-                    key={`available-${index}`}
-                    className="pointer-events-none absolute inset-x-0 border-l-4 border-emerald-500 bg-emerald-500/10"
-                    style={{
-                      top: ((window.startAt - start) / MINUTE) * PX,
-                      height: ((window.endAt - window.startAt) / MINUTE) * PX,
-                    }}
-                  >
-                    <span className="text-xs">
-                      {m.constraints_availability()}
-                    </span>
-                  </div>
-                ))}
-              {constraints.protected.map((window, index) => (
-                <div
-                  key={`protected-${index}`}
-                  className="pointer-events-none absolute inset-x-0 border-2 border-dashed border-amber-600 bg-amber-500/15"
-                  style={{
-                    top: ((window.startAt - start) / MINUTE) * PX,
-                    height: ((window.endAt - window.startAt) / MINUTE) * PX,
-                  }}
+              {(interactionError || save.error) && (
+                <p
+                  role="alert"
+                  className="shrink-0 border-b px-4 py-2 text-sm"
                 >
-                  <span className="text-xs">
-                    {m.constraints_protected_label()}
-                  </span>
-                </div>
-              ))}
-              {Array.from({ length: Math.ceil(dayMinutes / 15) }, (_, i) => (
-                <div
-                  key={i}
-                  className={`pointer-events-none absolute left-0 right-0 border-t ${i % 4 === 0 ? "border-border" : "border-border/35 border-dashed"}`}
-                  style={{ top: i * 15 * PX }}
-                >
-                  {i % 4 === 0 && (
-                    <span className="text-muted-foreground absolute -left-28 -top-2 w-24 text-right text-xs">
-                      {clock(start + i * 15 * MINUTE)}
-                    </span>
-                  )}
-                </div>
-              ))}
-              {now >= start && now < end && (
-                <div
-                  className="pointer-events-none absolute left-0 right-0 z-10 border-t border-rose-500"
-                  style={{ top: ((now - start) / MINUTE) * PX }}
-                >
-                  <span className="absolute -left-1 -top-1 h-2 w-2 rounded-full bg-rose-500" />
-                </div>
+                  {interactionError
+                    ? `${m.constraints_conflicts()}: ${interactionError}`
+                    : save.error?.message}
+                </p>
               )}
-              {rendered.map((session) => {
-                const pos = positions.get(session._id)!;
-                const active =
-                  session._id === "preview" ||
-                  overlay?.sessionId === session._id;
-                const canEdit = session.taskCompletedAt === undefined;
-                const conflicts = placementConflicts(session, settings, events);
-                const placement = {
-                  taskId: session.taskId,
-                  sessionId:
-                    session._id === "preview"
-                      ? undefined
-                      : (session._id as Id<"sessions">),
-                  startAt: session.startAt,
-                  endAt: session.endAt,
-                };
-                return (
-                  <div
-                    key={session._id}
-                    className={`border-primary/35 bg-accent text-accent-foreground absolute overflow-hidden rounded-md border ${active ? "ring-primary z-20 ring-2" : "z-[1]"}`}
-                    style={{
-                      top:
-                        ((Math.max(start, session.startAt) - start) / MINUTE) *
-                        PX,
-                      height:
-                        ((Math.min(end, session.endAt) -
-                          Math.max(start, session.startAt)) /
-                          MINUTE) *
-                        PX,
-                      left: `calc(${(pos.lane / pos.lanes) * (focusedEvents.length ? 60 : 100)}% + 3px)`,
-                      width: `calc(${(focusedEvents.length ? 60 : 100) / pos.lanes}% - 6px)`,
-                    }}
-                  >
-                    {canEdit && session._id !== "preview" && (
-                      <button
-                        aria-label={m.planning_resize_start({
-                          title: session.taskTitle,
-                        })}
-                        className="absolute left-0 right-0 top-0 z-10 flex h-2 cursor-ns-resize touch-none items-center justify-center"
-                        onPointerDown={(e) =>
-                          begin(
-                            e,
-                            session.taskId,
-                            "start",
-                            session as CalendarSession
-                          )
-                        }
-                        onClick={(e) => {
-                          if (e.detail === 0) inspect(placement);
+              {!constraints.available.length && (
+                <p className="px-4 py-2 text-sm">{m.constraints_closed()}</p>
+              )}
+              <div
+                ref={scroll}
+                className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+                role="region"
+                aria-label={m.planning_sessions()}
+                tabIndex={0}
+              >
+                <div
+                  ref={surface}
+                  className="relative ml-28 mr-4"
+                  style={{ height: dayMinutes * PX }}
+                >
+                  {constraints.available
+                    .filter(
+                      (window) =>
+                        window.startAt !== start || window.endAt !== end
+                    )
+                    .map((window, index) => (
+                      <div
+                        key={`available-${index}`}
+                        className="pointer-events-none absolute inset-x-0 border-l-4 border-emerald-500 bg-emerald-500/10"
+                        style={{
+                          top: ((window.startAt - start) / MINUTE) * PX,
+                          height:
+                            ((window.endAt - window.startAt) / MINUTE) * PX,
                         }}
                       >
-                        <span className="h-0.5 w-6 rounded bg-current opacity-40" />
-                      </button>
-                    )}
-                    <button
-                      className="h-full w-full cursor-grab touch-none px-2 py-2 text-left active:cursor-grabbing"
-                      onPointerDown={(e) => {
-                        if (session._id !== "preview")
-                          begin(
-                            e,
-                            session.taskId,
-                            "move",
-                            session as CalendarSession
-                          );
-                      }}
-                      onClick={(e) => {
-                        if (e.detail === 0) inspect(placement);
+                        <span className="text-xs">
+                          {m.constraints_availability()}
+                        </span>
+                      </div>
+                    ))}
+                  {constraints.protected.map((window, index) => (
+                    <div
+                      key={`protected-${index}`}
+                      className="pointer-events-none absolute inset-x-0 border-2 border-dashed border-amber-600 bg-amber-500/15"
+                      style={{
+                        top: ((window.startAt - start) / MINUTE) * PX,
+                        height: ((window.endAt - window.startAt) / MINUTE) * PX,
                       }}
                     >
-                      <p className="truncate text-xs font-semibold">
-                        {session.taskTitle}
-                      </p>
-                      <p className="truncate text-[11px] opacity-75">
-                        {clock(session.startAt)}–{clock(session.endAt)} ·{" "}
-                        {Math.round((session.endAt - session.startAt) / MINUTE)}
-                        m
-                      </p>
-                      {!!conflicts.length && (
-                        <p
-                          role="status"
-                          className="text-xs font-semibold"
-                        >
-                          {m.constraints_conflicts()}: {conflicts.join("; ")}
-                        </p>
-                      )}
-                    </button>
-                    {canEdit && session._id !== "preview" && (
-                      <button
-                        aria-label={m.planning_resize_end({
-                          title: session.taskTitle,
-                        })}
-                        className="absolute bottom-0 left-0 right-0 z-10 flex h-2 cursor-ns-resize touch-none items-center justify-center"
-                        onPointerDown={(e) =>
-                          begin(
-                            e,
-                            session.taskId,
-                            "end",
-                            session as CalendarSession
-                          )
-                        }
-                        onClick={(e) => {
-                          if (e.detail === 0) inspect(placement);
+                      <span className="text-xs">
+                        {m.constraints_protected_label()}
+                      </span>
+                    </div>
+                  ))}
+                  {Array.from(
+                    { length: Math.ceil(dayMinutes / 15) },
+                    (_, i) => (
+                      <div
+                        key={i}
+                        className={`pointer-events-none absolute left-0 right-0 border-t ${i % 4 === 0 ? "border-border" : "border-border/35 border-dashed"}`}
+                        style={{ top: i * 15 * PX }}
+                      >
+                        {i % 4 === 0 && (
+                          <span className="text-muted-foreground absolute -left-28 -top-2 w-24 text-right text-xs">
+                            {clock(start + i * 15 * MINUTE)}
+                          </span>
+                        )}
+                      </div>
+                    )
+                  )}
+                  {now >= start && now < end && (
+                    <div
+                      className="pointer-events-none absolute left-0 right-0 z-10 border-t border-rose-500"
+                      style={{ top: ((now - start) / MINUTE) * PX }}
+                    >
+                      <span className="absolute -left-1 -top-1 h-2 w-2 rounded-full bg-rose-500" />
+                    </div>
+                  )}
+                  {rendered.map((session) => {
+                    const pos = positions.get(session._id)!;
+                    const active =
+                      session._id === "preview" ||
+                      overlay?.sessionId === session._id;
+                    const canEdit = session.taskCompletedAt === undefined;
+                    const conflicts = placementConflicts(
+                      session,
+                      settings,
+                      events
+                    );
+                    const placement = {
+                      taskId: session.taskId,
+                      sessionId:
+                        session._id === "preview"
+                          ? undefined
+                          : (session._id as Id<"sessions">),
+                      startAt: session.startAt,
+                      endAt: session.endAt,
+                    };
+                    return (
+                      <div
+                        key={session._id}
+                        className={`border-primary/35 bg-accent text-accent-foreground absolute overflow-hidden rounded-md border ${active || highlightedTaskId === session.taskId ? "ring-primary z-20 ring-2" : "z-[1]"}`}
+                        style={{
+                          top:
+                            ((Math.max(start, session.startAt) - start) /
+                              MINUTE) *
+                            PX,
+                          height:
+                            ((Math.min(end, session.endAt) -
+                              Math.max(start, session.startAt)) /
+                              MINUTE) *
+                            PX,
+                          left: `calc(${(pos.lane / pos.lanes) * 100}% + 3px)`,
+                          width: `calc(${100 / pos.lanes}% - 6px)`,
                         }}
                       >
-                        <span className="h-0.5 w-6 rounded bg-current opacity-40" />
+                        {canEdit && session._id !== "preview" && (
+                          <button
+                            aria-label={m.planning_resize_start({
+                              title: session.taskTitle,
+                            })}
+                            className="absolute left-0 right-0 top-0 z-10 flex h-2 cursor-ns-resize touch-none items-center justify-center"
+                            onPointerDown={(e) =>
+                              begin(
+                                e,
+                                session.taskId,
+                                "start",
+                                session as CalendarSession
+                              )
+                            }
+                            onClick={(e) =>
+                              handleCalendarClick(e, () => inspect(placement))
+                            }
+                          >
+                            <span className="h-0.5 w-6 rounded bg-current opacity-40" />
+                          </button>
+                        )}
+                        <button
+                          className={`h-full w-full touch-none px-2 py-2 text-left ${canEdit ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}`}
+                          onPointerDown={(e) => {
+                            if (session._id !== "preview")
+                              begin(
+                                e,
+                                session.taskId,
+                                "move",
+                                session as CalendarSession
+                              );
+                          }}
+                          onClick={(e) =>
+                            handleCalendarClick(e, () => inspect(placement))
+                          }
+                        >
+                          <p className="truncate text-xs font-semibold">
+                            {session.taskTitle}
+                          </p>
+                          <p className="truncate text-[11px] opacity-75">
+                            {clock(session.startAt)}–{clock(session.endAt)} ·{" "}
+                            {Math.round(
+                              (session.endAt - session.startAt) / MINUTE
+                            )}
+                            m
+                          </p>
+                          {!!conflicts.length && (
+                            <p
+                              role="status"
+                              className="text-xs font-semibold"
+                            >
+                              {m.constraints_conflicts()}:{" "}
+                              {conflicts.join("; ")}
+                            </p>
+                          )}
+                        </button>
+                        {canEdit && session._id !== "preview" && (
+                          <button
+                            aria-label={m.planning_resize_end({
+                              title: session.taskTitle,
+                            })}
+                            className="absolute bottom-0 left-0 right-0 z-10 flex h-2 cursor-ns-resize touch-none items-center justify-center"
+                            onPointerDown={(e) =>
+                              begin(
+                                e,
+                                session.taskId,
+                                "end",
+                                session as CalendarSession
+                              )
+                            }
+                            onClick={(e) =>
+                              handleCalendarClick(e, () => inspect(placement))
+                            }
+                          >
+                            <span className="h-0.5 w-6 rounded bg-current opacity-40" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {dayEvents.map((event) => {
+                    const pos = positions.get(event._id)!;
+                    return (
+                      <button
+                        key={event._id}
+                        className="bg-muted absolute z-[2] overflow-auto rounded border-2 border-dashed p-2 text-left text-xs"
+                        onClick={() => editEvent(event)}
+                        style={{
+                          top:
+                            ((Math.max(start, event.startAt) - start) /
+                              MINUTE) *
+                            PX,
+                          height:
+                            ((Math.min(end, event.endAt) -
+                              Math.max(start, event.startAt)) /
+                              MINUTE) *
+                            PX,
+                          left: `calc(${(pos.lane / pos.lanes) * 100}% + 3px)`,
+                          width: `calc(${100 / pos.lanes}% - 6px)`,
+                        }}
+                      >
+                        <p className="font-semibold">
+                          {event.attention === "focused"
+                            ? m.constraints_focused()
+                            : m.constraints_background()}
+                          : {event.title}
+                        </p>
+                        <p>
+                          {clock(event.startAt)}–{clock(event.endAt)}
+                        </p>
+                        {!!eventConflicts(event).length && (
+                          <p role="status">
+                            {m.constraints_conflicts()}:{" "}
+                            {eventConflicts(event).join(", ")}
+                          </p>
+                        )}
                       </button>
-                    )}
-                  </div>
-                );
-              })}
-              {focusedEvents.map((event) => {
-                const pos = eventPositions.get(event._id)!;
-                return (
-                  <button
-                    key={event._id}
-                    className="bg-muted absolute z-[2] overflow-auto rounded border-2 border-dashed p-2 text-left text-xs"
-                    onClick={() => editEvent(event)}
-                    style={{
-                      top:
-                        ((Math.max(start, event.startAt) - start) / MINUTE) *
-                        PX,
-                      height:
-                        ((Math.min(end, event.endAt) -
-                          Math.max(start, event.startAt)) /
-                          MINUTE) *
-                        PX,
-                      left: `calc(${60 + (pos.lane / pos.lanes) * 40}% + 3px)`,
-                      width: `calc(${40 / pos.lanes}% - 6px)`,
-                    }}
-                  >
-                    <p className="font-semibold">
-                      {m.constraints_focused()}: {event.title}
-                    </p>
-                    <p>
-                      {clock(event.startAt)}–{clock(event.endAt)}
-                    </p>
-                    {!!eventConflicts(event).length && (
-                      <p role="status">
-                        {m.constraints_conflicts()}:{" "}
-                        {eventConflicts(event).join(", ")}
-                      </p>
-                    )}
-                  </button>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            <div
+              inert={!reviewOpen}
+              aria-hidden={!reviewOpen}
+              className={`bg-background absolute inset-0 z-30 flex min-h-0 flex-col transition-[translate,opacity] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${reviewOpen ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-full opacity-0"}`}
+            >
+              <SessionReviewPanel
+                sessions={sessions}
+                timezone={timezone}
+                now={now}
+                onClose={() => setReviewOpen(false)}
+              />
             </div>
           </div>
+          {sessions.length > 0 && (
+            <SessionCheckInTray
+              sessions={pendingCheckIns}
+              timezone={timezone}
+              onReview={() => setReviewOpen((open) => !open)}
+              reviewOpen={reviewOpen}
+            />
+          )}
         </section>
       </div>
       {drag?.moved && (
@@ -897,9 +1159,11 @@ function SessionDetails({ placement }: { placement: Placement }) {
   const [date, setDate] = useState(originalLocal.slice(0, 10));
   const [time, setTime] = useState(originalLocal.slice(11));
   const [duration, setDuration] = useState(
-    (placement.endAt - placement.startAt) / MINUTE
+    Math.ceil((placement.endAt - placement.startAt) / MINUTE)
   );
   const [allowOverlap, setAllowOverlap] = useState(false);
+  const originalSession = sessions.find((s) => s._id === placement.sessionId);
+  const [pinned, setPinned] = useState(originalSession?.pinned ?? false);
   const { openDrawer, closeDrawer } = useModal();
   const save = useMutation({
     mutationFn: useConvexMutation(api.sessions.saveSession),
@@ -908,6 +1172,11 @@ function SessionDetails({ placement }: { placement: Placement }) {
   const unschedule = useMutation({
     mutationFn: useConvexMutation(api.sessions.unscheduleSession),
     onSuccess: () => closeDrawer(),
+  });
+  const requestCheckIn = useMutation({
+    mutationFn: useConvexMutation(api.sessions.requestCheckIn),
+    onSuccess: () =>
+      openDrawer(<CheckInDrawer sessionId={placement.sessionId!} />),
   });
   let startAt = NaN;
   let timeError = "";
@@ -943,10 +1212,45 @@ function SessionDetails({ placement }: { placement: Placement }) {
             startAt,
             endAt,
             allowConflict: allowOverlap,
+            pinned,
           });
         }}
       >
         <h3 className="font-medium">{task.title}</h3>
+        <TaskProgress taskId={task._id} />
+        {import.meta.env.DEV &&
+          originalSession &&
+          !originalSession.checkIn &&
+          task.completedAt === undefined && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={requestCheckIn.isPending}
+              onClick={() =>
+                requestCheckIn.mutate({ sessionId: originalSession._id })
+              }
+            >
+              {m.check_in_trigger_dev()}
+            </Button>
+          )}
+        {requestCheckIn.error && (
+          <p role="alert">{requestCheckIn.error.message}</p>
+        )}
+        {originalSession &&
+          (originalSession.startAt <= Date.now() ||
+            originalSession.checkInRequestedAt !== undefined) && (
+            <SessionCheckIn session={originalSession} />
+          )}
+        {originalSession?.automaticReason && (
+          <p className="text-sm">{originalSession.automaticReason}</p>
+        )}
+        <label className="text-sm">
+          <Checkbox
+            checked={pinned}
+            onCheckedChange={(value) => setPinned(value === true)}
+          />{" "}
+          {m.planning_pin_session()}
+        </label>
         <p className="text-xs">{timezone}</p>
         {timeError && <p role="alert">{timeError}</p>}
         {!!reasons.length && (
@@ -1045,4 +1349,11 @@ function SessionDetails({ placement }: { placement: Placement }) {
       </Drawer.Footer>
     </>
   );
+}
+
+function DayTaskDetails({ taskId }: { taskId: Id<"tasks"> }) {
+  const { data: task } = useSuspenseQuery(
+    convexQuery(api.tasks.getExtendedById, { taskId })
+  );
+  return <TaskEditDrawer editedTask={task} />;
 }

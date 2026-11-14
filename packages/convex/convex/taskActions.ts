@@ -11,6 +11,7 @@ import {
 import { Doc, Id } from "./_generated/dataModel";
 import { taskQueries, taskTypeQueries } from "./dbQueries";
 import { authedMutation, AuthedMutationCtx } from "./utils/authedFunctions";
+import { autoPlan } from "./utils/autoPlan";
 
 export const add = authedMutation({
   args: addTaskActionConvexSchema,
@@ -43,7 +44,9 @@ export const add = authedMutation({
     });
 
     await ctx.db.patch(taskId, checkedNewTaskValues);
-    return await ctx.db.insert("taskActions", input);
+    const id = await ctx.db.insert("taskActions", input);
+    await autoPlan(ctx);
+    return id;
   },
 });
 
@@ -152,6 +155,7 @@ export const addToCompleted = authedMutation({
         });
       }
     }
+    await autoPlan(ctx);
   },
 });
 
@@ -190,5 +194,6 @@ export const addToInitial = authedMutation({
         });
       }
     }
+    await autoPlan(ctx);
   },
 });

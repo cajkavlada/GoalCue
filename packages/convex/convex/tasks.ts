@@ -28,6 +28,7 @@ import {
   authedQuery,
   AuthedQueryCtx,
 } from "./utils/authedFunctions";
+import { autoPlan } from "./utils/autoPlan";
 
 export const listForDayPanel = authedQuery({
   args: { search: v.string(), paginationOpts: paginationOptsValidator },
@@ -57,12 +58,21 @@ export const listForDayPanel = authedQuery({
     });
     return {
       ...result,
-      page: result.page.map(({ _id, title, effortMinutes, priority }) => ({
-        _id,
-        title,
-        effortMinutes,
-        priority,
-      })),
+      page: result.page.map(
+        ({
+          _id,
+          title,
+          effortMinutes,
+          priority,
+          automaticSchedulingPaused,
+        }) => ({
+          _id,
+          title,
+          effortMinutes,
+          priority,
+          automaticSchedulingPaused,
+        })
+      ),
     };
   },
 });
@@ -168,6 +178,7 @@ export const create = authedMutation({
       await ctx.db.insert("tagTasks", { taskId: newTaskId, tagId });
     }
 
+    await autoPlan(ctx);
     return newTaskId;
   },
 });
@@ -197,6 +208,9 @@ export const update = authedMutation({
       ...rawTask,
       dueAt: taskArgs.dueAt ?? undefined,
       effortMinutes: taskArgs.effortMinutes,
+      minSessionMinutes: taskArgs.minSessionMinutes,
+      maxSessionMinutes: taskArgs.maxSessionMinutes,
+      automaticSchedulingPaused: taskArgs.automaticSchedulingPaused,
       ...(taskArgs.progressMeasure
         ? {
             valueKind:
@@ -213,6 +227,7 @@ export const update = authedMutation({
           }
         : {}),
     });
+    await autoPlan(ctx);
   },
 });
 
@@ -228,7 +243,19 @@ export const archive = authedMutation({
     const now = Date.now();
     for (const taskId of taskIds) {
       await ctx.db.patch(taskId, { archivedAt: now });
+      const sessions = await ctx.db
+        .query("sessions")
+        .withIndex("by_task", (q) => q.eq("taskId", taskId))
+        .collect();
+      for (const session of sessions) {
+        if (session.unscheduledAt === undefined && session.startAt > now)
+          await ctx.db.patch(session._id, {
+            unscheduledAt: now,
+            revision: (session.revision ?? 0) + 1,
+          });
+      }
     }
+    await autoPlan(ctx);
   },
 });
 

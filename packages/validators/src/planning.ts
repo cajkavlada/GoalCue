@@ -14,6 +14,25 @@ export type PlanningSettings = {
   protectedDates: (TimeWindow & { date: string })[];
 };
 export type Interval = { startAt: number; endAt: number };
+export function supportsBatchCheckIn(
+  session: {
+    startAt: number;
+    checkIn?: unknown;
+    checkInRequestedAt?: number;
+    unscheduledAt?: number;
+    taskCompletedAt?: number;
+    taskArchivedAt?: number;
+  },
+  now: number
+) {
+  return (
+    session.checkIn === undefined &&
+    session.unscheduledAt === undefined &&
+    session.taskCompletedAt === undefined &&
+    session.taskArchivedAt === undefined &&
+    (session.startAt <= now || session.checkInRequestedAt !== undefined)
+  );
+}
 export type FixedEvent = Interval & {
   title: string;
   attention: "focused" | "background";
