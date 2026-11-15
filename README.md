@@ -26,8 +26,8 @@ All shared packages are compiled in the monorepo but changes are reflected live 
 
 ### Prerequisites
 
-- Node.js (v18 or higher)
-- pnpm (v10.13.1 or higher)
+- Node.js 24.x
+- pnpm 10.13.1 (pinned by `packageManager`)
 
 ### Installation
 
