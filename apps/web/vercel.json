@@ -1,4 +1,5 @@
 {
+  "buildCommand": "cd ../.. && pnpm build && pnpm --filter @gc/convex run deploy",
   "rewrites": [
     {
       "source": "/(.*)",
