@@ -97,6 +97,7 @@ function ProjectForm({
     defaultValues: {
       title: project?.title ?? "",
       weeklyMinutes: project?.weeklyMinutes ?? 0,
+      importance: project?.importance ?? "normal",
     },
     onSubmit: async ({ value }) => {
       try {
@@ -126,6 +127,19 @@ function ProjectForm({
             <field.Input
               autoFocus={!project}
               label={m.tasks_form_field_title_label()}
+            />
+          )}
+        </form.AppField>
+        <form.AppField name="importance">
+          {(field) => (
+            <field.Select
+              label={m.priority_importance()}
+              options={[
+                { value: "low", label: m.planning_low() },
+                { value: "normal", label: m.planning_normal() },
+                { value: "high", label: m.planning_high() },
+                { value: "critical", label: m.planning_critical() },
+              ]}
             />
           )}
         </form.AppField>
@@ -238,7 +252,10 @@ function MilestoneForm({
   const create = useConvexMutation(api.projects.createMilestone);
   const [error, setError] = useState("");
   const form = useAppForm({
-    defaultValues: { title: "" },
+    defaultValues: {
+      title: "",
+      importance: "normal" as "low" | "normal" | "high" | "critical",
+    },
     onSubmit: async ({ value }) => {
       try {
         await create({ ...value, projectId });
@@ -258,6 +275,19 @@ function MilestoneForm({
             <field.Input
               autoFocus
               label={m.projects_new_milestone()}
+            />
+          )}
+        </form.AppField>
+        <form.AppField name="importance">
+          {(field) => (
+            <field.Select
+              label={m.priority_importance()}
+              options={[
+                { value: "low", label: m.planning_low() },
+                { value: "normal", label: m.planning_normal() },
+                { value: "high", label: m.planning_high() },
+                { value: "critical", label: m.planning_critical() },
+              ]}
             />
           )}
         </form.AppField>

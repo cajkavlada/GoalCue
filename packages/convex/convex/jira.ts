@@ -267,6 +267,7 @@ export const importCsv = authedMutation({
           jiraBalancingBoard: balancingBoard,
         };
         const overrides = new Set(existing.jiraOverrides ?? []);
+        if (existing.automaticPriority === false) overrides.add("priority");
         for (const key of Object.keys(snapshot) as (keyof typeof snapshot)[])
           if (existing[key] !== existing.jira?.snapshot[key])
             overrides.add(key);

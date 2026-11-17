@@ -27,7 +27,9 @@ import {
   authedQuery,
   AuthedQueryCtx,
 } from "./utils/authedFunctions";
+import { autoPlan } from "./utils/autoPlan";
 import { planningTool } from "./utils/planningTool";
+import { priorityContext, suggestPriority } from "./utils/taskPriority";
 
 const {
   taskId: _taskId,
@@ -71,6 +73,7 @@ const updateTaskTool = planningTool({
         .filter((key) => key in merged)
         .map((key) => [key, merged[key as keyof typeof merged]])
     );
+    input.priority = changes.priority;
     if (clearFinishDate) {
       input.dueAt = undefined;
       input.finishKind = undefined;
@@ -148,6 +151,7 @@ const dateAvailabilityTool = planningTool({
 export const tools = {
   createTask: tasks.createTool,
   updateTask: updateTaskTool,
+  setPriority: tasks.setPriorityTool,
   removeMailSource: mail.disconnectTool,
   removeCalendarSource: calendars.disconnectSourceTool,
   archiveTasks: tasks.archiveTool,
@@ -338,12 +342,28 @@ export const context = authedQuery({
           projectRecords.some((project) => project._id === row.projectId)
       )
       .slice(0, 15);
+    const importance = await priorityContext(ctx);
+    const priorityExplanations = records
+      .filter((row): row is Doc<"tasks"> => "taskTypeId" in row)
+      .map((task) => ({
+        taskId: task._id,
+        current: task.priority ?? "normal",
+        automatic: task.automaticPriority === true,
+        suggested: suggestPriority(task, importance).priority,
+        signals: suggestPriority(task, importance).signals,
+        urgency:
+          "Separate deadline pressure; skips and delays do not lower importance",
+      }));
     return {
+      priorityExplanations,
       now: localDateTime(Date.now(), settings?.timezone ?? timezone ?? "UTC"),
       timezone: settings?.timezone ?? timezone ?? "UTC",
       settings,
       records,
-      preferences: preferences.slice(-5).map((p) => p.text),
+      preferences: preferences
+        .filter((p) => !p.priority)
+        .slice(-5)
+        .map((p) => p.text),
       taskTypes: await ctx.db
         .query("taskTypes")
         .withIndex("by_userId", (q) => q.eq("userId", ctx.userId))
@@ -484,6 +504,7 @@ export const removePreference = authedMutation({
     if (!row || row.userId !== ctx.userId)
       throw new ConvexError("Preference not found");
     await ctx.db.delete(id);
+    await autoPlan(ctx);
   },
 });
 export const append = authedMutation({

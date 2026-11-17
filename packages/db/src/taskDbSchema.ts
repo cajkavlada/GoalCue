@@ -120,6 +120,7 @@ export const taskDbSchema = {
     maxSessionMinutes: v.optional(v.number()),
     automaticSchedulingPaused: v.optional(v.boolean()),
     priority: v.optional(literals("low", "normal", "high", "critical")),
+    automaticPriority: v.optional(v.boolean()),
     finishKind: v.optional(literals("firm", "preferred")),
     progressMeasure: v.optional(
       literals("done", "time", "percentage", "quantity")

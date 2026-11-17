@@ -1,5 +1,7 @@
 import { ConvexError, v } from "convex/values";
 
+import { taskConvexSchema } from "@gc/validators";
+
 import { Id } from "./_generated/dataModel";
 import {
   authedMutation,
@@ -47,6 +49,7 @@ export const list = authedQuery({
 export const saveProjectTool = planningTool({
   args: {
     projectId: v.optional(v.id("projects")),
+    importance: taskConvexSchema.priority,
     title: v.string(),
     weeklyMinutes: v.number(),
     weekdays: v.array(v.number()),
@@ -80,22 +83,25 @@ export const saveProjectTool = planningTool({
 export const createMilestoneTool = planningTool({
   args: {
     projectId: v.id("projects"),
+    importance: taskConvexSchema.priority,
     title: v.string(),
     milestoneId: v.optional(v.id("milestones")),
   },
   rateLimit: { name: "createMilestone" },
-  handler: async (ctx, { projectId, title, milestoneId }) => {
+  handler: async (ctx, { projectId, title, milestoneId, importance }) => {
     await validateMembership(ctx, projectId);
     if (!title.trim())
       throw new ConvexError({ message: "Enter a Milestone title" });
     if (milestoneId) {
       await validateMembership(ctx, projectId, milestoneId);
-      await ctx.db.patch(milestoneId, { title: title.trim() });
+      await ctx.db.patch(milestoneId, { title: title.trim(), importance });
+      await autoPlan(ctx);
       return milestoneId;
     }
     return ctx.db.insert("milestones", {
       userId: ctx.userId,
       projectId,
+      importance,
       title: title.trim(),
     });
   },

@@ -367,6 +367,231 @@ function database() {
   return { db, context, rows, reads };
 }
 
+test("Priority defaults to normal, explains importance independently of deadline pressure, and preserves manual choices", async () => {
+  const { db, context } = database();
+  const ctx = context("alice");
+  const taskTypeId = await db.insert("taskTypes", {
+    userId: "alice",
+    valueKind: "boolean",
+  });
+  const priorityClassId = await db.insert("priorityClasses", {
+    userId: "alice",
+  });
+  const base = { title: "Read", taskTypeId, priorityClassId, tags: [] };
+  const taskId = await tasks.create._handler(ctx, base);
+  assert.equal((await db.get(taskId)).priority, "normal");
+  await chat.tools.updateTask.invoke(
+    { ...ctx, userId: "alice" },
+    {
+      taskId,
+      changes: { title: "Read another day" },
+    }
+  );
+  assert.equal((await db.get(taskId)).automaticPriority, true);
+  const projectId = await db.insert("projects", {
+    userId: "alice",
+    title: "Book",
+    importance: "high",
+    weeklyMinutes: 0,
+    weekdays: [],
+  });
+  const milestoneId = await projects.createMilestone._handler(ctx, {
+    projectId,
+    title: "Chapter",
+    importance: "critical",
+  });
+  assert.equal((await db.get(milestoneId)).importance, "critical");
+  await db.patch(taskId, {
+    projectId,
+    milestoneId,
+    dueAt: 1,
+    effortMinutes: 60,
+  });
+  let explanation = await tasks.explainPriority._handler(ctx, { taskId });
+  assert.equal(explanation.priority, "critical");
+  assert.deepEqual(
+    explanation.signals.map((s) => s.kind),
+    ["project", "milestone"]
+  );
+  await tasks.setPriority._handler(ctx, {
+    taskId,
+    automatic: false,
+    priority: "low",
+  });
+  await tasks.update._handler(ctx, {
+    taskId,
+    ...base,
+    title: "Read later",
+    projectId,
+    milestoneId,
+  });
+  explanation = await tasks.explainPriority._handler(ctx, { taskId });
+  assert.equal(explanation.current, "low");
+  assert.equal(explanation.automatic, false);
+  assert.equal(explanation.priority, "critical");
+  await tasks.setPriority._handler(ctx, { taskId, automatic: true });
+  assert.equal((await db.get(taskId)).priority, "critical");
+  assert.equal((await db.get(taskId)).automaticPriority, true);
+  await tasks.update._handler(ctx, {
+    taskId,
+    ...base,
+    projectId,
+    milestoneId,
+    priority: "critical",
+  });
+  assert.equal((await db.get(taskId)).automaticPriority, false);
+  await assert.rejects(
+    tasks.setPriority._handler(context("bob"), { taskId, automatic: true })
+  );
+  await assert.rejects(
+    tasks.explainPriority._handler(context("bob"), { taskId })
+  );
+});
+
+test("Explicit corrections teach scoped removable preferences without retaining Task content", async () => {
+  const { db, context } = database();
+  const ctx = context("alice");
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Private source title",
+    taskTypeId: "taskTypes-reading",
+    priority: "normal",
+  });
+  const related = await db.insert("tasks", {
+    userId: "alice",
+    title: "Other reading",
+    taskTypeId: "taskTypes-reading",
+  });
+  const unrelated = await db.insert("tasks", {
+    userId: "alice",
+    title: "Other Project",
+    taskTypeId: "taskTypes-reading",
+    projectId: "projects-other",
+  });
+  await tasks.correctPriority._handler(ctx, { taskId, priority: "high" });
+  let explanation = await tasks.explainPriority._handler(ctx, {
+    taskId: related,
+  });
+  assert.equal(explanation.priority, "high");
+  assert.equal(explanation.preferences.length, 1);
+  assert.ok(
+    !JSON.stringify(explanation.preferences).includes("Private source title")
+  );
+  assert.equal(
+    (await tasks.explainPriority._handler(ctx, { taskId: unrelated })).priority,
+    "normal"
+  );
+  const id = explanation.preferences[0]._id;
+  await assert.rejects(chat.removePreference._handler(context("bob"), { id }));
+  await chat.removePreference._handler(ctx, { id });
+  explanation = await tasks.explainPriority._handler(ctx, { taskId: related });
+  assert.equal(explanation.priority, "normal");
+  assert.deepEqual(explanation.preferences, []);
+  assert.equal((await db.get(taskId)).priority, "high");
+  assert.equal((await db.get(taskId)).automaticPriority, false);
+});
+
+test("Missed and delayed work never lowers Priority and remaining effort is explained separately", async () => {
+  const { db, context } = database();
+  const ctx = context("alice");
+  const projectId = await db.insert("projects", {
+    userId: "alice",
+    title: "Important",
+    importance: "high",
+  });
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Wait",
+    projectId,
+    priority: "high",
+    effortMinutes: 90,
+  });
+  await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: 0,
+    endAt: 60000,
+    checkIn: {
+      outcome: "missed",
+      reportedAt: 1,
+      contribution: 0,
+      timeMinutes: 0,
+    },
+  });
+  await db.insert("sessions", {
+    userId: "alice",
+    taskId,
+    startAt: 60000,
+    endAt: 120000,
+    checkIn: {
+      outcome: "progress",
+      reportedAt: 2,
+      remainingMinutes: 40,
+      contribution: 1,
+      timeMinutes: 20,
+    },
+  });
+  let explanation = await tasks.explainPriority._handler(ctx, { taskId });
+  assert.equal(explanation.priority, "high");
+  assert.equal(explanation.remainingMinutes, 40);
+  await db.patch(taskId, {
+    dueAt: Date.now() + 86400000 * 50,
+    automaticSchedulingPaused: true,
+  });
+  explanation = await tasks.explainPriority._handler(ctx, { taskId });
+  assert.equal(explanation.priority, "high");
+  assert.ok(explanation.signals.every((signal) => signal.kind !== "deadline"));
+});
+
+test("Automatic Priority updates scheduling while manual Priority survives replanning and preference removal", async () => {
+  const { db, context } = database();
+  const ctx = context("alice");
+  await db.insert("planningSettings", { userId: "alice", ...autoSettings });
+  const projectId = await db.insert("projects", {
+    userId: "alice",
+    title: "Important",
+    importance: "high",
+    weeklyMinutes: 0,
+    weekdays: [],
+  });
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Automatic",
+    projectId,
+    priority: "normal",
+    automaticPriority: true,
+    effortMinutes: 30,
+  });
+  const manualId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Manual",
+    projectId,
+    priority: "low",
+    automaticPriority: false,
+    effortMinutes: 30,
+  });
+  await planning.planDay._handler(ctx, {
+    date: autoDate,
+    timezone: autoSettings.timezone,
+  });
+  assert.equal((await db.get(taskId)).priority, "high");
+  assert.equal((await db.get(manualId)).priority, "low");
+  const preferenceId = await db.insert("chatPreferences", {
+    userId: "alice",
+    text: "Correction",
+    projectId,
+    priority: "critical",
+  });
+  await planning.planDay._handler(ctx, {
+    date: autoDate,
+    timezone: autoSettings.timezone,
+  });
+  assert.equal((await db.get(taskId)).priority, "critical");
+  await chat.removePreference._handler(ctx, { id: preferenceId });
+  assert.equal((await db.get(taskId)).priority, "high");
+  assert.equal((await db.get(manualId)).priority, "low");
+});
+
 const ics = (...events) =>
   ["BEGIN:VCALENDAR", "VERSION:2.0", ...events, "END:VCALENDAR"].join("\r\n");
 const icsEvent = (uid, extra = "", date = "20261117") =>
