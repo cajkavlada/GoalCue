@@ -26,6 +26,17 @@ export const dbSchema = defineSchema({
   chatPreferences: defineTable({
     userId: v.string(),
     text: v.string(),
+    priority: v.optional(
+      v.union(
+        v.literal("low"),
+        v.literal("normal"),
+        v.literal("high"),
+        v.literal("critical")
+      )
+    ),
+    taskTypeId: v.optional(v.id("taskTypes")),
+    projectId: v.optional(v.id("projects")),
+    milestoneId: v.optional(v.id("milestones")),
   }).index("by_user", ["userId"]),
   chatOperations: defineTable({
     userId: v.string(),
@@ -34,7 +45,11 @@ export const dbSchema = defineSchema({
     tool: v.string(),
     input: v.string(),
     context: v.string(),
-    status: v.union(v.literal("pending"), v.literal("applied"), v.literal("undone")),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("applied"),
+      v.literal("undone")
+    ),
     expiresAt: v.number(),
     changes: v.optional(v.string()),
   }).index("by_user_request", ["userId", "requestId"]),

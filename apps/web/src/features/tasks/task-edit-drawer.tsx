@@ -10,7 +10,13 @@ import { Id } from "@gc/convex/types";
 import { asFormValidator, useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
 import { ErrorSuspense } from "@gc/react-kit";
-import { Drawer, DrawerButton, parseDateToString, Select } from "@gc/ui";
+import {
+  Button,
+  Drawer,
+  DrawerButton,
+  parseDateToString,
+  Select,
+} from "@gc/ui";
 import {
   ExtendedTask,
   RecurrenceRule,
@@ -43,6 +49,7 @@ export function TaskEditDrawer({ editedTask }: { editedTask: ExtendedTask }) {
         <ErrorSuspense>
           <MailTaskDetails taskId={editedTask._id} />
           <TaskProgress taskId={editedTask._id} />
+          <TaskPriority taskId={editedTask._id} />
           <TaskEditForm editedTask={editedTask} />
         </ErrorSuspense>
       </div>
@@ -233,7 +240,7 @@ function TaskEditForm({ editedTask }: { editedTask: ExtendedTask }) {
     minSessionMinutes: editedTask.minSessionMinutes,
     maxSessionMinutes: editedTask.maxSessionMinutes,
     automaticSchedulingPaused: editedTask.automaticSchedulingPaused ?? false,
-    priority: editedTask.priority ?? "normal",
+    priority: undefined,
     finishKind: editedTask.finishKind ?? "firm",
     progressMeasure: editedTask.progressMeasure,
     progressUnit: editedTask.progressUnit,
@@ -431,22 +438,6 @@ function TaskEditForm({ editedTask }: { editedTask: ExtendedTask }) {
         <form.AppField name="automaticSchedulingPaused">
           {(field) => <field.Switch label={m.planning_pause_automatic()} />}
         </form.AppField>
-        <form.AppField name="priority">
-          {(field) => (
-            <field.Select
-              label={m.planning_priority()}
-              options={["low", "normal", "high", "critical"].map((value) => ({
-                label: {
-                  low: m.planning_low(),
-                  normal: m.planning_normal(),
-                  high: m.planning_high(),
-                  critical: m.planning_critical(),
-                }[value as "low" | "normal" | "high" | "critical"],
-                value,
-              }))}
-            />
-          )}
-        </form.AppField>
         <form.AppField
           name="progressMeasure"
           listeners={{
@@ -622,5 +613,149 @@ function TaskEditForm({ editedTask }: { editedTask: ExtendedTask }) {
         </Drawer.Footer>
       </form.FormRoot>
     </form.AppForm>
+  );
+}
+
+function TaskPriority({ taskId }: { taskId: Id<"tasks"> }) {
+  const { data } = useSuspenseQuery(
+    convexQuery(api.tasks.explainPriority, { taskId })
+  );
+  const setPriority = useConvexMutation(api.tasks.setPriority);
+  const correct = useConvexMutation(api.tasks.correctPriority);
+  const remove = useConvexMutation(api.chat.removePreference);
+  const [error, setError] = useState("");
+  const labels = {
+    low: m.planning_low(),
+    normal: m.planning_normal(),
+    high: m.planning_high(),
+    critical: m.planning_critical(),
+  };
+  const form = useAppForm({
+    defaultValues: { priority: data.current, automatic: data.automatic },
+    onSubmit: async ({ value }) => {
+      try {
+        await setPriority({
+          taskId,
+          automatic: value.automatic,
+          priority: value.priority,
+        });
+        setError("");
+      } catch (error) {
+        setError((error as Error).message);
+      }
+    },
+  });
+  return (
+    <section
+      className="mb-4 space-y-2 rounded-lg border p-3 text-sm"
+      aria-label={m.planning_priority()}
+    >
+      <p>
+        {m.planning_priority()}: {labels[data.current]}
+      </p>
+      <p>{m.priority_suggestion({ priority: labels[data.priority] })}</p>
+      <p>{m.priority_manual()}</p>
+      <p>{m.priority_signals()}</p>
+      {data.signals.length ? (
+        <ul>
+          {data.signals.map((signal, index) => (
+            <li key={index}>
+              {signal.kind === "project"
+                ? m.projects_project()
+                : signal.kind === "milestone"
+                  ? m.projects_milestone()
+                  : m.priority_correction()}
+              :{" "}
+              {signal.kind === "correction"
+                ? m.priority_correction()
+                : signal.title}{" "}
+              — {labels[signal.priority]}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>{m.priority_default()}</p>
+      )}
+      <p>{m.priority_urgency()}</p>
+      <p>{m.priority_remaining({ minutes: data.remainingMinutes })}</p>
+      {data.dueAt !== undefined && (
+        <p>
+          {data.finishKind === "firm"
+            ? m.planning_firm()
+            : m.planning_preferred()}
+          : {new Date(data.dueAt).toLocaleString()}
+        </p>
+      )}
+      <form.AppForm>
+        <form.FormRoot className="space-y-2">
+          <form.AppField name="automatic">
+            {(field) => <field.Switch label={m.priority_automatic()} />}
+          </form.AppField>
+          <form.AppField
+            name="priority"
+            listeners={{
+              onChange: () => form.setFieldValue("automatic", false),
+            }}
+          >
+            {(field) => (
+              <field.Select
+                label={m.planning_priority()}
+                options={(Object.keys(labels) as (keyof typeof labels)[]).map(
+                  (value) => ({ value, label: labels[value] })
+                )}
+              />
+            )}
+          </form.AppField>
+          <form.SubmitButton />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={async () => {
+              try {
+                await correct({
+                  taskId,
+                  priority: form.getFieldValue("priority"),
+                });
+                form.setFieldValue("automatic", false);
+                setError("");
+              } catch (error) {
+                setError((error as Error).message);
+              }
+            }}
+          >
+            {m.priority_correct()}
+          </Button>
+        </form.FormRoot>
+      </form.AppForm>
+      <h3>{m.priority_preferences()}</h3>
+      <ul>
+        {data.preferences.map((preference) => (
+          <li
+            key={preference._id}
+            className="flex items-center justify-between gap-2"
+          >
+            <span>
+              {m.priority_correction()}:{" "}
+              {preference.priority && labels[preference.priority]}
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={async () => {
+                try {
+                  await remove({ id: preference._id });
+                  setError("");
+                } catch (error) {
+                  setError((error as Error).message);
+                }
+              }}
+            >
+              {m.delete()}
+            </Button>
+          </li>
+        ))}
+      </ul>
+      {error && <p role="alert">{error}</p>}
+    </section>
   );
 }

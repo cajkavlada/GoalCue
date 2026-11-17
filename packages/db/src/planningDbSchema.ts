@@ -92,12 +92,28 @@ export const planningDbSchema = {
   }).index("by_user", ["userId"]),
   projects: defineTable({
     userId: v.string(),
+    importance: v.optional(
+      v.union(
+        v.literal("low"),
+        v.literal("normal"),
+        v.literal("high"),
+        v.literal("critical")
+      )
+    ),
     title: v.string(),
     weeklyMinutes: v.number(),
     weekdays: v.array(v.number()),
   }).index("by_user", ["userId"]),
   milestones: defineTable({
     userId: v.string(),
+    importance: v.optional(
+      v.union(
+        v.literal("low"),
+        v.literal("normal"),
+        v.literal("high"),
+        v.literal("critical")
+      )
+    ),
     projectId: v.id("projects"),
     title: v.string(),
   }).index("by_user", ["userId"]),

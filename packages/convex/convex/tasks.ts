@@ -36,6 +36,7 @@ import {
 import { autoPlan } from "./utils/autoPlan";
 import { planningTool } from "./utils/planningTool";
 import { getRecurrenceCalendar } from "./utils/recurrence";
+import { priorityContext, suggestPriority } from "./utils/taskPriority";
 
 export const listForDayPanel = authedQuery({
   args: {
@@ -138,6 +139,84 @@ export const getExtendedById = authedQuery({
   },
 });
 
+export const explainPriority = authedQuery({
+  args: { taskId: v.id("tasks") },
+  handler: async (ctx, { taskId }) => {
+    const task = await taskQueries({ ctx }).getById({ taskId });
+    const suggestion = suggestPriority(task, await priorityContext(ctx));
+    const sessions = await ctx.db
+      .query("sessions")
+      .withIndex("by_task", (q) => q.eq("taskId", taskId))
+      .collect();
+    const latest = sessions
+      .filter((s) => s.checkIn?.remainingMinutes !== undefined)
+      .sort(
+        (a, b) => b.checkIn!.reportedAt - a.checkIn!.reportedAt
+      )[0]?.checkIn;
+    const spent = sessions
+      .filter(
+        (s) => !latest || (s.checkIn?.reportedAt ?? 0) > latest.reportedAt
+      )
+      .reduce((total, s) => total + (s.checkIn?.timeMinutes ?? 0), 0);
+    return {
+      ...suggestion,
+      current: task.priority ?? "normal",
+      automatic: task.automaticPriority === true,
+      dueAt: task.dueAt,
+      finishKind: task.finishKind ?? "firm",
+      remainingMinutes: Math.max(
+        0,
+        (latest?.remainingMinutes ?? task.effortMinutes ?? 0) - spent
+      ),
+    };
+  },
+});
+
+export const setPriorityTool = planningTool({
+  args: {
+    taskId: v.id("tasks"),
+    automatic: v.boolean(),
+    priority: taskConvexSchema.priority,
+  },
+  handler: async (ctx, { taskId, automatic, priority }) => {
+    const task = await taskQueries({ ctx }).getById({ taskId });
+    if (!automatic && priority === undefined)
+      throw new ConvexError("Choose a Priority");
+    await ctx.db.patch(taskId, {
+      priority: automatic
+        ? suggestPriority(task, await priorityContext(ctx)).priority
+        : priority,
+      automaticPriority: automatic,
+      ...(task.jira
+        ? {
+            jiraOverrides: [
+              ...new Set([...(task.jiraOverrides ?? []), "priority"]),
+            ],
+          }
+        : {}),
+    });
+    await autoPlan(ctx);
+  },
+});
+export const setPriority = authedMutation(setPriorityTool);
+
+export const correctPriority = authedMutation({
+  args: { taskId: v.id("tasks"), priority: taskConvexSchema.priority },
+  handler: async (ctx, { taskId, priority }) => {
+    const task = await taskQueries({ ctx }).getById({ taskId });
+    if (!priority) throw new ConvexError("Choose a Priority");
+    await ctx.db.insert("chatPreferences", {
+      userId: ctx.userId,
+      text: "Task Priority correction",
+      priority,
+      taskTypeId: task.taskTypeId,
+      projectId: task.projectId,
+      milestoneId: task.milestoneId,
+    });
+    await setPriorityTool.handler(ctx, { taskId, priority, automatic: false });
+  },
+});
+
 export const createTool = planningTool({
   args: createTaskConvexSchema.fields,
   rateLimit: { name: "createTask" },
@@ -196,6 +275,8 @@ export const createTool = planningTool({
 
     const newTaskId = await ctx.db.insert("tasks", {
       ...rawTask,
+      priority: rawTask.priority ?? "normal",
+      automaticPriority: rawTask.priority === undefined,
       userId: ctx.userId,
       valueKind,
       priorityIndex: generateKeyBetween(
@@ -271,6 +352,8 @@ export const updateTool = planningTool({
 
     const changes = {
       ...rawTask,
+      priority: taskArgs.priority ?? existing.priority,
+      ...(taskArgs.priority !== undefined ? { automaticPriority: false } : {}),
       projectId: taskArgs.projectId,
       milestoneId: taskArgs.milestoneId,
       dueAt: taskArgs.dueAt ?? undefined,

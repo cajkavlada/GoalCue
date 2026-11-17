@@ -681,5 +681,16 @@
   "chat_setup": "Chat requires an activated AI connection.",
   "chat_you": "You",
   "chat_assistant": "GoalCue",
-  "chat_source_warning": "Removing a Source stops access and removes retained excerpts. Existing action undo history is cleared. Reconnect through Settings if needed."
+  "chat_source_warning": "Removing a Source stops access and removes retained excerpts. Existing action undo history is cleared. Reconnect through Settings if needed.",
+  "priority_automatic": "Automatic Priority",
+  "priority_manual": "Manual Priority remains authoritative until you enable automatic Priority.",
+  "priority_suggestion": "Suggested Priority: {priority}",
+  "priority_default": "No learned importance signals; the default is normal.",
+  "priority_signals": "Contributing signals (latest correction wins, then Milestone, then Project):",
+  "priority_urgency": "Urgency is separate: the scheduler compares remaining effort with compatible Availability before a Firm deadline, including a 20% safety margin. Skips and delays never lower Priority.",
+  "priority_remaining": "Remaining effort: {minutes} min",
+  "priority_correct": "Correct and remember for this Task type and Project/Milestone",
+  "priority_preferences": "Relevant learned preferences",
+  "priority_importance": "Importance",
+  "priority_correction": "Previous correction"
 }

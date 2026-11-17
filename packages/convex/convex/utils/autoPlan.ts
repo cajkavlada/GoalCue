@@ -3,6 +3,7 @@ import { localDateTime, planSessions } from "@gc/validators";
 import { Doc, Id } from "../_generated/dataModel";
 import { AuthedMutationCtx } from "./authedFunctions";
 import { syncOccurrences } from "./recurrence";
+import { priorityContext, suggestPriority } from "./taskPriority";
 
 export async function autoPlan(
   ctx: AuthedMutationCtx,
@@ -36,6 +37,20 @@ export async function autoPlan(
       .withIndex("by_user_start", (q) => q.eq("userId", ctx.userId))
       .collect(),
   ]);
+  const importance = await priorityContext(ctx);
+  for (const task of tasks) {
+    if (
+      task.automaticPriority !== true ||
+      task.archivedAt !== undefined ||
+      task.completedAt !== undefined
+    )
+      continue;
+    const priority = suggestPriority(task, importance).priority;
+    if (priority !== task.priority) {
+      await ctx.db.patch(task._id, { priority });
+      task.priority = priority;
+    }
+  }
   if (selection?.replanAll) {
     for (const task of tasks) {
       if (

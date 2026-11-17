@@ -721,5 +721,16 @@
   "chat_setup": "Chat vyžaduje aktivované připojení k AI.",
   "chat_you": "Vy",
   "chat_assistant": "GoalCue",
-  "chat_source_warning": "Odebrání zdroje zastaví přístup a odstraní uložené úryvky. Historie vracení akcí bude vymazána. Připojení můžete obnovit v Nastavení."
+  "chat_source_warning": "Odebrání zdroje zastaví přístup a odstraní uložené úryvky. Historie vracení akcí bude vymazána. Připojení můžete obnovit v Nastavení.",
+  "priority_automatic": "Automatická priorita",
+  "priority_manual": "Ruční priorita platí, dokud nezapnete automatickou prioritu.",
+  "priority_suggestion": "Navržená priorita: {priority}",
+  "priority_default": "Bez naučených signálů důležitosti je výchozí priorita normální.",
+  "priority_signals": "Přispívající signály (platí poslední oprava, potom milník a projekt):",
+  "priority_urgency": "Naléhavost je samostatná: plánovač porovnává zbývající práci s vhodnou dostupností před pevným termínem, včetně 20% rezervy. Vynechání a odklady nesnižují prioritu.",
+  "priority_remaining": "Zbývající práce: {minutes} min",
+  "priority_correct": "Opravit a zapamatovat pro tento typ úkolu a projekt/milník",
+  "priority_preferences": "Související naučené preference",
+  "priority_importance": "Důležitost",
+  "priority_correction": "Předchozí oprava"
 }
