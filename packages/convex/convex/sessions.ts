@@ -17,6 +17,7 @@ import {
   AuthedQueryCtx,
 } from "./utils/authedFunctions";
 import { autoPlan } from "./utils/autoPlan";
+import { planningTool } from "./utils/planningTool";
 import { resolveOccurrence } from "./utils/recurrence";
 
 async function progressDetails(
@@ -119,9 +120,9 @@ const checkInFields = {
 };
 const checkInSchema = v.object(checkInFields);
 
-export const reportCheckIn = authedMutation({
+export const reportCheckInTool = planningTool({
   rateLimit: { name: "reportCheckIn" },
-  args: checkInSchema,
+  args: checkInSchema.fields,
   handler: (ctx, args) => applyCheckIn(ctx, args),
 });
 
@@ -637,7 +638,7 @@ export const undoBatchCheckIn = authedMutation({
   },
 });
 
-export const saveSession = authedMutation({
+export const saveSessionTool = planningTool({
   rateLimit: { name: "saveSession" },
   args: {
     sessionId: v.optional(v.id("sessions")),
@@ -794,7 +795,7 @@ export const saveSession = authedMutation({
   },
 });
 
-export const unscheduleSession = authedMutation({
+export const unscheduleSessionTool = planningTool({
   rateLimit: { name: "unscheduleSession" },
   args: { sessionId: v.id("sessions") },
   handler: async (ctx, { sessionId }) => {
@@ -809,3 +810,7 @@ export const unscheduleSession = authedMutation({
     await autoPlan(ctx);
   },
 });
+
+export const saveSession = authedMutation(saveSessionTool);
+export const unscheduleSession = authedMutation(unscheduleSessionTool);
+export const reportCheckIn = authedMutation(reportCheckInTool);

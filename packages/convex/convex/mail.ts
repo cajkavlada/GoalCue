@@ -15,6 +15,7 @@ import {
   AuthedQueryCtx,
 } from "./utils/authedFunctions";
 import { autoPlan } from "./utils/autoPlan";
+import { planningTool } from "./utils/planningTool";
 import { getRecurrenceCalendar } from "./utils/recurrence";
 
 async function sourceFor(ctx: AuthedQueryCtx, id: Id<"mailSources">) {
@@ -147,7 +148,7 @@ export const saveSource = authedMutation({
   },
 });
 
-export const disconnect = authedMutation({
+export const disconnectTool = planningTool({
   args: {
     sourceId: v.id("mailSources"),
     routines: v.union(v.literal("manual"), v.literal("stop")),
@@ -444,3 +445,5 @@ export const reviewMessage = authedMutation({
     });
   },
 });
+
+export const disconnect = authedMutation(disconnectTool);

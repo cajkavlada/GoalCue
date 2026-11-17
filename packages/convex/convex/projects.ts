@@ -7,6 +7,7 @@ import {
   AuthedQueryCtx,
 } from "./utils/authedFunctions";
 import { autoPlan } from "./utils/autoPlan";
+import { planningTool } from "./utils/planningTool";
 
 export async function validateMembership(
   ctx: AuthedQueryCtx,
@@ -43,7 +44,7 @@ export const list = authedQuery({
   }),
 });
 
-export const saveProject = authedMutation({
+export const saveProjectTool = planningTool({
   args: {
     projectId: v.optional(v.id("projects")),
     title: v.string(),
@@ -76,13 +77,22 @@ export const saveProject = authedMutation({
   },
 });
 
-export const createMilestone = authedMutation({
-  args: { projectId: v.id("projects"), title: v.string() },
+export const createMilestoneTool = planningTool({
+  args: {
+    projectId: v.id("projects"),
+    title: v.string(),
+    milestoneId: v.optional(v.id("milestones")),
+  },
   rateLimit: { name: "createMilestone" },
-  handler: async (ctx, { projectId, title }) => {
+  handler: async (ctx, { projectId, title, milestoneId }) => {
     await validateMembership(ctx, projectId);
     if (!title.trim())
       throw new ConvexError({ message: "Enter a Milestone title" });
+    if (milestoneId) {
+      await validateMembership(ctx, projectId, milestoneId);
+      await ctx.db.patch(milestoneId, { title: title.trim() });
+      return milestoneId;
+    }
     return ctx.db.insert("milestones", {
       userId: ctx.userId,
       projectId,
@@ -90,3 +100,6 @@ export const createMilestone = authedMutation({
     });
   },
 });
+
+export const saveProject = authedMutation(saveProjectTool);
+export const createMilestone = authedMutation(createMilestoneTool);

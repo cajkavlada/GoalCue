@@ -11,6 +11,7 @@ import {
   authedQuery,
 } from "./utils/authedFunctions";
 import { autoPlan } from "./utils/autoPlan";
+import { planningTool } from "./utils/planningTool";
 
 export const list = authedQuery({
   args: {},
@@ -195,7 +196,7 @@ async function detachSource(
   }
 }
 
-export const disconnectSource = authedMutation({
+export const disconnectSourceTool = planningTool({
   args: { sourceId: v.id("calendarSources"), removeRecords: v.boolean() },
   rateLimit: { name: "disconnectCalendarSource" },
   handler: async (ctx, { sourceId, removeRecords }) => {
@@ -385,3 +386,5 @@ export const refreshDue = internalMutation({
         });
   },
 });
+
+export const disconnectSource = authedMutation(disconnectSourceTool);
