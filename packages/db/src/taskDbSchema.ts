@@ -54,6 +54,35 @@ const progressSnapshot = {
 export const taskDbSchema = {
   tasks: defineTable({
     title: v.string(),
+    jiraSourceId: v.optional(v.id("jiraSources")),
+    jiraIdentity: v.optional(v.string()),
+    jiraInstance: v.optional(v.string()),
+    jiraBoards: v.optional(v.array(v.string())),
+    jiraBalancingBoard: v.optional(v.string()),
+    jiraOverrides: v.optional(v.array(v.string())),
+    jira: v.optional(
+      v.object({
+        link: v.string(),
+        status: v.string(),
+        assignee: v.string(),
+        project: v.string(),
+        parent: v.string(),
+        sprint: v.string(),
+        sprintEnd: v.optional(v.number()),
+        storyPoints: v.optional(v.number()),
+        estimateBasis: v.string(),
+        snapshot: v.object({
+          title: v.string(),
+          description: v.string(),
+          effortMinutes: v.number(),
+          priority: literals("low", "normal", "high", "critical"),
+          dueAt: v.optional(v.number()),
+          finishKind: literals("firm", "preferred"),
+          projectId: v.optional(v.id("projects")),
+          automaticSchedulingPaused: v.boolean(),
+        }),
+      })
+    ),
     projectId: v.optional(v.id("projects")),
     milestoneId: v.optional(v.id("milestones")),
     description: v.optional(v.string()),
@@ -104,6 +133,7 @@ export const taskDbSchema = {
     ])
     .index("by_user_priority", ["userId", "priorityClassId", "priorityIndex"])
     .index("by_series", ["seriesId"])
+    .index("by_jira_identity", ["userId", "jiraInstance", "jiraIdentity"])
     .index("by_user_catalog", [
       "userId",
       "seriesId",
@@ -116,6 +146,19 @@ export const taskDbSchema = {
       searchField: "title",
       filterFields: ["userId", "archivedAt", "completedAt", "seriesId"],
     }),
+  jiraSources: defineTable({
+    userId: v.string(),
+    instance: v.string(),
+    job: v.string(),
+    mapping: v.record(v.string(), v.string()),
+    statusMapping: v.record(v.string(), literals("ready", "paused", "done")),
+    priorityMapping: v.record(
+      v.string(),
+      literals("low", "normal", "high", "critical")
+    ),
+    fallbackMinutes: v.number(),
+    importedAt: v.number(),
+  }).index("by_user", ["userId"]),
   sessions: defineTable(sessionFields)
     .index("by_user_start", ["userId", "startAt"])
     .index("by_task", ["taskId"]),

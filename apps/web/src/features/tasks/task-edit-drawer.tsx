@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { convexQuery } from "@convex-dev/react-query";
+import { convexQuery, useConvexMutation } from "@convex-dev/react-query";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { addDays, endOfDay } from "date-fns";
 import { Plus } from "lucide-react";
@@ -49,6 +49,8 @@ export function TaskEditDrawer({ editedTask }: { editedTask: ExtendedTask }) {
 }
 
 export function TaskProgress({ taskId }: { taskId: Id<"tasks"> }) {
+  const setBoard = useConvexMutation(api.jira.setBalancingBoard);
+  const [boardError, setBoardError] = useState("");
   const { data: task } = useSuspenseQuery(
     convexQuery(api.tasks.getExtendedById, { taskId })
   );
@@ -88,6 +90,67 @@ export function TaskProgress({ taskId }: { taskId: Id<"tasks"> }) {
       <p className="text-muted-foreground text-xs">
         {m.check_in_current_progress()}
       </p>
+      {task.jira && (
+        <div className="space-y-2 border-b pb-2">
+          <p>
+            {task.jiraIdentity} · {task.jira.status} · {task.jira.assignee}
+          </p>
+          {/^https?:\/\//i.test(task.jira.link) && (
+            <a
+              className="underline"
+              href={task.jira.link}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {m.jira_field_link()}
+            </a>
+          )}
+          <p>
+            {m.jira_field_boards()}: {task.jiraBoards?.join(", ")}
+          </p>
+          <p>
+            {m.jira_field_parent()}: {task.jira.parent || "—"}
+          </p>
+          <p>
+            {m.jira_field_sprint()}: {task.jira.sprint || "—"} ·{" "}
+            {task.jira.sprintEnd
+              ? new Date(task.jira.sprintEnd).toISOString().slice(0, 10)
+              : "—"}
+          </p>
+          <p>
+            {m.jira_field_storyPoints()}: {task.jira.storyPoints ?? "—"}
+          </p>
+          <p>
+            {m.jira_estimate_basis()}:{" "}
+            {task.jira.estimateBasis === "remaining"
+              ? m.jira_field_remainingMinutes()
+              : task.jira.estimateBasis === "half-original"
+                ? `${m.jira_field_estimateMinutes()} × 50%`
+                : m.jira_fallback()}
+          </p>
+          {!!task.jiraBoards?.length && (
+            <label className="block space-y-1">
+              <span>{m.jira_balancing_board()}</span>
+              <Select
+                value={task.jiraBalancingBoard ?? task.jiraBoards[0]!}
+                options={task.jiraBoards.map((board) => ({
+                  value: board,
+                  label: board,
+                }))}
+                onValueChange={async (board) => {
+                  try {
+                    await setBoard({ taskId, board });
+                    setBoardError("");
+                  } catch (error) {
+                    setBoardError((error as Error).message);
+                  }
+                }}
+              />
+            </label>
+          )}
+          {boardError && <p role="alert">{boardError}</p>}
+        </div>
+      )}
       <p className="font-semibold tabular-nums">
         {task.valueKind === "number"
           ? `${task.currentNumValue ?? 0} / ${task.completedNumValue ?? "—"} ${unit}`

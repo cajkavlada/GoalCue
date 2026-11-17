@@ -291,6 +291,18 @@ export const update = authedMutation({
         : {}),
     };
     await ctx.db.patch(taskId, changes);
+    if (existing.jira) {
+      const overrides = new Set(existing.jiraOverrides ?? []);
+      for (const key of Object.keys(
+        existing.jira.snapshot
+      ) as (keyof typeof existing.jira.snapshot)[])
+        if (changes[key] !== existing[key]) overrides.add(key);
+      if (overrides.has("dueAt") || overrides.has("finishKind")) {
+        overrides.add("dueAt");
+        overrides.add("finishKind");
+      }
+      await ctx.db.patch(taskId, { jiraOverrides: [...overrides] });
+    }
     if (existing.seriesId)
       await ctx.db.patch(taskId, {
         occurrenceException: editScope === "occurrence",

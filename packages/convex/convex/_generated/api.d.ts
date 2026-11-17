@@ -9,6 +9,7 @@
  */
 
 import type * as dbQueries_index from "../dbQueries/index.js";
+import type * as jira from "../jira.js";
 import type * as planning from "../planning.js";
 import type * as priorityClasses from "../priorityClasses.js";
 import type * as projects from "../projects.js";
@@ -33,6 +34,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   "dbQueries/index": typeof dbQueries_index;
+  jira: typeof jira;
   planning: typeof planning;
   priorityClasses: typeof priorityClasses;
   projects: typeof projects;
