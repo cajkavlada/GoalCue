@@ -34,6 +34,7 @@ import {
   AuthedQueryCtx,
 } from "./utils/authedFunctions";
 import { autoPlan } from "./utils/autoPlan";
+import { planningTool } from "./utils/planningTool";
 import { getRecurrenceCalendar } from "./utils/recurrence";
 
 export const listForDayPanel = authedQuery({
@@ -137,8 +138,8 @@ export const getExtendedById = authedQuery({
   },
 });
 
-export const create = authedMutation({
-  args: createTaskConvexSchema,
+export const createTool = planningTool({
+  args: createTaskConvexSchema.fields,
   rateLimit: { name: "createTask" },
   handler: async (ctx, input) => {
     validateTravel(input);
@@ -218,8 +219,8 @@ export const create = authedMutation({
   },
 });
 
-export const update = authedMutation({
-  args: updateTaskConvexSchema,
+export const updateTool = planningTool({
+  args: updateTaskConvexSchema.fields,
   rateLimit: { name: "updateTask" },
   handler: async (ctx, { taskId, editScope = "future", ...taskArgs }) => {
     validateTravel(taskArgs);
@@ -418,7 +419,7 @@ export const update = authedMutation({
   },
 });
 
-export const archive = authedMutation({
+export const archiveTool = planningTool({
   args: {
     taskIds: v.array(taskConvexSchema._id),
   },
@@ -543,3 +544,7 @@ async function volumeProgress(
     completedNumValue: input.recurrence.volume,
   };
 }
+
+export const create = authedMutation(createTool);
+export const update = authedMutation(updateTool);
+export const archive = authedMutation(archiveTool);

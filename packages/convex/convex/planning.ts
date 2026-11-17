@@ -16,9 +16,10 @@ import {
 import { taskQueries } from "./dbQueries";
 import { authedMutation, authedQuery } from "./utils/authedFunctions";
 import { autoPlan } from "./utils/autoPlan";
+import { planningTool } from "./utils/planningTool";
 import { resolveOccurrence } from "./utils/recurrence";
 
-export const scheduleTask = authedMutation({
+export const scheduleTaskTool = planningTool({
   args: { taskId: v.id("tasks"), date: v.string(), timezone: v.string() },
   rateLimit: { name: "scheduleTask" },
   handler: async (ctx, { taskId, date, timezone }) => {
@@ -90,7 +91,7 @@ export const listWork = authedQuery({
       })),
 });
 
-export const planDay = authedMutation({
+export const planDayTool = planningTool({
   args: {
     date: v.string(),
     timezone: v.string(),
@@ -296,7 +297,7 @@ export const getSettings = authedQuery({
       .first(),
 });
 
-export const saveSettings = authedMutation({
+export const saveSettingsTool = planningTool({
   args: planningFields,
   rateLimit: { name: "savePlanningSettings" },
   handler: async (ctx, settings) => {
@@ -351,7 +352,7 @@ export const setEventAttention = authedMutation({
   },
 });
 
-export const saveEvent = authedMutation({
+export const saveEventTool = planningTool({
   args: { eventId: v.optional(v.id("fixedEvents")), ...fixedEventFields },
   rateLimit: { name: "saveEvent" },
   handler: async (ctx, { eventId, ...event }) => {
@@ -427,7 +428,7 @@ export const saveEvent = authedMutation({
   },
 });
 
-export const deleteEvent = authedMutation({
+export const deleteEventTool = planningTool({
   args: { eventId: v.id("fixedEvents") },
   rateLimit: { name: "deleteEvent" },
   handler: async (ctx, { eventId }) => {
@@ -445,3 +446,9 @@ export const deleteEvent = authedMutation({
     await autoPlan(ctx);
   },
 });
+
+export const saveSettings = authedMutation(saveSettingsTool);
+export const saveEvent = authedMutation(saveEventTool);
+export const deleteEvent = authedMutation(deleteEventTool);
+export const scheduleTask = authedMutation(scheduleTaskTool);
+export const planDay = authedMutation(planDayTool);

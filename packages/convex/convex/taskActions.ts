@@ -12,9 +12,10 @@ import { Doc, Id } from "./_generated/dataModel";
 import { taskQueries, taskTypeQueries } from "./dbQueries";
 import { authedMutation, AuthedMutationCtx } from "./utils/authedFunctions";
 import { autoPlan } from "./utils/autoPlan";
+import { planningTool } from "./utils/planningTool";
 
-export const add = authedMutation({
-  args: addTaskActionConvexSchema,
+export const addTool = planningTool({
+  args: addTaskActionConvexSchema.fields,
   rateLimit: {
     name: "addTaskAction",
     config: { rate: 60, capacity: 60 },
@@ -201,3 +202,5 @@ export const addToInitial = authedMutation({
     await autoPlan(ctx);
   },
 });
+
+export const add = authedMutation(addTool);

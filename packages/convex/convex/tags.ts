@@ -11,6 +11,7 @@ import {
 
 import { tagQueries } from "./dbQueries";
 import { authedMutation, authedQuery } from "./utils/authedFunctions";
+import { planningTool } from "./utils/planningTool";
 
 export const list = authedQuery({
   args: {},
@@ -20,8 +21,8 @@ export const list = authedQuery({
   },
 });
 
-export const create = authedMutation({
-  args: createTagConvexSchema,
+export const createTool = planningTool({
+  args: createTagConvexSchema.fields,
   rateLimit: { name: "createTag" },
   handler: async (ctx, tagArgs) => {
     const existingTags = await tagQueries({ ctx }).list();
@@ -33,8 +34,8 @@ export const create = authedMutation({
   },
 });
 
-export const update = authedMutation({
-  args: updateTagConvexSchema,
+export const updateTool = planningTool({
+  args: updateTagConvexSchema.fields,
   rateLimit: { name: "updateTag" },
   handler: async (ctx, { tagId, ...tagArgs }) => {
     await tagQueries({ ctx }).getById({ tagId });
@@ -62,3 +63,6 @@ export const archive = authedMutation({
     }
   },
 });
+
+export const create = authedMutation(createTool);
+export const update = authedMutation(updateTool);

@@ -13,6 +13,31 @@ import { taskDbSchema } from "./taskDbSchema";
 import { taskTypeDbSchema } from "./taskTypeDbSchema";
 
 export const dbSchema = defineSchema({
+  chatConversations: defineTable({
+    userId: v.string(),
+    title: v.string(),
+  }).index("by_user", ["userId"]),
+  chatMessages: defineTable({
+    userId: v.string(),
+    conversationId: v.id("chatConversations"),
+    role: v.union(v.literal("user"), v.literal("assistant")),
+    text: v.string(),
+  }).index("by_conversation", ["conversationId"]),
+  chatPreferences: defineTable({
+    userId: v.string(),
+    text: v.string(),
+  }).index("by_user", ["userId"]),
+  chatOperations: defineTable({
+    userId: v.string(),
+    requestId: v.string(),
+    conversationId: v.optional(v.id("chatConversations")),
+    tool: v.string(),
+    input: v.string(),
+    context: v.string(),
+    status: v.union(v.literal("pending"), v.literal("applied"), v.literal("undone")),
+    expiresAt: v.number(),
+    changes: v.optional(v.string()),
+  }).index("by_user_request", ["userId", "requestId"]),
   ...aiDbSchema,
   users: defineTable({
     userId: v.string(),
