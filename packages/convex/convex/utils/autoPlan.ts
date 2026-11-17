@@ -50,6 +50,10 @@ export async function autoPlan(
     }
   }
   const result = planSessions({
+    projects: await ctx.db
+      .query("projects")
+      .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
+      .collect(),
     date,
     now,
     replanAll: selection?.replanAll,
@@ -107,6 +111,10 @@ export async function autoPlan(
       taskId: s.taskId as Id<"tasks">,
     })),
     conflicts: result.conflicts,
+    projectShortfalls: result.projectShortfalls.map((s) => ({
+      ...s,
+      projectId: s.projectId as Id<"projects">,
+    })),
   };
   if (state) await ctx.db.patch(state._id, values);
   else await ctx.db.insert("dayPlans", { userId: ctx.userId, ...values });

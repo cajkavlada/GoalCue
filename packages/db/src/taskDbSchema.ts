@@ -54,6 +54,8 @@ const progressSnapshot = {
 export const taskDbSchema = {
   tasks: defineTable({
     title: v.string(),
+    projectId: v.optional(v.id("projects")),
+    milestoneId: v.optional(v.id("milestones")),
     description: v.optional(v.string()),
     i18nKey: v.optional(v.string()),
     userId: v.string(),

@@ -36,6 +36,17 @@ export const fixedEventFields = {
   attention: v.union(v.literal("focused"), v.literal("background")),
 };
 export const planningDbSchema = {
+  projects: defineTable({
+    userId: v.string(),
+    title: v.string(),
+    weeklyMinutes: v.number(),
+    weekdays: v.array(v.number()),
+  }).index("by_user", ["userId"]),
+  milestones: defineTable({
+    userId: v.string(),
+    projectId: v.id("projects"),
+    title: v.string(),
+  }).index("by_user", ["userId"]),
   dayPlans: defineTable({
     userId: v.string(),
     date: v.string(),
@@ -62,6 +73,16 @@ export const planningDbSchema = {
       })
     ),
     conflicts: v.array(v.string()),
+    projectShortfalls: v.optional(
+      v.array(
+        v.object({
+          projectId: v.id("projects"),
+          title: v.string(),
+          minutes: v.number(),
+          reason: v.string(),
+        })
+      )
+    ),
   }).index("by_user", ["userId"]),
   planningSettings: defineTable({
     userId: v.string(),

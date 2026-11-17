@@ -22,6 +22,7 @@ import { translatePregeneratedItem } from "../../utils/translate-pregenerated-it
 import { priorityClassApi } from "../priority-classes/priority-class.api";
 import { TagCreateDrawer } from "../tags/tag-create-drawer";
 import { tagApi } from "../tags/tag.api";
+import { ProjectFields } from "./projects";
 import { RecurrenceEditor } from "./recurrence-editor";
 import { taskApi } from "./task.api";
 
@@ -130,6 +131,12 @@ export function TaskProgress({ taskId }: { taskId: Id<"tasks"> }) {
 }
 
 function TaskEditForm({ editedTask }: { editedTask: ExtendedTask }) {
+  const [membership, setMembership] = useState<
+    Pick<UpdateTaskArgs, "projectId" | "milestoneId">
+  >({
+    projectId: editedTask.projectId,
+    milestoneId: editedTask.milestoneId,
+  });
   const { data: priorityClasses } = priorityClassApi.useList();
   const { data: tags } = tagApi.useList();
 
@@ -188,6 +195,7 @@ function TaskEditForm({ editedTask }: { editedTask: ExtendedTask }) {
         ...rest,
         recurrence,
         editScope,
+        ...membership,
       });
     },
   });
@@ -195,6 +203,12 @@ function TaskEditForm({ editedTask }: { editedTask: ExtendedTask }) {
   return (
     <form.AppForm>
       <form.FormRoot className="flex flex-col gap-4">
+        <ProjectFields
+          {...membership}
+          onChange={(projectId, milestoneId) =>
+            setMembership({ projectId, milestoneId })
+          }
+        />
         <form.AppField name="title">
           {(field) => (
             <field.Input
