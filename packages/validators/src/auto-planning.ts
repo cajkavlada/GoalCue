@@ -1,4 +1,5 @@
 import type { FixedEvent, Interval, PlanningSettings } from "./planning";
+import type { Attendance } from "./travel";
 import {
   availabilityOn,
   dayBounds,
@@ -7,8 +8,9 @@ import {
   placementConflicts,
   shiftDate,
 } from "./planning";
+import { locationConflicts, locationWindows, planTravel } from "./travel";
 
-type PlanningTask = {
+type PlanningTask = Attendance & {
   _id: string;
   title: string;
   effortMinutes?: number;
@@ -63,6 +65,7 @@ export function planSessions({
     availabilityOn(shiftDate(date, i), settings)
   );
   const hardBlocks = [
+    ...planTravel(events).blocks,
     ...windows.flatMap((w) => w.protected),
     ...events.filter((e) => e.attention === "focused"),
   ];
@@ -160,7 +163,21 @@ export function planSessions({
   );
   let plan = [...original];
   const reasons = new Map<string, string>();
-  const conflicts: string[] = [];
+  const travel = planTravel(events);
+  const conflicts: string[] = travel.journeys
+    .filter((j) => j.eventStartAt >= startAt && j.startAt < endAt)
+    .flatMap((j) => {
+      const boundaries = placementConflicts(
+        { startAt: j.startAt, endAt: j.eventStartAt },
+        settings,
+        []
+      );
+      return j.uncertainty || j.shortfallMinutes > 0 || boundaries.length
+        ? [
+            `${j.title}: ${j.uncertainty} ${j.shortfallMinutes > 0 ? `Travel shortfall ${Math.ceil(j.shortfallMinutes)} min.` : ""} ${boundaries.join("; ")} Choose remote attendance, another travel mode, or a manual Event change; fixed times remain unchanged.`,
+          ]
+        : [];
+    });
   const movable = (s: PlanningSession) =>
     s.startAt >= startAt &&
     s.endAt <= endAt &&
@@ -191,6 +208,7 @@ export function planSessions({
     const t = byId.get(s.taskId);
     return (
       placementConflicts(s, settings, events).length > 0 ||
+      (t !== undefined && locationConflicts(s, t, events).length > 0) ||
       (s.manualOverride === false &&
         t !== undefined &&
         (duration(s) <
@@ -284,7 +302,17 @@ export function planSessions({
     const removed = original.filter(
       (s) => s.taskId === task._id && !current.some((p) => p._id === s._id)
     );
-    const free = gaps(result, until);
+    const locations = locationWindows(task, events);
+    const free = gaps(result, until).flatMap((gap) =>
+      locations === undefined
+        ? [gap]
+        : locations
+            .map((w) => ({
+              startAt: Math.max(gap.startAt, w.startAt),
+              endAt: Math.min(gap.endAt, w.endAt),
+            }))
+            .filter((w) => w.endAt > w.startAt)
+    );
     if (!replanAll && removed.length) {
       const preferred = removed[0]!.startAt;
       free.sort(
@@ -381,6 +409,7 @@ export function planSessions({
     let attempt = place(task, plan, needed);
     if (
       attempt.needed > 0 &&
+      locationWindows(task, events) === undefined &&
       (pressing(task) || priority[task.priority ?? "normal"] >= 2)
     ) {
       const candidates = plan
@@ -548,9 +577,11 @@ export function planSessions({
               title: task.title,
               minutes,
               reason:
-                task.priority === "low" && !pressing(task)
-                  ? "Remaining effort does not fit at one Session per day within the next seven days, or before the Firm deadline"
-                  : "Insufficient compatible time within the next seven days or before the Firm deadline",
+                locationWindows(task, events)?.length === 0
+                  ? "Resolve attendance and location, or plan a compatible visit before scheduling this Task"
+                  : task.priority === "low" && !pressing(task)
+                    ? "Remaining effort does not fit at one Session per day within the next seven days, or before the Firm deadline"
+                    : "Insufficient compatible time within the next seven days or before the Firm deadline",
             },
           ]
         : [];

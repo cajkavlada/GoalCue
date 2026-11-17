@@ -18,10 +18,14 @@ import {
   useModal,
 } from "@gc/ui";
 import {
+  Attendance,
   eventsCompatible,
+  JourneyInput,
   localDateTime,
   overlaps,
+  physicalAttendance,
   PlanningSettings,
+  planTravel,
   TimeWindow,
   WeeklyWindow,
   zonedInstant,
@@ -521,6 +525,25 @@ export function EventDetails({
     convexQuery(api.sessions.listSessions, {})
   );
   const [title, setTitle] = useState(event?.title ?? "");
+  const [attendance, setAttendance] = useState<Attendance["attendance"]>(
+    event?.attendance ?? "unknown"
+  );
+  const [hybridAttendance, setHybridAttendance] = useState<
+    Attendance["hybridAttendance"]
+  >(event?.hybridAttendance);
+  const [locationRequirement, setLocationRequirement] = useState(
+    event?.locationRequirement ?? ""
+  );
+  const [journey, setJourney] = useState<JourneyInput>(
+    event?.journey ?? {
+      origin: "",
+      mode: "drive",
+      routeMinutes: undefined,
+      marginPercent: 20,
+      arrivalMinutes: 10,
+      wrapUpMinutes: 0,
+    }
+  );
   const zone = timezone;
   const [start, setStart] = useState(
     event ? localDateTime(event.startAt, timezone) : `${day}T09:00`
@@ -576,6 +599,12 @@ export function EventDetails({
     error = cause instanceof Error ? cause.message : m.planning_save_failed();
   }
   const draft = {
+    attendance,
+    hybridAttendance,
+    locationRequirement,
+    journey: physicalAttendance({ attendance, hybridAttendance })
+      ? journey
+      : undefined,
     title,
     startAt,
     endAt,
@@ -612,6 +641,168 @@ export function EventDetails({
           }}
         />
       </label>
+      <label>
+        {m.travel_attendance()}
+        <Select
+          value={attendance ?? "unknown"}
+          onValueChange={setAttendance}
+          options={[
+            { value: "unknown", label: m.travel_unknown() },
+            { value: "online", label: m.travel_online() },
+            { value: "physical", label: m.travel_physical() },
+            { value: "hybrid", label: m.travel_hybrid() },
+          ]}
+        />
+      </label>
+      {attendance === "hybrid" && (
+        <label>
+          {m.travel_intended()}
+          <Select
+            value={hybridAttendance ?? "unknown"}
+            onValueChange={(value) =>
+              setHybridAttendance(value === "unknown" ? undefined : value)
+            }
+            options={[
+              { value: "unknown", label: m.travel_unknown() },
+              { value: "online", label: m.travel_online() },
+              { value: "physical", label: m.travel_physical() },
+            ]}
+          />
+        </label>
+      )}
+      <label>
+        {m.travel_location()}
+        <Input
+          value={locationRequirement}
+          maxLength={500}
+          onChange={(e) => {
+            setLocationRequirement(e.target.value);
+            setJourney({ ...journey, routeMinutes: undefined });
+          }}
+        />
+      </label>
+      {physicalAttendance(draft) && (
+        <fieldset className="space-y-3 rounded border p-3">
+          <legend>{m.travel_journey()}</legend>
+          <p className="text-muted-foreground text-xs">
+            {m.travel_manual_hint()}
+          </p>
+          <label>
+            {m.travel_origin()}
+            <Input
+              value={journey.origin}
+              maxLength={500}
+              onChange={(e) =>
+                setJourney({
+                  ...journey,
+                  origin: e.target.value,
+                  routeMinutes: undefined,
+                })
+              }
+            />
+          </label>
+          <label>
+            {m.travel_mode()}
+            <Select
+              value={journey.mode}
+              onValueChange={(mode) =>
+                setJourney({ ...journey, mode, routeMinutes: undefined })
+              }
+              options={[
+                { value: "walk", label: m.travel_walk() },
+                { value: "cycle", label: m.travel_cycle() },
+                { value: "drive", label: m.travel_drive() },
+                { value: "transit", label: m.travel_transit() },
+              ]}
+            />
+          </label>
+          <label>
+            {m.travel_route()}
+            <Input
+              type="number"
+              min={0}
+              max={10080}
+              step="any"
+              value={journey.routeMinutes ?? ""}
+              onChange={(e) =>
+                setJourney({
+                  ...journey,
+                  routeMinutes:
+                    e.target.value === "" ? undefined : Number(e.target.value),
+                })
+              }
+            />
+          </label>
+          <label>
+            {m.travel_margin()}
+            <Input
+              type="number"
+              min={0}
+              max={10080}
+              step="any"
+              value={journey.marginPercent}
+              onChange={(e) =>
+                setJourney({
+                  ...journey,
+                  marginPercent: Number(e.target.value),
+                })
+              }
+            />
+          </label>
+          <label>
+            {m.travel_arrival()}
+            <Input
+              type="number"
+              min={0}
+              max={10080}
+              step="any"
+              value={journey.arrivalMinutes}
+              onChange={(e) =>
+                setJourney({
+                  ...journey,
+                  arrivalMinutes: Number(e.target.value),
+                })
+              }
+            />
+          </label>
+          <label>
+            {m.travel_wrap_up()}
+            <Input
+              type="number"
+              min={0}
+              max={10080}
+              step="any"
+              value={journey.wrapUpMinutes}
+              onChange={(e) =>
+                setJourney({
+                  ...journey,
+                  wrapUpMinutes: Number(e.target.value),
+                })
+              }
+            />
+          </label>
+        </fieldset>
+      )}
+      {!error &&
+        planTravel([...events.filter((e) => e._id !== event?._id), draft])
+          .journeys.filter(
+            (j) =>
+              j.eventStartAt === startAt &&
+              (j.uncertainty || j.shortfallMinutes > 0)
+          )
+          .map((j) => (
+            <p
+              role="alert"
+              key={j.eventStartAt}
+            >
+              {m.travel_review()} {j.uncertainty}{" "}
+              {j.shortfallMinutes > 0 &&
+                m.travel_shortfall({
+                  minutes: Math.ceil(j.shortfallMinutes),
+                })}{" "}
+              {m.travel_options()}
+            </p>
+          ))}
       <EventDateTime
         label={m.planning_start()}
         value={start}

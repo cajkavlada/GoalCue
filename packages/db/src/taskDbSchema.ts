@@ -2,6 +2,8 @@ import { literals } from "convex-helpers/validators";
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
+import { attendanceFields } from "./planningDbSchema";
+
 export const recurrenceRule = v.object({
   kind: literals("calendar", "frequency", "volume", "completion"),
   unit: literals("day", "week", "month", "year"),
@@ -53,6 +55,7 @@ const progressSnapshot = {
 
 export const taskDbSchema = {
   tasks: defineTable({
+    ...attendanceFields,
     title: v.string(),
     description: v.optional(v.string()),
     i18nKey: v.optional(v.string()),

@@ -13,6 +13,7 @@ import {
   updateTaskConvexSchema,
   updateTaskZodSchema,
   validateRecurrence,
+  validateTravel,
   zodParse,
 } from "@gc/validators";
 
@@ -139,6 +140,7 @@ export const create = authedMutation({
   args: createTaskConvexSchema,
   rateLimit: { name: "createTask" },
   handler: async (ctx, input) => {
+    validateTravel(input);
     Object.assign(input, await volumeProgress(ctx, input, input.taskTypeId));
     if (input.recurrence) {
       input.recurrence = {
@@ -218,6 +220,7 @@ export const update = authedMutation({
   args: updateTaskConvexSchema,
   rateLimit: { name: "updateTask" },
   handler: async (ctx, { taskId, editScope = "future", ...taskArgs }) => {
+    validateTravel(taskArgs);
     const existing = await taskQueries({ ctx }).getById({ taskId });
     Object.assign(
       taskArgs,

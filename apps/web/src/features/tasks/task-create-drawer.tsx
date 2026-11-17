@@ -62,6 +62,9 @@ function TaskCreateForm() {
 
   const defaultDueAt = addDays(endOfDay(new Date()), 2);
   const defaultValues: CreateTaskClientArgs = {
+    attendance: "unknown",
+    hybridAttendance: undefined,
+    locationRequirement: "",
     title: "",
     effortMinutes: undefined,
     minSessionMinutes: undefined,
@@ -203,6 +206,47 @@ function TaskCreateForm() {
             );
           }}
         </form.Subscribe>
+        <form.AppField name="attendance">
+          {(field) => (
+            <field.Select
+              label={m.travel_attendance()}
+              options={[
+                { value: "unknown", label: m.travel_unknown() },
+                { value: "online", label: m.travel_online() },
+                { value: "physical", label: m.travel_physical() },
+                { value: "hybrid", label: m.travel_hybrid() },
+              ]}
+            />
+          )}
+        </form.AppField>
+        <form.Subscribe selector={(state) => state.values.attendance}>
+          {(attendance) =>
+            attendance === "hybrid" && (
+              <form.AppField name="hybridAttendance">
+                {(field) => (
+                  <field.Select
+                    label={m.travel_intended()}
+                    options={[
+                      { value: "online", label: m.travel_online() },
+                      { value: "physical", label: m.travel_physical() },
+                    ]}
+                  />
+                )}
+              </form.AppField>
+            )
+          }
+        </form.Subscribe>
+        <form.AppField name="locationRequirement">
+          {(field) => (
+            <field.Input
+              label={m.travel_location()}
+              maxLength={500}
+            />
+          )}
+        </form.AppField>
+        <p className="text-muted-foreground text-xs">
+          {m.travel_errands_hint()}
+        </p>
         <form.AppField name="effortMinutes">
           {(field) => (
             <field.Input

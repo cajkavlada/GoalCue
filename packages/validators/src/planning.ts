@@ -1,3 +1,6 @@
+import type { Attendance, JourneyInput } from "./travel";
+import { planTravel } from "./travel";
+
 export type TimeWindow = { start: number; end: number };
 export type WeeklyWindow = TimeWindow & { weekday: number };
 export type DateOverride = {
@@ -34,10 +37,13 @@ export function supportsBatchCheckIn(
     (session.startAt <= now || session.checkInRequestedAt !== undefined)
   );
 }
-export type FixedEvent = Interval & {
-  title: string;
-  attention: "focused" | "background";
-};
+export type FixedEvent = Interval &
+  Attendance & {
+    title: string;
+    attention: "focused" | "background";
+    timezone?: string;
+    journey?: JourneyInput;
+  };
 
 export function localDateTime(instant: number, timezone: string) {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -289,6 +295,8 @@ export function placementConflicts(
     }
   }
   const concurrent = events.filter((e) => overlaps(e, interval));
+  for (const block of planTravel(events).blocks)
+    if (overlaps(block, interval)) reasons.add(block.title);
   for (const event of concurrent)
     if (event.attention === "focused") reasons.add(`Event: ${event.title}`);
   return [...reasons];
