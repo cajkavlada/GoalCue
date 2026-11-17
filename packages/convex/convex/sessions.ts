@@ -60,6 +60,7 @@ export const listSessions = authedQuery({
             : {
                 ...session,
                 taskTitle: task.title,
+                projectId: task.projectId,
                 seriesId: task.seriesId,
                 taskCompletedAt: task.completedAt,
                 ...(await progressDetails(ctx, task)),

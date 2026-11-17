@@ -23,6 +23,7 @@ import { TagCreateDrawer } from "../tags/tag-create-drawer";
 import { tagApi } from "../tags/tag.api";
 import { TaskTypeCreateDrawer } from "../task-types/task-type-create-drawer";
 import { taskTypeApi } from "../task-types/task-type.api";
+import { ProjectFields } from "./projects";
 import { RecurrenceEditor } from "./recurrence-editor";
 import { taskApi } from "./task.api";
 
@@ -31,7 +32,10 @@ type CreateTaskClientArgs = Omit<CreateTaskArgs, "dueAt"> & {
   dueAt: NonNullable<CreateTaskArgs["dueAt"]>;
 };
 
-export function TaskCreateDrawer() {
+export function TaskCreateDrawer({
+  projectId,
+  milestoneId,
+}: Pick<CreateTaskArgs, "projectId" | "milestoneId"> = {}) {
   return (
     <Drawer
       title={m.tasks_create_dialog_title()}
@@ -40,14 +44,23 @@ export function TaskCreateDrawer() {
     >
       <div className="min-h-0 flex-1 overflow-y-auto">
         <ErrorSuspense>
-          <TaskCreateForm />
+          <TaskCreateForm
+            projectId={projectId}
+            milestoneId={milestoneId}
+          />
         </ErrorSuspense>
       </div>
     </Drawer>
   );
 }
 
-function TaskCreateForm() {
+function TaskCreateForm({
+  projectId,
+  milestoneId,
+}: Pick<CreateTaskArgs, "projectId" | "milestoneId">) {
+  const [membership, setMembership] = useState<
+    Pick<CreateTaskArgs, "projectId" | "milestoneId">
+  >({ projectId, milestoneId });
   const { data: priorityClasses } = priorityClassApi.useList();
   const { data: taskTypes } = taskTypeApi.useList();
   const { data: tags } = tagApi.useList();
@@ -97,6 +110,7 @@ function TaskCreateForm() {
         dueAt: useDueAt ? dueAt.getTime() : undefined,
         ...rest,
         recurrence,
+        ...membership,
       });
     },
   });
@@ -126,6 +140,12 @@ function TaskCreateForm() {
   return (
     <form.AppForm>
       <form.FormRoot className="flex flex-col gap-4">
+        <ProjectFields
+          {...membership}
+          onChange={(projectId, milestoneId) =>
+            setMembership({ projectId, milestoneId })
+          }
+        />
         <form.AppField name="title">
           {(field) => (
             <field.Input

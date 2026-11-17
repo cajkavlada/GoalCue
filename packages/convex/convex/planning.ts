@@ -58,6 +58,33 @@ export const getDayPlan = authedQuery({
       .first(),
 });
 
+export const listWork = authedQuery({
+  args: {},
+  handler: async (ctx) =>
+    (
+      await ctx.db
+        .query("tasks")
+        .withIndex("by_user_priority", (q) => q.eq("userId", ctx.userId))
+        .collect()
+    )
+      .filter(
+        (task) =>
+          task.archivedAt === undefined &&
+          task.completedAt === undefined &&
+          task.expiredAt === undefined &&
+          !task.recurrence
+      )
+      .map((task) => ({
+        _id: task._id,
+        title: task.title,
+        dueAt: task.dueAt,
+        finishKind: task.finishKind,
+        effortMinutes: task.effortMinutes,
+        projectId: task.projectId,
+        milestoneId: task.milestoneId,
+      })),
+});
+
 export const planDay = authedMutation({
   args: {
     date: v.string(),

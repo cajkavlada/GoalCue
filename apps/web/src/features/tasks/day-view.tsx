@@ -2,12 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { convexQuery, useConvexMutation } from "@convex-dev/react-query";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import {
-  ChevronLeft,
-  ChevronRight,
   GripVertical,
   PanelLeftClose,
   PanelLeftOpen,
-  Plus,
   RefreshCw,
   Trash2,
 } from "lucide-react";
@@ -22,9 +19,9 @@ import {
   Button,
   Checkbox,
   Drawer,
-  DrawerButton,
   DropdownMenuItem,
   Input,
+  StatusSpinner,
   Tooltip,
   useModal,
 } from "@gc/ui";
@@ -35,7 +32,6 @@ import {
   localDateTime,
   overlaps,
   placementConflicts,
-  shiftDate,
   zonedInstant,
 } from "@gc/validators";
 
@@ -60,7 +56,6 @@ import {
   SessionReviewPanel,
 } from "./session-check-ins";
 import { TaskCard } from "./task-card";
-import { TaskCreateDrawer } from "./task-create-drawer";
 import { TaskDeleteDialog } from "./task-delete-dialog";
 import { TaskEditDrawer, TaskProgress } from "./task-edit-drawer";
 
@@ -83,15 +78,13 @@ type Gesture = Placement & {
   readOnly: boolean;
 };
 
-export function DayView() {
+export function DayView({ selectedDay }: { selectedDay: string }) {
   const { data: settings } = useSuspenseQuery(
     convexQuery(api.planning.getSettings, {})
   );
   const timezone =
     settings?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const [day, setDay] = useState(() =>
-    localDateTime(Date.now(), timezone).slice(0, 10)
-  );
+  const day = selectedDay;
   const [tasksOpen, setTasksOpen] = useState(true);
   const [highlightedTaskId, setHighlightedTaskId] =
     useState<Id<"tasks"> | null>(null);
@@ -492,7 +485,7 @@ export function DayView() {
 
   return (
     <div className="bg-background flex h-full min-h-0 flex-col">
-      <header className="flex shrink-0 flex-wrap items-center gap-3 border-b px-4 py-3">
+      <div className="flex shrink-0 items-center gap-2 border-b px-3 py-1">
         <Button
           size="icon"
           variant="ghost"
@@ -508,60 +501,19 @@ export function DayView() {
         >
           {tasksOpen ? <PanelLeftClose /> : <PanelLeftOpen />}
         </Button>
-        <h1 className="mr-auto text-lg font-semibold">{m.planning_day()}</h1>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            disabled={replan.isPending || save.isPending}
-            onClick={() =>
-              replan.mutate({ date: day, timezone, replanAll: true })
-            }
-          >
-            <RefreshCw
-              className={replan.isPending ? "animate-spin" : undefined}
-            />
-            {m.planning_replan_all()}
-          </Button>
-          <DrawerButton
-            variant="outline"
-            drawerContent={<TaskCreateDrawer />}
-          >
-            <Plus />
-            {m.planning_create_task()}
-          </DrawerButton>
-
-          <Button
-            variant="outline"
-            onClick={() => editEvent()}
-          >
-            <Plus />
-            {m.constraints_new_event()}
-          </Button>
-        </div>
         <Button
-          size="icon"
           variant="outline"
-          aria-label={m.planning_previous()}
-          onClick={() => setDay(shiftDate(day, -1))}
+          disabled={replan.isPending || save.isPending}
+          onClick={() =>
+            replan.mutate({ date: day, timezone, replanAll: true })
+          }
         >
-          <ChevronLeft />
-        </Button>
-        <div className="w-48">
-          <PlanningDatePicker
-            label={m.planning_displayed_day()}
-            value={day}
-            onChange={setDay}
+          <RefreshCw
+            className={replan.isPending ? "animate-spin" : undefined}
           />
-        </div>
-        <Button
-          size="icon"
-          variant="outline"
-          aria-label={m.planning_next()}
-          onClick={() => setDay(shiftDate(day, 1))}
-        >
-          <ChevronRight />
+          {m.planning_replan_all()}
         </Button>
-      </header>
+      </div>
       <div className="flex min-h-0 flex-1 max-md:flex-col">
         <div
           aria-hidden={!tasksOpen}
@@ -1410,6 +1362,11 @@ function SessionDetails({ placement }: { placement: Placement }) {
           }
         >
           {m.save()}
+          <StatusSpinner
+            status={
+              save.isPending ? "pending" : save.isError ? "error" : "idle"
+            }
+          />
         </Button>
       </Drawer.Footer>
     </>

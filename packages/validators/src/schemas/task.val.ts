@@ -28,6 +28,8 @@ export type ExtendedTask = Infer<typeof extendedTaskConvexSchema>;
 export const createTaskConvexSchema = v.object({
   ...pick(taskConvexSchema, [
     "title",
+    "projectId",
+    "milestoneId",
     "description",
     "taskTypeId",
     "priorityClassId",
@@ -54,6 +56,8 @@ export const createTaskZodSchema = z
   .object({
     ...createArgsSchema.pick({
       priority: true,
+      projectId: true,
+      milestoneId: true,
       automaticSchedulingPaused: true,
       finishKind: true,
       progressMeasure: true,
@@ -121,6 +125,8 @@ export const updateTaskConvexSchema = v.object({
   editScope: v.optional(v.union(v.literal("future"), v.literal("occurrence"))),
   ...pick(taskConvexSchema, [
     "title",
+    "projectId",
+    "milestoneId",
     "description",
     "priorityClassId",
     "repetitionId",
@@ -146,6 +152,8 @@ export const updateTaskZodSchema = z
   .object({
     ...updateArgsSchema.pick({
       priority: true,
+      projectId: true,
+      milestoneId: true,
       automaticSchedulingPaused: true,
       finishKind: true,
       progressMeasure: true,

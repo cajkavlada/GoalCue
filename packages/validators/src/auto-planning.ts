@@ -10,6 +10,7 @@ import {
 
 type PlanningTask = {
   _id: string;
+  projectId?: string;
   title: string;
   effortMinutes?: number;
   minSessionMinutes?: number;
@@ -48,6 +49,7 @@ export function planSessions({
   sessions,
   now,
   replanAll = false,
+  projects = [],
 }: {
   date: string;
   settings: PlanningSettings;
@@ -56,6 +58,12 @@ export function planSessions({
   sessions: PlanningSession[];
   now: number;
   replanAll?: boolean;
+  projects?: {
+    _id: string;
+    title: string;
+    weeklyMinutes: number;
+    weekdays: number[];
+  }[];
 }) {
   const startAt = Math.max(dayBounds(date, settings.timezone).startAt, now);
   const endAt = dayBounds(shiftDate(date, 7), settings.timezone).startAt;
@@ -392,6 +400,10 @@ export function planSessions({
             movable(s) &&
             s.manualOverride === false &&
             rank(owner) < rank(task) &&
+            (pressing(task) ||
+              !projects.some(
+                (p) => p._id === owner.projectId && p.weeklyMinutes > 0
+              )) &&
             s.startAt <
               (task.finishKind !== "preferred" ? (task.dueAt ?? endAt) : endAt)
           );
@@ -432,6 +444,100 @@ export function planSessions({
     (task) => pressing(task) || task.priority === "critical"
   );
   for (const task of urgent) scheduleTask(task);
+  const projectShortfalls: {
+    projectId: string;
+    title: string;
+    minutes: number;
+    reason: string;
+    week: string;
+  }[] = [];
+  for (const project of projects.filter((p) => p.weeklyMinutes > 0)) {
+    const members = tasks.filter((t) => t.projectId === project._id);
+    const ready = ordered.filter(
+      (t) =>
+        t.projectId === project._id &&
+        !t.automaticSchedulingPaused &&
+        effort(t) !== undefined
+    );
+    const weekday = new Date(`${date}T12:00Z`).getUTCDay();
+    const firstWeek = shiftDate(
+      date,
+      -((weekday - (settings.weekStartsOn ?? 1) + 7) % 7)
+    );
+    for (
+      let week = firstWeek;
+      week < shiftDate(date, 7);
+      week = shiftDate(week, 7)
+    ) {
+      const weekBounds = {
+        startAt: dayBounds(week, settings.timezone).startAt,
+        endAt: dayBounds(shiftDate(week, 7), settings.timezone).startAt,
+      };
+      const plannedMinutes = () =>
+        plan
+          .filter(
+            (s) =>
+              members.some((t) => t._id === s.taskId) && overlaps(s, weekBounds)
+          )
+          .reduce(
+            (total, s) =>
+              total +
+              (credit(s) *
+                duration({
+                  startAt: Math.max(s.startAt, weekBounds.startAt),
+                  endAt: Math.min(s.endAt, weekBounds.endAt),
+                })) /
+                duration(s),
+            0
+          );
+      const days = Array.from({ length: 7 }, (_, i) =>
+        shiftDate(week, i)
+      ).filter(
+        (d) =>
+          d >= date &&
+          d < shiftDate(date, 7) &&
+          (!project.weekdays.length ||
+            project.weekdays.includes(new Date(`${d}T12:00Z`).getUTCDay()))
+      );
+      for (let i = 0; i < days.length; i++) {
+        let budget = Math.ceil(
+          Math.max(0, project.weeklyMinutes - plannedMinutes()) /
+            (days.length - i)
+        );
+        for (const task of ready) {
+          if (budget <= 0) break;
+          const scheduled = plan
+            .filter((s) => s.taskId === task._id)
+            .reduce((n, s) => n + credit(s), 0);
+          const remaining = Math.max(0, effort(task)! - scheduled);
+          const needed = Math.min(
+            remaining,
+            Math.max(budget, task.minSessionMinutes ?? 15)
+          );
+          const attempt = place(task, plan, needed, { date: days[i] });
+          budget -= needed - attempt.needed;
+          for (const session of attempt.plan)
+            if (!plan.some((s) => s._id === session._id))
+              reasons.set(
+                session._id,
+                `Reserve weekly Project time: ${project.title}`
+              );
+          plan = attempt.plan;
+        }
+      }
+      const minutes = Math.max(0, project.weeklyMinutes - plannedMinutes());
+      if (minutes > 0)
+        projectShortfalls.push({
+          projectId: project._id,
+          title: project.title,
+          minutes,
+          week,
+          reason: ready.length
+            ? `Weekly time target not met for ${week}; choose more ready work or compatible time`
+            : "Choose or break down the next Task and add an Effort estimate",
+        });
+    }
+  }
   const ordinary = ordered.filter(
     (task) => !urgent.includes(task) && !task.automaticSchedulingPaused
   );
@@ -555,5 +661,40 @@ export function planSessions({
           ]
         : [];
     });
-  return { changes, shortfalls, conflicts };
+  return {
+    changes,
+    shortfalls,
+    conflicts,
+    projectShortfalls: projectShortfalls.flatMap(({ week, ...shortfall }) => {
+      const bounds = {
+        startAt: dayBounds(week, settings.timezone).startAt,
+        endAt: dayBounds(shiftDate(week, 7), settings.timezone).startAt,
+      };
+      const planned = plan
+        .filter(
+          (s) =>
+            overlaps(s, bounds) &&
+            tasks.some(
+              (t) => t._id === s.taskId && t.projectId === shortfall.projectId
+            )
+        )
+        .reduce(
+          (n, s) =>
+            n +
+            (credit(s) *
+              duration({
+                startAt: Math.max(s.startAt, bounds.startAt),
+                endAt: Math.min(s.endAt, bounds.endAt),
+              })) /
+              duration(s),
+          0
+        );
+      const minutes = Math.max(
+        0,
+        projects.find((p) => p._id === shortfall.projectId)!.weeklyMinutes -
+          planned
+      );
+      return minutes > 0 ? [{ ...shortfall, minutes }] : [];
+    }),
+  };
 }

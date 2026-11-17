@@ -14,6 +14,7 @@ import {
   Input,
   parseDateToString,
   Select,
+  StatusSpinner,
   TimePicker,
   useModal,
 } from "@gc/ui";
@@ -734,6 +735,11 @@ export function EventDetails({
           }
         >
           {m.save()}
+          <StatusSpinner
+            status={
+              save.isPending ? "pending" : save.isError ? "error" : "idle"
+            }
+          />
         </Button>
       </Drawer.Footer>
     </form>

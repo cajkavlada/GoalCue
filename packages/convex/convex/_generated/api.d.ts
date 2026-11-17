@@ -11,6 +11,7 @@
 import type * as dbQueries_index from "../dbQueries/index.js";
 import type * as planning from "../planning.js";
 import type * as priorityClasses from "../priorityClasses.js";
+import type * as projects from "../projects.js";
 import type * as sessions from "../sessions.js";
 import type * as tags from "../tags.js";
 import type * as taskActions from "../taskActions.js";
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   "dbQueries/index": typeof dbQueries_index;
   planning: typeof planning;
   priorityClasses: typeof priorityClasses;
+  projects: typeof projects;
   sessions: typeof sessions;
   tags: typeof tags;
   taskActions: typeof taskActions;

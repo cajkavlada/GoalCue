@@ -14,6 +14,11 @@ import { Route as Char123LocaleChar125IndexRouteImport } from './routes/{-$local
 import { Route as Char123LocaleChar125ProtectedRouteRouteImport } from './routes/{-$locale}/_protected/route'
 import { Route as Char123LocaleChar125ProtectedSettingsRouteImport } from './routes/{-$locale}/_protected/settings'
 import { Route as Char123LocaleChar125ProtectedDashboardRouteImport } from './routes/{-$locale}/_protected/dashboard'
+import { Route as Char123LocaleChar125ProtectedDashboardIndexRouteImport } from './routes/{-$locale}/_protected/dashboard.index'
+import { Route as Char123LocaleChar125ProtectedDashboardWeekRouteImport } from './routes/{-$locale}/_protected/dashboard.week'
+import { Route as Char123LocaleChar125ProtectedDashboardProjectsRouteImport } from './routes/{-$locale}/_protected/dashboard.projects'
+import { Route as Char123LocaleChar125ProtectedDashboardMonthRouteImport } from './routes/{-$locale}/_protected/dashboard.month'
+import { Route as Char123LocaleChar125ProtectedDashboardDayRouteImport } from './routes/{-$locale}/_protected/dashboard.day'
 
 const Char123LocaleChar125RouteRoute =
   Char123LocaleChar125RouteRouteImport.update({
@@ -44,25 +49,69 @@ const Char123LocaleChar125ProtectedDashboardRoute =
     path: '/dashboard',
     getParentRoute: () => Char123LocaleChar125ProtectedRouteRoute,
   } as any)
+const Char123LocaleChar125ProtectedDashboardIndexRoute =
+  Char123LocaleChar125ProtectedDashboardIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => Char123LocaleChar125ProtectedDashboardRoute,
+  } as any)
+const Char123LocaleChar125ProtectedDashboardWeekRoute =
+  Char123LocaleChar125ProtectedDashboardWeekRouteImport.update({
+    id: '/week',
+    path: '/week',
+    getParentRoute: () => Char123LocaleChar125ProtectedDashboardRoute,
+  } as any)
+const Char123LocaleChar125ProtectedDashboardProjectsRoute =
+  Char123LocaleChar125ProtectedDashboardProjectsRouteImport.update({
+    id: '/projects',
+    path: '/projects',
+    getParentRoute: () => Char123LocaleChar125ProtectedDashboardRoute,
+  } as any)
+const Char123LocaleChar125ProtectedDashboardMonthRoute =
+  Char123LocaleChar125ProtectedDashboardMonthRouteImport.update({
+    id: '/month',
+    path: '/month',
+    getParentRoute: () => Char123LocaleChar125ProtectedDashboardRoute,
+  } as any)
+const Char123LocaleChar125ProtectedDashboardDayRoute =
+  Char123LocaleChar125ProtectedDashboardDayRouteImport.update({
+    id: '/day',
+    path: '/day',
+    getParentRoute: () => Char123LocaleChar125ProtectedDashboardRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/{-$locale}': typeof Char123LocaleChar125ProtectedRouteRouteWithChildren
   '/{-$locale}/': typeof Char123LocaleChar125IndexRoute
-  '/{-$locale}/dashboard': typeof Char123LocaleChar125ProtectedDashboardRoute
+  '/{-$locale}/dashboard': typeof Char123LocaleChar125ProtectedDashboardRouteWithChildren
   '/{-$locale}/settings': typeof Char123LocaleChar125ProtectedSettingsRoute
+  '/{-$locale}/dashboard/day': typeof Char123LocaleChar125ProtectedDashboardDayRoute
+  '/{-$locale}/dashboard/month': typeof Char123LocaleChar125ProtectedDashboardMonthRoute
+  '/{-$locale}/dashboard/projects': typeof Char123LocaleChar125ProtectedDashboardProjectsRoute
+  '/{-$locale}/dashboard/week': typeof Char123LocaleChar125ProtectedDashboardWeekRoute
+  '/{-$locale}/dashboard/': typeof Char123LocaleChar125ProtectedDashboardIndexRoute
 }
 export interface FileRoutesByTo {
   '/{-$locale}': typeof Char123LocaleChar125IndexRoute
-  '/{-$locale}/dashboard': typeof Char123LocaleChar125ProtectedDashboardRoute
   '/{-$locale}/settings': typeof Char123LocaleChar125ProtectedSettingsRoute
+  '/{-$locale}/dashboard/day': typeof Char123LocaleChar125ProtectedDashboardDayRoute
+  '/{-$locale}/dashboard/month': typeof Char123LocaleChar125ProtectedDashboardMonthRoute
+  '/{-$locale}/dashboard/projects': typeof Char123LocaleChar125ProtectedDashboardProjectsRoute
+  '/{-$locale}/dashboard/week': typeof Char123LocaleChar125ProtectedDashboardWeekRoute
+  '/{-$locale}/dashboard': typeof Char123LocaleChar125ProtectedDashboardIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/{-$locale}': typeof Char123LocaleChar125RouteRouteWithChildren
   '/{-$locale}/_protected': typeof Char123LocaleChar125ProtectedRouteRouteWithChildren
   '/{-$locale}/': typeof Char123LocaleChar125IndexRoute
-  '/{-$locale}/_protected/dashboard': typeof Char123LocaleChar125ProtectedDashboardRoute
+  '/{-$locale}/_protected/dashboard': typeof Char123LocaleChar125ProtectedDashboardRouteWithChildren
   '/{-$locale}/_protected/settings': typeof Char123LocaleChar125ProtectedSettingsRoute
+  '/{-$locale}/_protected/dashboard/day': typeof Char123LocaleChar125ProtectedDashboardDayRoute
+  '/{-$locale}/_protected/dashboard/month': typeof Char123LocaleChar125ProtectedDashboardMonthRoute
+  '/{-$locale}/_protected/dashboard/projects': typeof Char123LocaleChar125ProtectedDashboardProjectsRoute
+  '/{-$locale}/_protected/dashboard/week': typeof Char123LocaleChar125ProtectedDashboardWeekRoute
+  '/{-$locale}/_protected/dashboard/': typeof Char123LocaleChar125ProtectedDashboardIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -71,8 +120,20 @@ export interface FileRouteTypes {
     | '/{-$locale}/'
     | '/{-$locale}/dashboard'
     | '/{-$locale}/settings'
+    | '/{-$locale}/dashboard/day'
+    | '/{-$locale}/dashboard/month'
+    | '/{-$locale}/dashboard/projects'
+    | '/{-$locale}/dashboard/week'
+    | '/{-$locale}/dashboard/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/{-$locale}' | '/{-$locale}/dashboard' | '/{-$locale}/settings'
+  to:
+    | '/{-$locale}'
+    | '/{-$locale}/settings'
+    | '/{-$locale}/dashboard/day'
+    | '/{-$locale}/dashboard/month'
+    | '/{-$locale}/dashboard/projects'
+    | '/{-$locale}/dashboard/week'
+    | '/{-$locale}/dashboard'
   id:
     | '__root__'
     | '/{-$locale}'
@@ -80,6 +141,11 @@ export interface FileRouteTypes {
     | '/{-$locale}/'
     | '/{-$locale}/_protected/dashboard'
     | '/{-$locale}/_protected/settings'
+    | '/{-$locale}/_protected/dashboard/day'
+    | '/{-$locale}/_protected/dashboard/month'
+    | '/{-$locale}/_protected/dashboard/projects'
+    | '/{-$locale}/_protected/dashboard/week'
+    | '/{-$locale}/_protected/dashboard/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -123,18 +189,80 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char123LocaleChar125ProtectedDashboardRouteImport
       parentRoute: typeof Char123LocaleChar125ProtectedRouteRoute
     }
+    '/{-$locale}/_protected/dashboard/': {
+      id: '/{-$locale}/_protected/dashboard/'
+      path: '/'
+      fullPath: '/{-$locale}/dashboard/'
+      preLoaderRoute: typeof Char123LocaleChar125ProtectedDashboardIndexRouteImport
+      parentRoute: typeof Char123LocaleChar125ProtectedDashboardRoute
+    }
+    '/{-$locale}/_protected/dashboard/week': {
+      id: '/{-$locale}/_protected/dashboard/week'
+      path: '/week'
+      fullPath: '/{-$locale}/dashboard/week'
+      preLoaderRoute: typeof Char123LocaleChar125ProtectedDashboardWeekRouteImport
+      parentRoute: typeof Char123LocaleChar125ProtectedDashboardRoute
+    }
+    '/{-$locale}/_protected/dashboard/projects': {
+      id: '/{-$locale}/_protected/dashboard/projects'
+      path: '/projects'
+      fullPath: '/{-$locale}/dashboard/projects'
+      preLoaderRoute: typeof Char123LocaleChar125ProtectedDashboardProjectsRouteImport
+      parentRoute: typeof Char123LocaleChar125ProtectedDashboardRoute
+    }
+    '/{-$locale}/_protected/dashboard/month': {
+      id: '/{-$locale}/_protected/dashboard/month'
+      path: '/month'
+      fullPath: '/{-$locale}/dashboard/month'
+      preLoaderRoute: typeof Char123LocaleChar125ProtectedDashboardMonthRouteImport
+      parentRoute: typeof Char123LocaleChar125ProtectedDashboardRoute
+    }
+    '/{-$locale}/_protected/dashboard/day': {
+      id: '/{-$locale}/_protected/dashboard/day'
+      path: '/day'
+      fullPath: '/{-$locale}/dashboard/day'
+      preLoaderRoute: typeof Char123LocaleChar125ProtectedDashboardDayRouteImport
+      parentRoute: typeof Char123LocaleChar125ProtectedDashboardRoute
+    }
   }
 }
 
+interface Char123LocaleChar125ProtectedDashboardRouteChildren {
+  Char123LocaleChar125ProtectedDashboardDayRoute: typeof Char123LocaleChar125ProtectedDashboardDayRoute
+  Char123LocaleChar125ProtectedDashboardMonthRoute: typeof Char123LocaleChar125ProtectedDashboardMonthRoute
+  Char123LocaleChar125ProtectedDashboardProjectsRoute: typeof Char123LocaleChar125ProtectedDashboardProjectsRoute
+  Char123LocaleChar125ProtectedDashboardWeekRoute: typeof Char123LocaleChar125ProtectedDashboardWeekRoute
+  Char123LocaleChar125ProtectedDashboardIndexRoute: typeof Char123LocaleChar125ProtectedDashboardIndexRoute
+}
+
+const Char123LocaleChar125ProtectedDashboardRouteChildren: Char123LocaleChar125ProtectedDashboardRouteChildren =
+  {
+    Char123LocaleChar125ProtectedDashboardDayRoute:
+      Char123LocaleChar125ProtectedDashboardDayRoute,
+    Char123LocaleChar125ProtectedDashboardMonthRoute:
+      Char123LocaleChar125ProtectedDashboardMonthRoute,
+    Char123LocaleChar125ProtectedDashboardProjectsRoute:
+      Char123LocaleChar125ProtectedDashboardProjectsRoute,
+    Char123LocaleChar125ProtectedDashboardWeekRoute:
+      Char123LocaleChar125ProtectedDashboardWeekRoute,
+    Char123LocaleChar125ProtectedDashboardIndexRoute:
+      Char123LocaleChar125ProtectedDashboardIndexRoute,
+  }
+
+const Char123LocaleChar125ProtectedDashboardRouteWithChildren =
+  Char123LocaleChar125ProtectedDashboardRoute._addFileChildren(
+    Char123LocaleChar125ProtectedDashboardRouteChildren,
+  )
+
 interface Char123LocaleChar125ProtectedRouteRouteChildren {
-  Char123LocaleChar125ProtectedDashboardRoute: typeof Char123LocaleChar125ProtectedDashboardRoute
+  Char123LocaleChar125ProtectedDashboardRoute: typeof Char123LocaleChar125ProtectedDashboardRouteWithChildren
   Char123LocaleChar125ProtectedSettingsRoute: typeof Char123LocaleChar125ProtectedSettingsRoute
 }
 
 const Char123LocaleChar125ProtectedRouteRouteChildren: Char123LocaleChar125ProtectedRouteRouteChildren =
   {
     Char123LocaleChar125ProtectedDashboardRoute:
-      Char123LocaleChar125ProtectedDashboardRoute,
+      Char123LocaleChar125ProtectedDashboardRouteWithChildren,
     Char123LocaleChar125ProtectedSettingsRoute:
       Char123LocaleChar125ProtectedSettingsRoute,
   }
