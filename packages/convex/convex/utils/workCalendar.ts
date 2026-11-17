@@ -44,7 +44,7 @@ export function parseWorkCalendar(
     location?: string;
     meetingLink?: string;
     sourceLink?: string;
-    recurrence?: string;
+    recurrence?: string[];
   }[] = [];
   const instant = (time: ICAL.Time, component: ICAL.Component) => {
     const zone = String(
@@ -157,7 +157,7 @@ export function parseWorkCalendar(
           ...(meetingLink ? { meetingLink } : {}),
           ...(sourceLink ? { sourceLink } : {}),
           ...(component.hasProperty("rrule")
-            ? { recurrence: String(component.getFirstPropertyValue("rrule")) }
+            ? { recurrence: [String(component.getFirstPropertyValue("rrule"))] }
             : {}),
         });
         if (events.length > 500)

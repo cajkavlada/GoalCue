@@ -284,7 +284,7 @@ export function WorkCalendars() {
                   {event.meetingLink && (
                     <p className="break-all">{event.meetingLink}</p>
                   )}
-                  {event.recurrence && <p>{event.recurrence}</p>}
+                  {event.recurrence && <p>{event.recurrence.join("; ")}</p>}
                 </div>
               ))}
             </div>

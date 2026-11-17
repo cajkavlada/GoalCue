@@ -108,7 +108,8 @@ export const applyImport = authedMutation({
           "sourceLink",
           "recurrence",
         ] as const) {
-          if (previous[field] !== before[field]) overrides.add(field);
+          if (JSON.stringify(previous[field]) !== JSON.stringify(before[field]))
+            overrides.add(field);
           if (!overrides.has(field))
             patch[field] = snapshot[field as keyof typeof snapshot];
         }

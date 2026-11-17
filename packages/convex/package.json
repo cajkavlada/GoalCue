@@ -21,6 +21,7 @@
     "@gc/auth": "workspace:*",
     "@gc/db": "workspace:*",
     "@gc/validators": "workspace:*",
+    "axios": "^1.21.1",
     "convex": "catalog:convex",
     "convex-helpers": "catalog:convex",
     "fractional-indexing": "catalog:common",
@@ -32,6 +33,7 @@
     "@gc/prettier-config": "workspace:*",
     "@gc/typescript-config": "workspace:*",
     "@ianvs/prettier-plugin-sort-imports": "catalog:prettier",
+    "@types/node": "^24.7.1",
     "eslint": "catalog:eslint",
     "prettier": "catalog:prettier",
     "typescript": "catalog:typescript"

@@ -19,10 +19,14 @@ import {
   useModal,
 } from "@gc/ui";
 import {
+  Attendance,
   eventsCompatible,
+  JourneyInput,
   localDateTime,
   overlaps,
+  physicalAttendance,
   PlanningSettings,
+  planTravel,
   TimeWindow,
   WeeklyWindow,
   zonedInstant,
@@ -227,6 +231,27 @@ export function PlanningTimeSettings() {
           ].map((label, day) => ({ label, value: String(day) }))}
         />
       </label>
+      {(
+        [
+          ["recoveryWindowDays", m.recovery_window(), 7],
+          ["dailyRecoveryMinutes", m.recovery_cap(), 60],
+          ["reservePreferredMinutes", m.recovery_reserve_preferred(), 0],
+          ["reserveMinimumMinutes", m.recovery_reserve_minimum(), 0],
+        ] as const
+      ).map(([key, label, fallback]) => (
+        <label key={key}>
+          {label}
+          <Input
+            type="number"
+            min={key === "recoveryWindowDays" ? 1 : 0}
+            max={key === "recoveryWindowDays" ? 90 : 1440}
+            value={settings[key] ?? fallback}
+            onChange={(e) =>
+              setSettings({ ...settings, [key]: Number(e.target.value) })
+            }
+          />
+        </label>
+      ))}
       <h3>{m.constraints_protected()}</h3>
       <Windows
         weekly
@@ -516,12 +541,31 @@ export function EventDetails({
   event?: Doc<"fixedEvents">;
 }) {
   const { data: events } = useSuspenseQuery(
-    convexQuery(api.planning.listEvents, {})
+    convexQuery(api.planning.listEvents, { timezone })
   );
   const { data: sessions } = useSuspenseQuery(
     convexQuery(api.sessions.listSessions, {})
   );
   const [title, setTitle] = useState(event?.title ?? "");
+  const [attendance, setAttendance] = useState<Attendance["attendance"]>(
+    event?.attendance ?? "unknown"
+  );
+  const [hybridAttendance, setHybridAttendance] = useState<
+    Attendance["hybridAttendance"]
+  >(event?.hybridAttendance);
+  const [locationRequirement, setLocationRequirement] = useState(
+    event?.locationRequirement ?? ""
+  );
+  const [journey, setJourney] = useState<JourneyInput>(
+    event?.journey ?? {
+      origin: "",
+      mode: "drive",
+      routeMinutes: undefined,
+      marginPercent: 20,
+      arrivalMinutes: 10,
+      wrapUpMinutes: 0,
+    }
+  );
   const zone = timezone;
   const [start, setStart] = useState(
     event ? localDateTime(event.startAt, timezone) : `${day}T09:00`
@@ -556,6 +600,10 @@ export function EventDetails({
     mutationFn: useConvexMutation(api.planning.deleteEvent),
     onSuccess: () => closeDrawer(),
   });
+  const saveAttention = useMutation({
+    mutationFn: useConvexMutation(api.planning.setEventAttention),
+    onSuccess: () => closeDrawer(),
+  });
   let error = "";
   let startAt = NaN;
   let endAt = NaN;
@@ -577,6 +625,12 @@ export function EventDetails({
     error = cause instanceof Error ? cause.message : m.planning_save_failed();
   }
   const draft = {
+    attendance,
+    hybridAttendance,
+    locationRequirement,
+    journey: physicalAttendance({ attendance, hybridAttendance })
+      ? journey
+      : undefined,
     title,
     startAt,
     endAt,
@@ -593,6 +647,79 @@ export function EventDetails({
     .map((other) => other.title);
   for (const session of sessions.filter((s) => overlaps(s, draft)))
     if (attention === "focused") conflicts.push(session.taskTitle);
+  if (event?.sourceId)
+    return (
+      <div className="space-y-4 overflow-y-auto">
+        <h3 className="font-medium">{event.title}</h3>
+        <p>
+          {m.calendar_source()}: {event.sourceTitle}
+        </p>
+        <p className="text-muted-foreground text-sm">
+          {m.calendar_read_only()}
+        </p>
+        {event.allDayStart ? (
+          <p>
+            {m.calendar_all_day()}: {event.allDayStart} – {event.allDayEnd} (
+            {m.calendar_exclusive_end()})
+          </p>
+        ) : (
+          <p>
+            {localDateTime(event.startAt, event.timezone)} –{" "}
+            {localDateTime(event.endAt, event.timezone)} · {event.timezone}
+          </p>
+        )}
+        {event.location && <p>{event.location}</p>}
+        {event.sourceStatus && <p>{event.sourceStatus}</p>}
+        {event.meetingLink && /^https?:\/\//.test(event.meetingLink) && (
+          <a
+            className="block underline"
+            href={event.meetingLink}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {m.calendar_meeting()}
+          </a>
+        )}
+        {event.sourceUrl && /^https?:\/\//.test(event.sourceUrl) && (
+          <a
+            className="block underline"
+            href={event.sourceUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {m.calendar_open_source()}
+          </a>
+        )}
+        {event.attentionUncertain && (
+          <p role="status">{m.calendar_attention_uncertain()}</p>
+        )}
+        <label className="block space-y-1">
+          {m.constraints_attention()}
+          <Select
+            value={attention}
+            onValueChange={setAttention}
+            options={[
+              { value: "focused", label: m.constraints_focused() },
+              { value: "background", label: m.constraints_background() },
+            ]}
+          />
+        </label>
+        {saveAttention.isError && (
+          <p role="alert">{m.planning_save_failed()}</p>
+        )}
+        <Button
+          disabled={saveAttention.isPending}
+          onClick={() =>
+            saveAttention.mutate({
+              eventId: event._id,
+              attention,
+            })
+          }
+        >
+          {m.save()}
+        </Button>
+      </div>
+    );
   return (
     <form
       className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto"
@@ -613,6 +740,168 @@ export function EventDetails({
           }}
         />
       </label>
+      <label>
+        {m.travel_attendance()}
+        <Select
+          value={attendance ?? "unknown"}
+          onValueChange={setAttendance}
+          options={[
+            { value: "unknown", label: m.travel_unknown() },
+            { value: "online", label: m.travel_online() },
+            { value: "physical", label: m.travel_physical() },
+            { value: "hybrid", label: m.travel_hybrid() },
+          ]}
+        />
+      </label>
+      {attendance === "hybrid" && (
+        <label>
+          {m.travel_intended()}
+          <Select
+            value={hybridAttendance ?? "unknown"}
+            onValueChange={(value) =>
+              setHybridAttendance(value === "unknown" ? undefined : value)
+            }
+            options={[
+              { value: "unknown", label: m.travel_unknown() },
+              { value: "online", label: m.travel_online() },
+              { value: "physical", label: m.travel_physical() },
+            ]}
+          />
+        </label>
+      )}
+      <label>
+        {m.travel_location()}
+        <Input
+          value={locationRequirement}
+          maxLength={500}
+          onChange={(e) => {
+            setLocationRequirement(e.target.value);
+            setJourney({ ...journey, routeMinutes: undefined });
+          }}
+        />
+      </label>
+      {physicalAttendance(draft) && (
+        <fieldset className="space-y-3 rounded border p-3">
+          <legend>{m.travel_journey()}</legend>
+          <p className="text-muted-foreground text-xs">
+            {m.travel_manual_hint()}
+          </p>
+          <label>
+            {m.travel_origin()}
+            <Input
+              value={journey.origin}
+              maxLength={500}
+              onChange={(e) =>
+                setJourney({
+                  ...journey,
+                  origin: e.target.value,
+                  routeMinutes: undefined,
+                })
+              }
+            />
+          </label>
+          <label>
+            {m.travel_mode()}
+            <Select
+              value={journey.mode}
+              onValueChange={(mode) =>
+                setJourney({ ...journey, mode, routeMinutes: undefined })
+              }
+              options={[
+                { value: "walk", label: m.travel_walk() },
+                { value: "cycle", label: m.travel_cycle() },
+                { value: "drive", label: m.travel_drive() },
+                { value: "transit", label: m.travel_transit() },
+              ]}
+            />
+          </label>
+          <label>
+            {m.travel_route()}
+            <Input
+              type="number"
+              min={0}
+              max={10080}
+              step="any"
+              value={journey.routeMinutes ?? ""}
+              onChange={(e) =>
+                setJourney({
+                  ...journey,
+                  routeMinutes:
+                    e.target.value === "" ? undefined : Number(e.target.value),
+                })
+              }
+            />
+          </label>
+          <label>
+            {m.travel_margin()}
+            <Input
+              type="number"
+              min={0}
+              max={10080}
+              step="any"
+              value={journey.marginPercent}
+              onChange={(e) =>
+                setJourney({
+                  ...journey,
+                  marginPercent: Number(e.target.value),
+                })
+              }
+            />
+          </label>
+          <label>
+            {m.travel_arrival()}
+            <Input
+              type="number"
+              min={0}
+              max={10080}
+              step="any"
+              value={journey.arrivalMinutes}
+              onChange={(e) =>
+                setJourney({
+                  ...journey,
+                  arrivalMinutes: Number(e.target.value),
+                })
+              }
+            />
+          </label>
+          <label>
+            {m.travel_wrap_up()}
+            <Input
+              type="number"
+              min={0}
+              max={10080}
+              step="any"
+              value={journey.wrapUpMinutes}
+              onChange={(e) =>
+                setJourney({
+                  ...journey,
+                  wrapUpMinutes: Number(e.target.value),
+                })
+              }
+            />
+          </label>
+        </fieldset>
+      )}
+      {!error &&
+        planTravel([...events.filter((e) => e._id !== event?._id), draft])
+          .journeys.filter(
+            (j) =>
+              j.eventStartAt === startAt &&
+              (j.uncertainty || j.shortfallMinutes > 0)
+          )
+          .map((j) => (
+            <p
+              role="alert"
+              key={j.eventStartAt}
+            >
+              {m.travel_review()} {j.uncertainty}{" "}
+              {j.shortfallMinutes > 0 &&
+                m.travel_shortfall({
+                  minutes: Math.ceil(j.shortfallMinutes),
+                })}{" "}
+              {m.travel_options()}
+            </p>
+          ))}
       <EventDateTime
         label={m.planning_start()}
         value={start}

@@ -32,6 +32,7 @@
     "@tanstack/react-form": "catalog:tanstack",
     "@tanstack/react-query": "catalog:tanstack",
     "@tanstack/react-router": "catalog:tanstack",
+    "axios": "^1.21.1",
     "babel-plugin-react-compiler": "catalog:react",
     "date-fns": "catalog:common",
     "fractional-indexing": "catalog:common",
