@@ -5,6 +5,7 @@ import {
   dayBounds,
   overlaps,
   placementConflicts,
+  projectAllDayEvent,
   validatePlanning,
 } from "@gc/validators";
 
@@ -225,14 +226,28 @@ export const saveSettings = authedMutation({
 });
 
 export const listEvents = authedQuery({
-  args: {},
-  handler: async (ctx) =>
+  args: { timezone: v.optional(v.string()) },
+  handler: async (ctx, { timezone }) =>
     (
       await ctx.db
         .query("fixedEvents")
         .withIndex("by_user_start", (q) => q.eq("userId", ctx.userId))
         .collect()
-    ).filter((event) => event.deletedAt === undefined),
+    )
+      .filter((event) => event.deletedAt === undefined)
+      .map((event) => projectAllDayEvent(event, timezone ?? event.timezone)),
+});
+
+export const setEventAttention = authedMutation({
+  args: { eventId: v.id("fixedEvents"), attention: fixedEventFields.attention },
+  rateLimit: { name: "setEventAttention" },
+  handler: async (ctx, { eventId, attention }) => {
+    const event = await ctx.db.get(eventId);
+    if (!event || event.userId !== ctx.userId || event.deletedAt !== undefined)
+      throw new ConvexError({ message: "Event not found" });
+    await ctx.db.patch(eventId, { attention, attentionUncertain: false });
+    await autoPlan(ctx);
+  },
 });
 
 export const saveEvent = authedMutation({
@@ -267,7 +282,28 @@ export const saveEvent = authedMutation({
         existing.deletedAt !== undefined
       )
         throw new ConvexError({ message: "Event not found" });
-      await ctx.db.patch(eventId, values);
+      if (existing.sourceId) {
+        if (
+          event.title !== existing.title ||
+          event.startAt !== existing.startAt ||
+          event.endAt !== existing.endAt ||
+          event.timezone !== existing.timezone
+        )
+          throw new ConvexError({
+            message: "Imported Event details are read-only",
+          });
+        await ctx.db.patch(eventId, {
+          attention: event.attention,
+          attentionUncertain: false,
+        });
+        await autoPlan(ctx);
+        return eventId;
+      }
+      await ctx.db.patch(eventId, {
+        ...values,
+        allDayStart: undefined,
+        allDayEnd: undefined,
+      });
       await autoPlan(ctx);
       return eventId;
     }
@@ -287,6 +323,10 @@ export const deleteEvent = authedMutation({
     const event = await ctx.db.get(eventId);
     if (!event || event.userId !== ctx.userId)
       throw new ConvexError({ message: "Event not found" });
+    if (event.sourceId)
+      throw new ConvexError({
+        message: "Disconnect the calendar Source to remove imported Events",
+      });
     await ctx.db.patch(eventId, { deletedAt: Date.now() });
     await autoPlan(ctx);
   },

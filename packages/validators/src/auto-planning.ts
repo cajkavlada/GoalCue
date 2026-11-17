@@ -5,6 +5,7 @@ import {
   localDateTime,
   overlaps,
   placementConflicts,
+  projectAllDayEvent,
   shiftDate,
 } from "./planning";
 
@@ -65,6 +66,7 @@ export function planSessions({
     weekdays: number[];
   }[];
 }) {
+  events = events.map((event) => projectAllDayEvent(event, settings.timezone));
   const startAt = Math.max(dayBounds(date, settings.timezone).startAt, now);
   const endAt = dayBounds(shiftDate(date, 7), settings.timezone).startAt;
   const windows = Array.from({ length: 7 }, (_, i) =>

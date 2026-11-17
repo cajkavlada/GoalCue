@@ -516,7 +516,7 @@ export function EventDetails({
   event?: Doc<"fixedEvents">;
 }) {
   const { data: events } = useSuspenseQuery(
-    convexQuery(api.planning.listEvents, {})
+    convexQuery(api.planning.listEvents, { timezone })
   );
   const { data: sessions } = useSuspenseQuery(
     convexQuery(api.sessions.listSessions, {})
@@ -556,6 +556,10 @@ export function EventDetails({
     mutationFn: useConvexMutation(api.planning.deleteEvent),
     onSuccess: () => closeDrawer(),
   });
+  const saveAttention = useMutation({
+    mutationFn: useConvexMutation(api.planning.setEventAttention),
+    onSuccess: () => closeDrawer(),
+  });
   let error = "";
   let startAt = NaN;
   let endAt = NaN;
@@ -593,6 +597,79 @@ export function EventDetails({
     .map((other) => other.title);
   for (const session of sessions.filter((s) => overlaps(s, draft)))
     if (attention === "focused") conflicts.push(session.taskTitle);
+  if (event?.sourceId)
+    return (
+      <div className="space-y-4 overflow-y-auto">
+        <h3 className="font-medium">{event.title}</h3>
+        <p>
+          {m.calendar_source()}: {event.sourceTitle}
+        </p>
+        <p className="text-muted-foreground text-sm">
+          {m.calendar_read_only()}
+        </p>
+        {event.allDayStart ? (
+          <p>
+            {m.calendar_all_day()}: {event.allDayStart} – {event.allDayEnd} (
+            {m.calendar_exclusive_end()})
+          </p>
+        ) : (
+          <p>
+            {localDateTime(event.startAt, event.timezone)} –{" "}
+            {localDateTime(event.endAt, event.timezone)} · {event.timezone}
+          </p>
+        )}
+        {event.location && <p>{event.location}</p>}
+        {event.sourceStatus && <p>{event.sourceStatus}</p>}
+        {event.meetingLink && /^https?:\/\//.test(event.meetingLink) && (
+          <a
+            className="block underline"
+            href={event.meetingLink}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {m.calendar_meeting()}
+          </a>
+        )}
+        {event.sourceUrl && /^https?:\/\//.test(event.sourceUrl) && (
+          <a
+            className="block underline"
+            href={event.sourceUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {m.calendar_open_source()}
+          </a>
+        )}
+        {event.attentionUncertain && (
+          <p role="status">{m.calendar_attention_uncertain()}</p>
+        )}
+        <label className="block space-y-1">
+          {m.constraints_attention()}
+          <Select
+            value={attention}
+            onValueChange={setAttention}
+            options={[
+              { value: "focused", label: m.constraints_focused() },
+              { value: "background", label: m.constraints_background() },
+            ]}
+          />
+        </label>
+        {saveAttention.isError && (
+          <p role="alert">{m.planning_save_failed()}</p>
+        )}
+        <Button
+          disabled={saveAttention.isPending}
+          onClick={() =>
+            saveAttention.mutate({
+              eventId: event._id,
+              attention,
+            })
+          }
+        >
+          {m.save()}
+        </Button>
+      </div>
+    );
   return (
     <form
       className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto"

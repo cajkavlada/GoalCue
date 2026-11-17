@@ -37,7 +37,31 @@ export function supportsBatchCheckIn(
 export type FixedEvent = Interval & {
   title: string;
   attention: "focused" | "background";
+  allDayStart?: string;
+  allDayEnd?: string;
+  timezone?: string;
 };
+
+export function projectAllDayEvent<
+  T extends Interval & { allDayStart?: string; allDayEnd?: string },
+>(event: T, timezone: string): T {
+  if (!event.allDayStart || !event.allDayEnd) return event;
+  return {
+    ...event,
+    startAt: zonedInstant(
+      `${event.allDayStart}T00:00`,
+      timezone,
+      "earlier",
+      "forward"
+    ),
+    endAt: zonedInstant(
+      `${event.allDayEnd}T00:00`,
+      timezone,
+      "earlier",
+      "forward"
+    ),
+  };
+}
 
 export function localDateTime(instant: number, timezone: string) {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -288,7 +312,11 @@ export function placementConflicts(
       date = shiftDate(date, 1);
     }
   }
-  const concurrent = events.filter((e) => overlaps(e, interval));
+  const concurrent = events
+    .map((e) =>
+      projectAllDayEvent(e, settings?.timezone ?? e.timezone ?? "UTC")
+    )
+    .filter((e) => overlaps(e, interval));
   for (const event of concurrent)
     if (event.attention === "focused") reasons.add(`Event: ${event.title}`);
   return [...reasons];

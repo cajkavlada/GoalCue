@@ -1,6 +1,8 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
+import { importedEventFields } from "./calendarDbSchema";
+
 export const timeWindow = v.object({ start: v.number(), end: v.number() });
 export const weeklyWindow = v.object({
   weekday: v.number(),
@@ -91,7 +93,24 @@ export const planningDbSchema = {
   fixedEvents: defineTable({
     userId: v.string(),
     ...fixedEventFields,
+    sourceId: v.optional(v.id("calendarSources")),
+    sourceEventId: v.optional(v.string()),
+    sourceTitle: v.optional(v.string()),
+    sourceAccess: v.optional(v.union(v.literal("full"), v.literal("busy"))),
+    sourceStatus: importedEventFields.sourceStatus,
+    sourceUrl: importedEventFields.sourceUrl,
+    location: importedEventFields.location,
+    meetingLink: importedEventFields.meetingLink,
+    recurrence: importedEventFields.recurrence,
+    recurringEventId: importedEventFields.recurringEventId,
+    originalStart: importedEventFields.originalStart,
+    iCalUID: importedEventFields.iCalUID,
+    allDayStart: importedEventFields.allDayStart,
+    allDayEnd: importedEventFields.allDayEnd,
+    attentionUncertain: v.optional(v.boolean()),
     compatibleActivities: v.optional(v.array(v.string())),
     deletedAt: v.optional(v.number()),
-  }).index("by_user_start", ["userId", "startAt"]),
+  })
+    .index("by_user_start", ["userId", "startAt"])
+    .index("by_source", ["sourceId", "sourceEventId"]),
 };
