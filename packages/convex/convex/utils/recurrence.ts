@@ -214,14 +214,20 @@ export async function syncOccurrences(
       ) {
         await ctx.db.patch(occurrence._id, {
           expiredAt: now,
-          automaticSchedulingPaused: true,
+          automaticSchedulingPaused: occurrence.leisure
+            ? occurrence.automaticSchedulingPaused
+            : true,
         });
         const sessions = await ctx.db
           .query("sessions")
           .withIndex("by_task", (q) => q.eq("taskId", occurrence._id))
           .collect();
         for (const session of sessions)
-          if (session.startAt > now && session.unscheduledAt === undefined)
+          if (
+            session.startAt > now &&
+            session.unscheduledAt === undefined &&
+            !session.recoveryRequestId
+          )
             await ctx.db.patch(session._id, {
               unscheduledAt: now,
               revision: (session.revision ?? 0) + 1,

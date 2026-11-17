@@ -2,6 +2,8 @@ import { literals } from "convex-helpers/validators";
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
+import { attendanceFields } from "./planningDbSchema";
+
 export const recurrenceRule = v.object({
   kind: literals("calendar", "frequency", "volume", "completion"),
   unit: literals("day", "week", "month", "year"),
@@ -31,6 +33,7 @@ const sessionFields = {
   checkInRequestedAt: v.optional(v.number()),
   checkInUpdatedAt: v.optional(v.number()),
   planningEffortMinutes: v.optional(v.number()),
+  recoveryRequestId: v.optional(v.id("recoveryRequests")),
   checkIn: v.optional(
     v.object({
       outcome: literals("finished", "progress", "missed"),
@@ -53,6 +56,7 @@ const progressSnapshot = {
 
 export const taskDbSchema = {
   tasks: defineTable({
+    ...attendanceFields,
     title: v.string(),
     projectId: v.optional(v.id("projects")),
     milestoneId: v.optional(v.id("milestones")),
@@ -77,6 +81,8 @@ export const taskDbSchema = {
     occurrencePreviousCompletedAt: v.optional(v.number()),
     expiredAt: v.optional(v.number()),
     effortMinutes: v.optional(v.number()),
+    leisure: v.optional(v.boolean()),
+    recoveryWindowDays: v.optional(v.number()),
     minSessionMinutes: v.optional(v.number()),
     maxSessionMinutes: v.optional(v.number()),
     automaticSchedulingPaused: v.optional(v.boolean()),

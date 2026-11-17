@@ -1,3 +1,6 @@
+import type { Attendance, JourneyInput } from "./travel";
+import { planTravel } from "./travel";
+
 export type TimeWindow = { start: number; end: number };
 export type WeeklyWindow = TimeWindow & { weekday: number };
 export type DateOverride = {
@@ -9,6 +12,10 @@ export type PlanningSettings = {
   timezone: string;
   weekStartsOn?: number;
   restrictAvailability?: boolean;
+  recoveryWindowDays?: number;
+  dailyRecoveryMinutes?: number;
+  reservePreferredMinutes?: number;
+  reserveMinimumMinutes?: number;
   weekly: WeeklyWindow[];
   overrides: DateOverride[];
   protectedWeekly: WeeklyWindow[];
@@ -34,13 +41,15 @@ export function supportsBatchCheckIn(
     (session.startAt <= now || session.checkInRequestedAt !== undefined)
   );
 }
-export type FixedEvent = Interval & {
-  title: string;
-  attention: "focused" | "background";
-  allDayStart?: string;
-  allDayEnd?: string;
-  timezone?: string;
-};
+export type FixedEvent = Interval &
+  Attendance & {
+    title: string;
+    attention: "focused" | "background";
+    timezone?: string;
+    journey?: JourneyInput;
+    allDayStart?: string;
+    allDayEnd?: string;
+  };
 
 export function projectAllDayEvent<
   T extends Interval & { allDayStart?: string; allDayEnd?: string },
@@ -132,6 +141,32 @@ export function dayBounds(date: string, timezone: string) {
 }
 
 export function validatePlanning(settings: PlanningSettings) {
+  for (const value of [
+    settings.recoveryWindowDays,
+    settings.dailyRecoveryMinutes,
+    settings.reservePreferredMinutes,
+    settings.reserveMinimumMinutes,
+  ]) {
+    if (
+      value !== undefined &&
+      (!Number.isInteger(value) || value < 0 || value > 1440)
+    )
+      throw new Error(
+        "Recovery and reserve settings must be whole nonnegative numbers up to 1440"
+      );
+  }
+  if (
+    (settings.recoveryWindowDays ?? 7) < 1 ||
+    (settings.recoveryWindowDays ?? 7) > 90
+  )
+    throw new Error("Recovery window must be between 1 and 90 days");
+  if (
+    (settings.reserveMinimumMinutes ?? 0) >
+    (settings.reservePreferredMinutes ?? 0)
+  )
+    throw new Error(
+      "Free-time reserve minimum must not exceed its preferred amount"
+    );
   if (
     settings.weekStartsOn !== undefined &&
     (!Number.isInteger(settings.weekStartsOn) ||
@@ -312,11 +347,12 @@ export function placementConflicts(
       date = shiftDate(date, 1);
     }
   }
-  const concurrent = events
-    .map((e) =>
-      projectAllDayEvent(e, settings?.timezone ?? e.timezone ?? "UTC")
-    )
-    .filter((e) => overlaps(e, interval));
+  const projected = events.map((e) =>
+    projectAllDayEvent(e, settings?.timezone ?? e.timezone ?? "UTC")
+  );
+  const concurrent = projected.filter((e) => overlaps(e, interval));
+  for (const block of planTravel(projected).blocks)
+    if (overlaps(block, interval)) reasons.add(block.title);
   for (const event of concurrent)
     if (event.attention === "focused") reasons.add(`Event: ${event.title}`);
   return [...reasons];

@@ -30,8 +30,10 @@ import {
   dayBounds,
   eventsCompatible,
   localDateTime,
+  locationWindows,
   overlaps,
   placementConflicts,
+  planTravel,
   zonedInstant,
 } from "@gc/validators";
 
@@ -188,6 +190,10 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
       ? event.allDayStart <= day && event.allDayEnd > day
       : event.startAt < end && event.endAt > start
   );
+  const travel = planTravel(events);
+  const dayJourneys = travel.journeys.filter(
+    (j) => j.startAt < end && j.eventStartAt >= start
+  );
   const focusedEvents = dayEvents.filter(
     (event) => event.attention === "focused"
   );
@@ -196,7 +202,12 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
     (total, window) =>
       total +
       freeDayMinutes(
-        [...today, ...focusedEvents, ...constraints.protected],
+        [
+          ...today,
+          ...focusedEvents,
+          ...constraints.protected,
+          ...travel.blocks,
+        ],
         window.startAt,
         window.endAt
       ),
@@ -466,6 +477,7 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
             endAt: overlay.endAt,
             taskTitle: tasks.find((t) => t._id === overlay.taskId)?.title ?? "",
             taskCompletedAt: undefined,
+            recoveryRequestId: undefined,
           },
         ]
     : today;
@@ -776,45 +788,48 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
                 )}
                 {replan.error && <p role="alert">{replan.error.message}</p>}
                 {undo.error && <p role="alert">{undo.error.message}</p>}
-                {!!dayPlan?.changes.length && (
-                  <details>
-                    <summary>
-                      {m.planning_automatic_changes({
-                        count: dayPlan.changes.length,
-                      })}
-                    </summary>
-                    <ul>
-                      {dayPlan.changes.map((change) => (
-                        <li key={change.sessionId}>
-                          {change.title}: {change.reason}
-                          {change.before && (
-                            <>
-                              {" "}
-                              · {localDateTime(change.before.startAt, timezone)}
-                              –{clock(change.before.endAt)}
-                            </>
-                          )}
-                          {" → "}
-                          {change.after ? (
-                            <>
-                              {localDateTime(change.after.startAt, timezone)}–
-                              {clock(change.after.endAt)}
-                            </>
-                          ) : (
-                            m.planning_unschedule_session()
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                    <Button
-                      variant="outline"
-                      disabled={undo.isPending}
-                      onClick={() => undo.mutate({})}
-                    >
-                      {m.planning_undo_plan()}
-                    </Button>
-                  </details>
-                )}
+                {!!dayPlan &&
+                  (!!dayPlan.changes.length ||
+                    !!dayPlan.recoveryUndo?.length) && (
+                    <details>
+                      <summary>
+                        {m.planning_automatic_changes({
+                          count: dayPlan.changes.length,
+                        })}
+                      </summary>
+                      <ul>
+                        {dayPlan.changes.map((change) => (
+                          <li key={change.sessionId}>
+                            {change.title}: {change.reason}
+                            {change.before && (
+                              <>
+                                {" "}
+                                ·{" "}
+                                {localDateTime(change.before.startAt, timezone)}
+                                –{clock(change.before.endAt)}
+                              </>
+                            )}
+                            {" → "}
+                            {change.after ? (
+                              <>
+                                {localDateTime(change.after.startAt, timezone)}–
+                                {clock(change.after.endAt)}
+                              </>
+                            ) : (
+                              m.planning_unschedule_session()
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                      <Button
+                        variant="outline"
+                        disabled={undo.isPending}
+                        onClick={() => undo.mutate({})}
+                      >
+                        {m.planning_undo_plan()}
+                      </Button>
+                    </details>
+                  )}
                 {!!dayPlan?.shortfalls.length && (
                   <details open>
                     <summary>{m.planning_shortfalls()}</summary>
@@ -839,6 +854,7 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
                     {conflict}
                   </p>
                 ))}
+                <RecoveryHistory timezone={timezone} />
               </div>
             </details>
             <details
@@ -853,6 +869,94 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
           </aside>
         </div>
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {dayJourneys.length > 0 && (
+            <details
+              className="max-h-60 shrink-0 overflow-auto border-b px-4 py-2"
+              open
+            >
+              <summary>{m.travel_agenda()}</summary>
+              {dayJourneys.map((j, index) => {
+                const visit = events.find(
+                  (e) => e.startAt === j.eventStartAt && e.title === j.title
+                );
+                const shared = visit
+                  ? sessions.filter(
+                      (s) =>
+                        s.locationRequirement?.trim() === j.destination &&
+                        locationWindows(s, events)?.some(
+                          (w) =>
+                            w.startAt ===
+                              visit.endAt + j.wrapUpMinutes * MINUTE &&
+                            s.startAt >= w.startAt &&
+                            s.endAt <= w.endAt
+                        )
+                    )
+                  : [];
+                return (
+                  <div
+                    key={index}
+                    className="space-y-1 border-t py-2 text-sm"
+                  >
+                    <Button
+                      variant="link"
+                      onClick={() =>
+                        editEvent(
+                          events.find(
+                            (e) =>
+                              e.startAt === j.eventStartAt &&
+                              e.title === j.title
+                          )
+                        )
+                      }
+                    >
+                      {j.title}
+                    </Button>
+                    <p>
+                      {j.origin || m.travel_unknown()} →{" "}
+                      {j.destination || m.travel_unknown()} ·{" "}
+                      {j.mode ?? m.travel_unknown()} · {clock(j.startAt)}–
+                      {clock(j.endAt)}
+                    </p>
+                    <p>
+                      {m.travel_route_summary({
+                        route:
+                          j.routeMinutes === undefined
+                            ? m.travel_unresolved()
+                            : j.routeMinutes,
+                        margin: Math.ceil(j.marginMinutes),
+                        arrival: j.arrivalMinutes,
+                        wrap: j.wrapUpMinutes,
+                      })}
+                    </p>
+                    {shared.length > 0 && (
+                      <p>
+                        {m.travel_shared()}{" "}
+                        {shared.map((s) => (
+                          <Button
+                            key={s._id}
+                            variant="link"
+                            onClick={() => openTask(s.taskId)}
+                          >
+                            {s.taskTitle}
+                          </Button>
+                        ))}
+                      </p>
+                    )}
+                    {(j.uncertainty || j.shortfallMinutes > 0) && (
+                      <p role="alert">
+                        {j.uncertainty}{" "}
+                        {j.shortfallMinutes > 0 &&
+                          m.travel_shortfall({
+                            minutes: Math.ceil(j.shortfallMinutes),
+                          })}{" "}
+                        {m.travel_options()}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </details>
+          )}
           <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
             <div
               className="flex min-h-0 flex-1 flex-col"
@@ -902,6 +1006,27 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
                         <span className="text-xs">
                           {m.constraints_availability()}
                         </span>
+                      </div>
+                    ))}
+                  {travel.blocks
+                    .filter((b) => overlaps(b, { startAt: start, endAt: end }))
+                    .map((block, index) => (
+                      <div
+                        key={`travel-${index}`}
+                        className="pointer-events-none absolute inset-x-0 border-l-4 border-sky-600 bg-sky-500/20"
+                        style={{
+                          top:
+                            ((Math.max(start, block.startAt) - start) /
+                              MINUTE) *
+                            PX,
+                          height:
+                            ((Math.min(end, block.endAt) -
+                              Math.max(start, block.startAt)) /
+                              MINUTE) *
+                            PX,
+                        }}
+                      >
+                        <span className="text-xs">{block.title}</span>
                       </div>
                     ))}
                   {constraints.protected.map((window, index) => (
@@ -970,6 +1095,9 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
                         content={
                           <div>
                             <p className="font-semibold">{session.taskTitle}</p>
+                            {session.recoveryRequestId && (
+                              <p>{m.recovery_session()}</p>
+                            )}
                             <p>
                               {clock(session.startAt)}–{clock(session.endAt)} ·{" "}
                               {Math.round(
@@ -1038,6 +1166,9 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
                             {!compact && (
                               <p className="truncate text-xs font-semibold">
                                 {session.taskTitle}
+                                {session.recoveryRequestId && (
+                                  <> · {m.recovery_session()}</>
+                                )}
                               </p>
                             )}
                             {!compact &&
@@ -1174,6 +1305,86 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
         </div>
       )}
     </div>
+  );
+}
+
+function RecoveryHistory({ timezone }: { timezone: string }) {
+  const { data: requests } = useSuspenseQuery(
+    convexQuery(api.planning.listRecovery, {})
+  );
+  const update = useMutation({
+    mutationFn: useConvexMutation(api.planning.updateRecovery),
+  });
+  const today = localDateTime(Date.now(), timezone).slice(0, 10);
+  if (!requests.length) return null;
+  return (
+    <details open>
+      <summary>{m.recovery_title()}</summary>
+      <ul className="space-y-3">
+        {requests.map((request) => {
+          const restored = request.allocations.reduce(
+            (n, w) => n + (w.endAt - w.startAt) / 60000,
+            0
+          );
+          const status =
+            request.dismissedAt !== undefined
+              ? m.recovery_dismissed()
+              : restored >= request.minutes
+                ? m.recovery_restored()
+                : request.expiresOn < today
+                  ? m.recovery_expired()
+                  : m.recovery_pending();
+          return (
+            <li key={request._id}>
+              <p>
+                {request.title}: {restored}/{request.minutes} min · {status} ·{" "}
+                {m.recovery_until()} {request.expiresOn}
+              </p>
+              {request.allocations.map((allocation) => (
+                <p
+                  key={allocation.startAt}
+                  className="text-muted-foreground text-xs"
+                >
+                  {localDateTime(allocation.startAt, timezone)}–
+                  {localDateTime(allocation.endAt, timezone)}
+                </p>
+              ))}
+              {restored < request.minutes && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    disabled={update.isPending}
+                    onClick={() =>
+                      update.mutate({
+                        requestId: request._id,
+                        action: "extend",
+                      })
+                    }
+                  >
+                    {m.recovery_extend()}
+                  </Button>
+                  {request.dismissedAt === undefined && (
+                    <Button
+                      variant="outline"
+                      disabled={update.isPending}
+                      onClick={() =>
+                        update.mutate({
+                          requestId: request._id,
+                          action: "dismiss",
+                        })
+                      }
+                    >
+                      {m.recovery_dismiss()}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {update.error && <p role="alert">{update.error.message}</p>}
+    </details>
   );
 }
 
