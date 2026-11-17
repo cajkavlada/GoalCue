@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as ai from "../ai.js";
+import type * as aiActions from "../aiActions.js";
 import type * as dbQueries_index from "../dbQueries/index.js";
 import type * as planning from "../planning.js";
 import type * as priorityClasses from "../priorityClasses.js";
@@ -18,6 +20,8 @@ import type * as taskTypes from "../taskTypes.js";
 import type * as tasks from "../tasks.js";
 import type * as units from "../units.js";
 import type * as users from "../users.js";
+import type * as utils_aiPolicy from "../utils/aiPolicy.js";
+import type * as utils_aiProviders from "../utils/aiProviders.js";
 import type * as utils_authedFunctions from "../utils/authedFunctions.js";
 import type * as utils_autoPlan from "../utils/autoPlan.js";
 import type * as utils_rateLimiter from "../utils/rateLimiter.js";
@@ -31,6 +35,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  ai: typeof ai;
+  aiActions: typeof aiActions;
   "dbQueries/index": typeof dbQueries_index;
   planning: typeof planning;
   priorityClasses: typeof priorityClasses;
@@ -41,6 +47,8 @@ declare const fullApi: ApiFromModules<{
   tasks: typeof tasks;
   units: typeof units;
   users: typeof users;
+  "utils/aiPolicy": typeof utils_aiPolicy;
+  "utils/aiProviders": typeof utils_aiProviders;
   "utils/authedFunctions": typeof utils_authedFunctions;
   "utils/autoPlan": typeof utils_autoPlan;
   "utils/rateLimiter": typeof utils_rateLimiter;

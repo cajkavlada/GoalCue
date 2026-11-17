@@ -4,7 +4,16 @@
     "build": {
       "env": ["VITE_CLERK_FRONTEND_API_URL"],
       "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
+      "outputs": ["dist/**"],
+      "passThroughEnv": [
+        "AI_MODEL_REVIEWS",
+        "AI_OWNER_SUBJECT",
+        "AI_OWNER_FUNDED_SUBJECTS",
+        "AI_KEY_ENCRYPTION_SECRET",
+        "AI_OPENAI_KEY",
+        "AI_ANTHROPIC_KEY",
+        "AI_GEMINI_KEY"
+      ]
     },
     "dev": {
       "cache": false,
