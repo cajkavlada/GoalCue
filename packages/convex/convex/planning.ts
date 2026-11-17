@@ -287,7 +287,10 @@ export const deleteEvent = authedMutation({
     const event = await ctx.db.get(eventId);
     if (!event || event.userId !== ctx.userId)
       throw new ConvexError({ message: "Event not found" });
-    await ctx.db.patch(eventId, { deletedAt: Date.now() });
+    await ctx.db.patch(eventId, {
+      deletedAt: Date.now(),
+      ...(event.workSourceId ? { locallyDeleted: true } : {}),
+    });
     await autoPlan(ctx);
   },
 });

@@ -47,6 +47,8 @@ const { saveSession, listSessions, unscheduleSession, reportCheckIn } =
 const tasks = await import("../convex/tasks.ts");
 const planning = await import("../convex/planning.ts");
 const projects = await import("../convex/projects.ts");
+const workCalendars = await import("../convex/workCalendars.ts");
+const { parseWorkCalendar } = await import("../convex/utils/workCalendar.ts");
 const {
   availabilityOn,
   dayBounds,
@@ -344,6 +346,229 @@ function database() {
   });
   return { db, context, rows, reads };
 }
+
+const ics = (...events) =>
+  ["BEGIN:VCALENDAR", "VERSION:2.0", ...events, "END:VCALENDAR"].join("\r\n");
+const icsEvent = (uid, extra = "", date = "20261117") =>
+  [
+    "BEGIN:VEVENT",
+    `UID:${uid}`,
+    `DTSTART;TZID=Europe/Prague:${date}T090000`,
+    `DTEND;TZID=Europe/Prague:${date}T100000`,
+    "SUMMARY:Standup",
+    extra,
+    "END:VEVENT",
+  ]
+    .filter(Boolean)
+    .join("\r\n");
+const importSelection = {
+  from: "2026-11-01",
+  to: "2026-12-01",
+  timezone: "Europe/Prague",
+};
+
+test("ICS preserves dates, timezones, recurrence exceptions, cancellations and links", () => {
+  const parsed = parseWorkCalendar(
+    ics(
+      icsEvent(
+        "series",
+        "RRULE:FREQ=DAILY;COUNT=3\r\nEXDATE;TZID=Europe/Prague:20261118T090000\r\nLOCATION:Office\r\nDESCRIPTION:Join https://meet.example.test/room\r\nURL:https://calendar.example.test/event"
+      ),
+      "BEGIN:VEVENT\r\nUID:series\r\nRECURRENCE-ID;TZID=Europe/Prague:20261119T090000\r\nDTSTART;TZID=Europe/Prague:20261119T110000\r\nDTEND;TZID=Europe/Prague:20261119T120000\r\nSTATUS:CANCELLED\r\nEND:VEVENT",
+      "BEGIN:VEVENT\r\nUID:holiday\r\nDTSTART;VALUE=DATE:20261120\r\nDTEND;VALUE=DATE:20261122\r\nSUMMARY:Holiday\r\nEND:VEVENT"
+    ),
+    importSelection.from,
+    importSelection.to,
+    importSelection.timezone
+  );
+  assert.deepEqual(parsed.errors, []);
+  assert.equal(parsed.events.length, 3);
+  assert.equal(parsed.events[0].startAt, Date.parse("2026-11-17T08:00Z"));
+  assert.equal(parsed.events[0].location, "Office");
+  assert.equal(parsed.events[0].meetingLink, "https://meet.example.test/room");
+  assert.equal(
+    parsed.events[0].sourceLink,
+    "https://calendar.example.test/event"
+  );
+  assert.equal(parsed.events[1].cancelled, true);
+  assert.equal(parsed.events[1].startAt, Date.parse("2026-11-19T10:00Z"));
+  assert.equal(parsed.events[2].allDayStart, "2026-11-20");
+  assert.equal(parsed.events[2].allDayEnd, "2026-11-22");
+});
+
+test("ICS refresh is owned, deduplicated, scoped, atomic on rejection and preserves local overrides", async () => {
+  const { db, context } = database();
+  const ctx = context("alice");
+  const sourceId = await workCalendars.saveSource._handler(ctx, {
+    name: "Work",
+    aiEnabled: false,
+  });
+  assert.equal((await db.get(sourceId)).aiEnabled, false);
+  const args = {
+    ...importSelection,
+    sourceId,
+    fullRefresh: true,
+    text: ics(icsEvent("a"), icsEvent("b")),
+  };
+  assert.equal(
+    (await workCalendars.applyImport._handler(ctx, args)).imported,
+    2
+  );
+  let events = await planning.listEvents._handler(ctx, {});
+  const local = events[0];
+  await db.patch(local._id, {
+    attention: "background",
+    title: "My title",
+    compatibleActivities: ["reading"],
+  });
+  const updated = {
+    ...args,
+    text: ics(icsEvent("a", "LOCATION:New office"), icsEvent("b")),
+  };
+  assert.equal(
+    (await workCalendars.applyImport._handler(ctx, updated)).imported,
+    0
+  );
+  assert.equal((await db.get(local._id)).title, "My title");
+  assert.equal((await db.get(local._id)).attention, "background");
+  assert.equal((await db.get(local._id)).location, "New office");
+  assert.deepEqual((await db.get(local._id)).compatibleActivities, ["reading"]);
+  const rejected = await workCalendars.applyImport._handler(ctx, {
+    ...args,
+    text: ics(icsEvent("bad", "", "invalid")),
+  });
+  assert.ok(rejected.errors.length);
+  assert.equal((await planning.listEvents._handler(ctx, {})).length, 2);
+  await assert.rejects(
+    workCalendars.applyImport._handler(ctx, { ...args, text: "not a calendar" })
+  );
+  await assert.rejects(
+    workCalendars.applyImport._handler(context("bob"), args)
+  );
+  await workCalendars.applyImport._handler(ctx, {
+    ...args,
+    from: "2026-11-02",
+    text: ics(),
+  });
+  assert.equal((await planning.listEvents._handler(ctx, {})).length, 2);
+  await workCalendars.applyImport._handler(ctx, {
+    ...args,
+    text: ics(),
+    fullRefresh: false,
+  });
+  assert.equal((await planning.listEvents._handler(ctx, {})).length, 2);
+  assert.equal(
+    (await workCalendars.applyImport._handler(ctx, { ...args, text: ics() }))
+      .removed,
+    2
+  );
+  assert.equal((await planning.listEvents._handler(ctx, {})).length, 0);
+  await workCalendars.applyImport._handler(ctx, updated);
+  assert.equal((await planning.listEvents._handler(ctx, {})).length, 2);
+  assert.equal((await db.get(local._id)).title, "My title");
+  assert.ok(!(await db.get(sourceId)).text);
+});
+
+test("ICS cancellation-only files remove linked Events without requiring a complete refresh", async () => {
+  const { db, context } = database();
+  const ctx = context("alice");
+  const sourceId = await workCalendars.saveSource._handler(ctx, {
+    name: "Work",
+    aiEnabled: false,
+  });
+  const args = {
+    ...importSelection,
+    sourceId,
+    fullRefresh: false,
+    text: ics(icsEvent("series", "RRULE:FREQ=DAILY;COUNT=3")),
+  };
+  await workCalendars.applyImport._handler(ctx, args);
+  assert.equal((await planning.listEvents._handler(ctx, {})).length, 3);
+  await workCalendars.applyImport._handler(ctx, {
+    ...args,
+    text: ics(
+      "BEGIN:VEVENT\r\nUID:series\r\nRECURRENCE-ID;TZID=Europe/Prague:20261118T090000\r\nSTATUS:CANCELLED\r\nEND:VEVENT"
+    ),
+  });
+  assert.equal((await planning.listEvents._handler(ctx, {})).length, 2);
+  await workCalendars.applyImport._handler(ctx, {
+    ...args,
+    text: ics("BEGIN:VEVENT\r\nUID:series\r\nSTATUS:CANCELLED\r\nEND:VEVENT"),
+  });
+  assert.equal((await planning.listEvents._handler(ctx, {})).length, 0);
+  await assert.rejects(
+    workCalendars.saveSource._handler(context("bob"), {
+      sourceId,
+      name: "Other",
+      aiEnabled: true,
+    })
+  );
+  await workCalendars.saveSource._handler(ctx, {
+    sourceId,
+    name: "Work",
+    aiEnabled: true,
+  });
+  assert.equal((await db.get(sourceId)).aiEnabled, true);
+});
+
+test("ICS local overrides remain explicit when source facts catch up, and local deletions stay deleted", async () => {
+  const { db, context } = database();
+  const ctx = context("alice");
+  const sourceId = await workCalendars.saveSource._handler(ctx, {
+    name: "Work",
+    aiEnabled: false,
+  });
+  const args = {
+    ...importSelection,
+    sourceId,
+    fullRefresh: true,
+    text: ics(icsEvent("a")),
+  };
+  await workCalendars.applyImport._handler(ctx, args);
+  const [event] = await planning.listEvents._handler(ctx, {});
+  await db.patch(event._id, { title: "Mine" });
+  await workCalendars.applyImport._handler(ctx, {
+    ...args,
+    text: args.text.replace("SUMMARY:Standup", "SUMMARY:Mine"),
+  });
+  await workCalendars.applyImport._handler(ctx, args);
+  assert.equal((await db.get(event._id)).title, "Mine");
+  await planning.deleteEvent._handler(ctx, { eventId: event._id });
+  await workCalendars.applyImport._handler(ctx, { ...args, text: ics() });
+  await workCalendars.applyImport._handler(ctx, args);
+  assert.equal((await planning.listEvents._handler(ctx, {})).length, 0);
+});
+
+test("ICS recurrence follows DST and includes exceptions moved into the selected scope", () => {
+  const text = ics(icsEvent("dst", "RRULE:FREQ=DAILY;COUNT=3", "20260328"));
+  const parsed = parseWorkCalendar(
+    text,
+    "2026-03-28",
+    "2026-03-31",
+    "Europe/Prague"
+  );
+  assert.deepEqual(parsed.errors, []);
+  assert.deepEqual(
+    parsed.events.map((e) => new Date(e.startAt).toISOString()),
+    [
+      "2026-03-28T08:00:00.000Z",
+      "2026-03-29T07:00:00.000Z",
+      "2026-03-30T07:00:00.000Z",
+    ]
+  );
+  const moved = parseWorkCalendar(
+    ics(
+      icsEvent("moved", "RRULE:FREQ=DAILY;COUNT=4"),
+      "BEGIN:VEVENT\r\nUID:moved\r\nRECURRENCE-ID;TZID=Europe/Prague:20261120T090000\r\nDTSTART;TZID=Europe/Prague:20261118T110000\r\nDTEND;TZID=Europe/Prague:20261118T120000\r\nEND:VEVENT"
+    ),
+    "2026-11-18",
+    "2026-11-19",
+    "Europe/Prague"
+  );
+  assert.deepEqual(moved.errors, []);
+  assert.equal(moved.events.length, 2);
+  assert.equal(moved.events[1].startAt, Date.parse("2026-11-18T10:00Z"));
+});
 
 test("Day-panel Task search returns bounded pages, excludes inactive and other users' Tasks, and omits large details", async () => {
   const { db, context, reads } = database();

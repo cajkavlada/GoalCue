@@ -316,6 +316,9 @@ importers:
       fractional-indexing:
         specifier: catalog:common
         version: 3.2.0
+      ical.js:
+        specifier: ^2.2.1
+        version: 2.2.1
       zod:
         specifier: catalog:common
         version: 4.1.12
@@ -3102,6 +3105,9 @@ packages:
     resolution: {integrity: sha512-5gs5ytaNjBrh5Ow3zrvdUUY+0VxIuWVL4i9irt6friV+BqdCfmV11CQTWMiBYWHbXhco+J1kHfTOUkePhCDvMA==}
     engines: {node: '>=18'}
     hasBin: true
+
+  ical.js@2.2.1:
+    resolution: {integrity: sha512-yK/UlPbEs316igb/tjRgbFA8ZV75rCsBJp/hWOatpyaPNlgw0dGDmU+FoicOcwX4xXkeXOkYiOmCqNPFpNPkQg==}
 
   ignore@5.3.2:
     resolution: {integrity: sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g==}
@@ -6727,6 +6733,8 @@ snapshots:
   human-id@4.1.2: {}
 
   husky@9.1.7: {}
+
+  ical.js@2.2.1: {}
 
   ignore@5.3.2: {}
 

@@ -24,6 +24,7 @@
     "convex": "catalog:convex",
     "convex-helpers": "catalog:convex",
     "fractional-indexing": "catalog:common",
+    "ical.js": "^2.2.1",
     "zod": "catalog:common"
   },
   "devDependencies": {
