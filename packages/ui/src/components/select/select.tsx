@@ -18,7 +18,7 @@ export function Select<T extends string>({
   placeholder,
 }: {
   className?: string;
-  options?: { label: string; value: T }[];
+  options?: { label: string; value: T; description?: string }[];
   value: T;
   onValueChange: (value: T) => void;
   children?: React.ReactNode;
@@ -37,6 +37,7 @@ export function Select<T extends string>({
           <SelectItem
             key={option.value}
             value={option.value}
+            description={option.description}
           >
             {option.label}
           </SelectItem>

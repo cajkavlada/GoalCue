@@ -1,6 +1,7 @@
 import { ConvexError, Infer, v } from "convex/values";
 
 import {
+  localDateTime,
   overlaps,
   placementConflicts,
   supportsBatchCheckIn,
@@ -15,6 +16,7 @@ import {
   AuthedQueryCtx,
 } from "./utils/authedFunctions";
 import { autoPlan } from "./utils/autoPlan";
+import { resolveOccurrence } from "./utils/recurrence";
 
 async function progressDetails(
   ctx: AuthedQueryCtx,
@@ -58,6 +60,7 @@ export const listSessions = authedQuery({
             : {
                 ...session,
                 taskTitle: task.title,
+                seriesId: task.seriesId,
                 taskCompletedAt: task.completedAt,
                 ...(await progressDetails(ctx, task)),
               };
@@ -158,6 +161,14 @@ async function applyCheckIn(
         message: "Choose an extension of up to 1440 minutes",
       });
     const endAt = Math.max(now, session.endAt) + extensionMinutes * 60000;
+    if (
+      !task.occurrenceCarryForward &&
+      task.occurrenceEndAt !== undefined &&
+      endAt > task.occurrenceEndAt
+    )
+      throw new ConvexError({
+        message: "Keep the extension within its Occurrence period",
+      });
     const extension = { startAt: session.endAt, endAt };
     const settings = await ctx.db
       .query("planningSettings")
@@ -626,16 +637,58 @@ export const saveSession = authedMutation({
     ctx,
     { sessionId, taskId, startAt, endAt, allowConflict, automatic, pinned }
   ) => {
-    const task = await taskQueries({ ctx }).getById({ taskId });
-    if (task.archivedAt || task.completedAt)
-      throw new ConvexError({ message: "Schedule an active Task" });
     if (
       !Number.isFinite(startAt) ||
       !Number.isFinite(endAt) ||
       endAt <= startAt
-    ) {
+    )
       throw new ConvexError({ message: "Session end must be after its start" });
+    const requested = await taskQueries({ ctx }).getById({ taskId });
+    if (
+      requested.archivedAt ||
+      requested.completedAt ||
+      requested.expiredAt !== undefined
+    )
+      throw new ConvexError({ message: "Schedule an active Task" });
+    if (requested.recurrence && sessionId)
+      throw new ConvexError({
+        message: "Choose the Session's Occurrence to edit it",
+      });
+    const task = await resolveOccurrence(ctx, requested, startAt);
+    taskId = task._id;
+    if (requested.recurrence) {
+      const existing = await ctx.db
+        .query("sessions")
+        .withIndex("by_task", (q) => q.eq("taskId", taskId))
+        .collect();
+      const future = existing.filter(
+        (s) =>
+          s.unscheduledAt === undefined && s.startAt > Date.now() && !s.checkIn
+      );
+      sessionId = future
+        .filter((s) => !s.pinned)
+        .sort((a, b) => a.startAt - b.startAt)[0]?._id;
+      if (
+        !sessionId &&
+        task.effortMinutes !== undefined &&
+        future.reduce((sum, s) => sum + (s.endAt - s.startAt) / 60000, 0) >=
+          task.effortMinutes
+      )
+        throw new ConvexError({
+          message:
+            "This Occurrence is already scheduled in pinned Sessions. Edit its existing Session to move it.",
+        });
     }
+    if (
+      task.seriesId &&
+      (startAt < task.occurrenceStartAt! ||
+        (!task.occurrenceCarryForward &&
+          task.occurrenceEndAt !== undefined &&
+          endAt > task.occurrenceEndAt))
+    )
+      throw new ConvexError({
+        message: `This Occurrence starts at ${localDateTime(task.occurrenceStartAt!, task.occurrenceTimezone ?? "UTC")}${!task.occurrenceCarryForward && task.occurrenceEndAt !== undefined ? ` and ends at ${localDateTime(task.occurrenceEndAt, task.occurrenceTimezone ?? "UTC")}` : ""} (${task.occurrenceTimezone ?? "UTC"}). Choose a time in that range, or edit the recurrence to allow an earlier start.`,
+      });
     if (!sessionId && startAt < Date.now())
       throw new ConvexError({
         message: "A new Session cannot start in the past",

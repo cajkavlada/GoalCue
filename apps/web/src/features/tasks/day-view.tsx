@@ -25,6 +25,7 @@ import {
   DrawerButton,
   DropdownMenuItem,
   Input,
+  Tooltip,
   useModal,
 } from "@gc/ui";
 import {
@@ -137,11 +138,15 @@ export function DayView() {
   useEffect(() => {
     let current = true;
     setPlanningError("");
-    void planDay({ date: day, timezone }).catch((error: Error) => {
-      if (current) setPlanningError(error.message);
-    });
+    const refresh = () =>
+      void planDay({ date: day, timezone }).catch((error: Error) => {
+        if (current) setPlanningError(error.message);
+      });
+    refresh();
+    const timer = window.setInterval(refresh, 60_000);
     return () => {
       current = false;
+      window.clearInterval(timer);
     };
   }, [day, timezone, planDay]);
   const undo = useMutation({
@@ -468,7 +473,13 @@ export function DayView() {
           },
         ]
     : today;
-  const positions = layoutSessions([...rendered, ...dayEvents]);
+  const positions = layoutSessions([
+    ...rendered.map((session) => ({
+      ...session,
+      endAt: Math.max(session.endAt, session.startAt + (8 / PX) * MINUTE),
+    })),
+    ...dayEvents,
+  ]);
   const pendingCheckIns = sessions
     .filter(
       (s) =>
@@ -604,7 +615,7 @@ export function DayView() {
                 </p>
               )}
               <VirtualList
-                key={searchText}
+                key={`${day}:${searchText}`}
                 items={tasks}
                 className="min-h-0 flex-1 overflow-x-hidden overscroll-contain"
                 estimateSize={() => 176}
@@ -616,7 +627,14 @@ export function DayView() {
                 }
                 renderItem={(task) => {
                   const planned = sessions
-                    .filter((s) => s.taskId === task._id)
+                    .filter(
+                      (s) =>
+                        s.taskId === task._id ||
+                        (task.recurring &&
+                          s.seriesId === task._id &&
+                          s.startAt < end &&
+                          s.endAt > start)
+                    )
                     .reduce((n, s) => n + (s.endAt - s.startAt) / MINUTE, 0);
                   const remaining = Math.max(
                     0,
@@ -662,8 +680,14 @@ export function DayView() {
                           {m.planning_planned({ minutes: Math.round(planned) })}{" "}
                           ·{" "}
                           {m.planning_session_count({
-                            count: sessions.filter((s) => s.taskId === task._id)
-                              .length,
+                            count: sessions.filter(
+                              (s) =>
+                                s.taskId === task._id ||
+                                (task.recurring &&
+                                  s.seriesId === task._id &&
+                                  s.startAt < end &&
+                                  s.endAt > start)
+                            ).length,
                           })}{" "}
                           ·{" "}
                           {
@@ -682,6 +706,11 @@ export function DayView() {
                                 minutes: task.effortMinutes,
                               })}
                         </p>
+                        {task.recurring && (
+                          <p className="text-muted-foreground text-xs">
+                            {m.recurrence_title()}
+                          </p>
+                        )}
                         {task.automaticSchedulingPaused && (
                           <p className="text-muted-foreground text-xs">
                             {m.planning_automatic_paused()}
@@ -949,6 +978,8 @@ export function DayView() {
                       session._id === "preview" ||
                       overlay?.sessionId === session._id;
                     const canEdit = session.taskCompletedAt === undefined;
+                    const compact =
+                      (session.endAt - session.startAt) / MINUTE < 15;
                     const conflicts = placementConflicts(
                       session,
                       settings,
@@ -964,101 +995,127 @@ export function DayView() {
                       endAt: session.endAt,
                     };
                     return (
-                      <div
+                      <Tooltip
                         key={session._id}
-                        className={`border-primary/35 bg-accent text-accent-foreground absolute overflow-hidden rounded-md border ${active || highlightedTaskId === session.taskId ? "ring-primary z-20 ring-2" : "z-[1]"}`}
-                        style={{
-                          top:
-                            ((Math.max(start, session.startAt) - start) /
-                              MINUTE) *
-                            PX,
-                          height:
-                            ((Math.min(end, session.endAt) -
-                              Math.max(start, session.startAt)) /
-                              MINUTE) *
-                            PX,
-                          left: `calc(${(pos.lane / pos.lanes) * 100}% + 3px)`,
-                          width: `calc(${100 / pos.lanes}% - 6px)`,
-                        }}
-                      >
-                        {canEdit && session._id !== "preview" && (
-                          <button
-                            aria-label={m.planning_resize_start({
-                              title: session.taskTitle,
-                            })}
-                            className="absolute left-0 right-0 top-0 z-10 flex h-2 cursor-ns-resize touch-none items-center justify-center"
-                            onPointerDown={(e) =>
-                              begin(
-                                e,
-                                session.taskId,
-                                "start",
-                                session as CalendarSession
-                              )
-                            }
-                            onClick={(e) =>
-                              handleCalendarClick(e, () => inspect(placement))
-                            }
-                          >
-                            <span className="h-0.5 w-6 rounded bg-current opacity-40" />
-                          </button>
-                        )}
-                        <button
-                          className={`h-full w-full touch-none px-2 py-2 text-left ${canEdit ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}`}
-                          onPointerDown={(e) => {
-                            if (session._id !== "preview")
-                              begin(
-                                e,
-                                session.taskId,
-                                "move",
-                                session as CalendarSession
-                              );
-                          }}
-                          onClick={(e) =>
-                            handleCalendarClick(e, () => inspect(placement))
-                          }
-                        >
-                          <p className="truncate text-xs font-semibold">
-                            {session.taskTitle}
-                          </p>
-                          <p className="truncate text-[11px] opacity-75">
-                            {clock(session.startAt)}–{clock(session.endAt)} ·{" "}
-                            {Math.round(
-                              (session.endAt - session.startAt) / MINUTE
-                            )}
-                            m
-                          </p>
-                          {!!conflicts.length && (
-                            <p
-                              role="status"
-                              className="text-xs font-semibold"
-                            >
-                              {m.constraints_conflicts()}:{" "}
-                              {conflicts.join("; ")}
+                        content={
+                          <div>
+                            <p className="font-semibold">{session.taskTitle}</p>
+                            <p>
+                              {clock(session.startAt)}–{clock(session.endAt)} ·{" "}
+                              {Math.round(
+                                (session.endAt - session.startAt) / MINUTE
+                              )}{" "}
+                              {m.planning_minutes()}
                             </p>
+                          </div>
+                        }
+                      >
+                        <div
+                          className={`border-primary/35 bg-accent text-accent-foreground absolute overflow-hidden rounded-md border ${active || highlightedTaskId === session.taskId ? "ring-primary z-20 ring-2" : "z-[1]"}`}
+                          style={{
+                            top:
+                              ((Math.max(start, session.startAt) - start) /
+                                MINUTE) *
+                              PX,
+                            height: Math.max(
+                              8,
+                              ((Math.min(end, session.endAt) -
+                                Math.max(start, session.startAt)) /
+                                MINUTE) *
+                                PX
+                            ),
+                            left: `calc(${(pos.lane / pos.lanes) * 100}% + 3px)`,
+                            width: `calc(${100 / pos.lanes}% - 6px)`,
+                          }}
+                        >
+                          {canEdit && !compact && session._id !== "preview" && (
+                            <button
+                              aria-label={m.planning_resize_start({
+                                title: session.taskTitle,
+                              })}
+                              className="absolute left-0 right-0 top-0 z-10 flex h-2 cursor-ns-resize touch-none items-center justify-center"
+                              onPointerDown={(e) =>
+                                begin(
+                                  e,
+                                  session.taskId,
+                                  "start",
+                                  session as CalendarSession
+                                )
+                              }
+                              onClick={(e) =>
+                                handleCalendarClick(e, () => inspect(placement))
+                              }
+                            >
+                              <span className="h-0.5 w-6 rounded bg-current opacity-40" />
+                            </button>
                           )}
-                        </button>
-                        {canEdit && session._id !== "preview" && (
                           <button
-                            aria-label={m.planning_resize_end({
-                              title: session.taskTitle,
-                            })}
-                            className="absolute bottom-0 left-0 right-0 z-10 flex h-2 cursor-ns-resize touch-none items-center justify-center"
-                            onPointerDown={(e) =>
-                              begin(
-                                e,
-                                session.taskId,
-                                "end",
-                                session as CalendarSession
-                              )
-                            }
+                            aria-label={`${session.taskTitle}, ${clock(session.startAt)}–${clock(session.endAt)}`}
+                            className={`block h-full w-full touch-none px-2 ${compact ? "py-0" : "py-0.5"} text-left ${canEdit ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}`}
+                            onPointerDown={(e) => {
+                              if (session._id !== "preview")
+                                begin(
+                                  e,
+                                  session.taskId,
+                                  "move",
+                                  session as CalendarSession
+                                );
+                            }}
                             onClick={(e) =>
                               handleCalendarClick(e, () => inspect(placement))
                             }
                           >
-                            <span className="h-0.5 w-6 rounded bg-current opacity-40" />
+                            {!compact && (
+                              <p className="truncate text-xs font-semibold">
+                                {session.taskTitle}
+                              </p>
+                            )}
+                            {!compact &&
+                              ((session.endAt - session.startAt) / MINUTE) *
+                                PX >=
+                                40 && (
+                                <p className="truncate text-[11px] opacity-75">
+                                  {clock(session.startAt)}–
+                                  {clock(session.endAt)} ·{" "}
+                                  {Math.round(
+                                    (session.endAt - session.startAt) / MINUTE
+                                  )}
+                                  m
+                                </p>
+                              )}
+                            {!compact && !!conflicts.length && (
+                              <p
+                                role="status"
+                                className="text-xs font-semibold"
+                              >
+                                {m.constraints_conflicts()}:{" "}
+                                {conflicts.join("; ")}
+                              </p>
+                            )}
                           </button>
-                        )}
-                      </div>
+                          {canEdit && !compact && session._id !== "preview" && (
+                            <button
+                              aria-label={m.planning_resize_end({
+                                title: session.taskTitle,
+                              })}
+                              className="absolute bottom-0 left-0 right-0 z-10 flex h-2 cursor-ns-resize touch-none items-center justify-center"
+                              onPointerDown={(e) =>
+                                begin(
+                                  e,
+                                  session.taskId,
+                                  "end",
+                                  session as CalendarSession
+                                )
+                              }
+                              onClick={(e) =>
+                                handleCalendarClick(e, () => inspect(placement))
+                              }
+                            >
+                              <span className="h-0.5 w-6 rounded bg-current opacity-40" />
+                            </button>
+                          )}
+                        </div>
+                      </Tooltip>
                     );
                   })}
                   {dayEvents.map((event) => {
@@ -1220,6 +1277,8 @@ function SessionDetails({ placement }: { placement: Placement }) {
         <TaskProgress taskId={task._id} />
         {import.meta.env.DEV &&
           originalSession &&
+          originalSession.startAt > Date.now() &&
+          originalSession.checkInRequestedAt === undefined &&
           !originalSession.checkIn &&
           task.completedAt === undefined && (
             <Button
@@ -1239,7 +1298,13 @@ function SessionDetails({ placement }: { placement: Placement }) {
         {originalSession &&
           (originalSession.startAt <= Date.now() ||
             originalSession.checkInRequestedAt !== undefined) && (
-            <SessionCheckIn session={originalSession} />
+            <section
+              aria-label={m.check_in_title()}
+              className="bg-muted/30 space-y-3 rounded-lg border p-3"
+            >
+              <h3 className="text-sm font-semibold">{m.check_in_title()}</h3>
+              <SessionCheckIn session={originalSession} />
+            </section>
           )}
         {originalSession?.automaticReason && (
           <p className="text-sm">{originalSession.automaticReason}</p>

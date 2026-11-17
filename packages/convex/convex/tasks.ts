@@ -6,10 +6,13 @@ import {
   createTaskConvexSchema,
   createTaskZodSchema,
   extendedTaskConvexSchema,
+  localDateTime,
+  recurrenceWindows,
   taskConvexSchema,
   taskWithCorrectValuesSchema,
   updateTaskConvexSchema,
   updateTaskZodSchema,
+  validateRecurrence,
   zodParse,
 } from "@gc/validators";
 
@@ -29,9 +32,13 @@ import {
   AuthedQueryCtx,
 } from "./utils/authedFunctions";
 import { autoPlan } from "./utils/autoPlan";
+import { getRecurrenceCalendar } from "./utils/recurrence";
 
 export const listForDayPanel = authedQuery({
-  args: { search: v.string(), paginationOpts: paginationOptsValidator },
+  args: {
+    search: v.string(),
+    paginationOpts: paginationOptsValidator,
+  },
   handler: async (ctx, { search, paginationOpts }) => {
     const text = search.trim();
     const query = text
@@ -41,14 +48,16 @@ export const listForDayPanel = authedQuery({
             q
               .search("title", text)
               .eq("userId", ctx.userId)
+              .eq("seriesId", undefined)
               .eq("archivedAt", undefined)
               .eq("completedAt", undefined)
           )
       : ctx.db
           .query("tasks")
-          .withIndex("by_user_status_priority", (q) =>
+          .withIndex("by_user_catalog", (q) =>
             q
               .eq("userId", ctx.userId)
+              .eq("seriesId", undefined)
               .eq("archivedAt", undefined)
               .eq("completedAt", undefined)
           );
@@ -65,12 +74,14 @@ export const listForDayPanel = authedQuery({
           effortMinutes,
           priority,
           automaticSchedulingPaused,
+          recurrence,
         }) => ({
           _id,
           title,
           effortMinutes,
           priority,
           automaticSchedulingPaused,
+          recurring: recurrence !== undefined,
         })
       ),
     };
@@ -103,9 +114,11 @@ export const listRecentlyCompletedExtended = authedQuery({
     });
 
     const extendedTasks = await Promise.all(
-      tasks.map(async (task) => {
-        return await getExtendedTaskInfo(ctx, task);
-      })
+      tasks
+        .filter((task) => !task.recurrence)
+        .map(async (task) => {
+          return await getExtendedTaskInfo(ctx, task);
+        })
     );
     return extendedTasks;
   },
@@ -126,7 +139,25 @@ export const create = authedMutation({
   args: createTaskConvexSchema,
   rateLimit: { name: "createTask" },
   handler: async (ctx, input) => {
+    Object.assign(input, await volumeProgress(ctx, input, input.taskTypeId));
+    if (input.recurrence) {
+      input.recurrence = {
+        ...input.recurrence,
+        ...(await getRecurrenceCalendar(ctx, input.recurrence.timezone)),
+      };
+      validateRecurrence(input.recurrence);
+      if (
+        input.recurrence.kind === "volume" &&
+        input.progressMeasure !== "time" &&
+        input.progressMeasure !== "quantity"
+      )
+        throw new ConvexError({
+          message: "A volume target needs time or quantity progress",
+        });
+    }
     const taskArgs = { ...input, ...progressValues(input) };
+    if (input.recurrence?.kind === "volume")
+      taskArgs.completedNumValue = input.recurrence.volume;
     const parsedDueAt = taskArgs.dueAt ? new Date(taskArgs.dueAt) : undefined;
     zodParse(createTaskZodSchema, {
       ...taskArgs,
@@ -186,12 +217,39 @@ export const create = authedMutation({
 export const update = authedMutation({
   args: updateTaskConvexSchema,
   rateLimit: { name: "updateTask" },
-  handler: async (ctx, { taskId, ...taskArgs }) => {
+  handler: async (ctx, { taskId, editScope = "future", ...taskArgs }) => {
     const existing = await taskQueries({ ctx }).getById({ taskId });
+    Object.assign(
+      taskArgs,
+      await volumeProgress(ctx, taskArgs, existing.taskTypeId)
+    );
+    if (taskArgs.recurrence)
+      taskArgs.recurrence = {
+        ...taskArgs.recurrence,
+        ...(await getRecurrenceCalendar(ctx, taskArgs.recurrence.timezone)),
+      };
+    if (taskArgs.recurrence) validateRecurrence(taskArgs.recurrence);
+    const series = existing.seriesId
+      ? await taskQueries({ ctx }).getById({ taskId: existing.seriesId })
+      : existing.recurrence
+        ? existing
+        : undefined;
+    const recurrence = taskArgs.recurrence;
+    if (existing.seriesId) taskArgs.recurrence = undefined;
     await priorityClassQueries({ ctx }).getById({
       priorityClassId: taskArgs.priorityClassId,
     });
     Object.assign(taskArgs, progressValues(taskArgs));
+    if (recurrence?.kind === "volume" && editScope === "future") {
+      if (
+        taskArgs.progressMeasure !== "time" &&
+        taskArgs.progressMeasure !== "quantity"
+      )
+        throw new ConvexError({
+          message: "A volume target needs time or quantity progress",
+        });
+      taskArgs.completedNumValue = recurrence.volume;
+    }
     const parsedDueAt = taskArgs.dueAt ? new Date(taskArgs.dueAt) : undefined;
     zodParse(updateTaskZodSchema, {
       ...taskArgs,
@@ -204,7 +262,7 @@ export const update = authedMutation({
       newTags: tags,
     });
 
-    await ctx.db.patch(taskId, {
+    const changes = {
       ...rawTask,
       dueAt: taskArgs.dueAt ?? undefined,
       effortMinutes: taskArgs.effortMinutes,
@@ -226,7 +284,114 @@ export const update = authedMutation({
               : {}),
           }
         : {}),
-    });
+    };
+    await ctx.db.patch(taskId, changes);
+    if (existing.seriesId)
+      await ctx.db.patch(taskId, {
+        occurrenceException: editScope === "occurrence",
+        ...(editScope === "future"
+          ? { occurrenceCarryForward: recurrence?.carryForward ?? false }
+          : {}),
+      });
+    if (series && editScope === "future") {
+      const ruleChanged =
+        JSON.stringify(
+          series.recurrence,
+          Object.keys(series.recurrence ?? {}).sort()
+        ) !== JSON.stringify(recurrence, Object.keys(recurrence ?? {}).sort());
+      let selectedWindow;
+      if (
+        ruleChanged &&
+        recurrence &&
+        recurrence.kind !== "completion" &&
+        existing.seriesId
+      ) {
+        const selectedDate = localDateTime(
+          existing.occurrenceStartAt!,
+          recurrence.timezone
+        ).slice(0, 10);
+        const date =
+          selectedDate < recurrence.startDate
+            ? recurrence.startDate
+            : selectedDate;
+        const windows = recurrenceWindows(recurrence, date, date);
+        selectedWindow =
+          windows.find(
+            (window) =>
+              window.key ===
+              existing.occurrenceKey?.split(":").slice(-2).join(":")
+          ) ?? windows[0];
+        if (selectedWindow)
+          await ctx.db.patch(taskId, {
+            occurrenceStartAt: selectedWindow.startAt,
+            occurrenceTimezone: recurrence.timezone,
+            occurrenceEndAt: selectedWindow.endAt,
+            occurrenceKey: `${(series.recurrenceRevision ?? 0) + 1}:${selectedWindow.key}`,
+          });
+      }
+      await ctx.db.patch(series._id, {
+        ...changes,
+        recurrence,
+        ...(ruleChanged
+          ? {
+              recurrenceRevision: (series.recurrenceRevision ?? 0) + 1,
+              recurrenceFromAt: Math.max(
+                Date.now(),
+                selectedWindow?.endAt ??
+                  existing.occurrenceEndAt ??
+                  existing.occurrenceStartAt ??
+                  Date.now()
+              ),
+            }
+          : {}),
+        ...(recurrence ? {} : { archivedAt: Date.now() }),
+      });
+      await tagRelationsUpdate({ ctx }).updateTagsForTask({
+        taskId: series._id,
+        newTags: tags,
+      });
+      const occurrences = await ctx.db
+        .query("tasks")
+        .withIndex("by_series", (q) => q.eq("seriesId", series._id))
+        .collect();
+      for (const occurrence of occurrences) {
+        if (
+          occurrence._id === taskId ||
+          occurrence.completedAt !== undefined ||
+          occurrence.expiredAt !== undefined ||
+          occurrence.occurrenceException ||
+          occurrence.occurrenceStartAt! <
+            Math.max(Date.now(), existing.occurrenceStartAt ?? 0)
+        )
+          continue;
+        if (ruleChanged) {
+          await ctx.db.patch(occurrence._id, { archivedAt: Date.now() });
+          const sessions = await ctx.db
+            .query("sessions")
+            .withIndex("by_task", (q) => q.eq("taskId", occurrence._id))
+            .collect();
+          for (const session of sessions)
+            if (
+              session.startAt > Date.now() &&
+              session.unscheduledAt === undefined
+            )
+              await ctx.db.patch(session._id, {
+                unscheduledAt: Date.now(),
+                revision: (session.revision ?? 0) + 1,
+              });
+        } else {
+          await ctx.db.patch(occurrence._id, {
+            ...changes,
+            recurrence: undefined,
+            occurrenceCarryForward: recurrence?.carryForward ?? false,
+          });
+          await tagRelationsUpdate({ ctx }).updateTagsForTask({
+            taskId: occurrence._id,
+            newTags: tags,
+          });
+        }
+      }
+    }
     await autoPlan(ctx);
   },
 });
@@ -241,7 +406,22 @@ export const archive = authedMutation({
       taskIds.map((taskId) => taskQueries({ ctx }).getById({ taskId }))
     );
     const now = Date.now();
+    const affected = new Set(taskIds);
     for (const taskId of taskIds) {
+      const task = await ctx.db.get(taskId);
+      if (!task?.recurrence) continue;
+      const occurrences = await ctx.db
+        .query("tasks")
+        .withIndex("by_series", (q) => q.eq("seriesId", taskId))
+        .collect();
+      for (const occurrence of occurrences)
+        if (
+          occurrence.completedAt === undefined &&
+          occurrence.occurrenceStartAt! >= now
+        )
+          affected.add(occurrence._id);
+    }
+    for (const taskId of affected) {
       await ctx.db.patch(taskId, { archivedAt: now });
       const sessions = await ctx.db
         .query("sessions")
@@ -276,6 +456,9 @@ async function getExtendedTaskInfo(ctx: AuthedQueryCtx, task: Doc<"tasks">) {
   }
   return {
     ...task,
+    ...(task.seriesId
+      ? { recurrence: (await ctx.db.get(task.seriesId))?.recurrence }
+      : {}),
     taskType,
     priorityClass,
     tags,
@@ -311,4 +494,30 @@ function progressValues(input: {
     throw new ConvexError({ message: "Enter a positive progress target" });
   }
   return { initialNumValue: 0, completedNumValue: target };
+}
+
+async function volumeProgress(
+  ctx: AuthedMutationCtx,
+  input: {
+    recurrence?: Doc<"tasks">["recurrence"];
+    progressMeasure?: Doc<"tasks">["progressMeasure"];
+  },
+  taskTypeId: Id<"taskTypes">
+) {
+  if (input.recurrence?.kind !== "volume" || input.progressMeasure) return {};
+  const taskType = await taskTypeQueries({ ctx }).getById({ taskTypeId });
+  const unit = taskType.unitId ? await ctx.db.get(taskType.unitId) : null;
+  if (taskType.valueKind !== "number" || unit?.i18nKey === "units_percent")
+    throw new ConvexError({
+      message: "A volume target needs a Task type with time or quantity units",
+    });
+  return {
+    progressMeasure:
+      unit?.i18nKey === "units_minute"
+        ? ("time" as const)
+        : ("quantity" as const),
+    progressUnit: unit?.symbol || unit?.name,
+    initialNumValue: 0,
+    completedNumValue: input.recurrence.volume,
+  };
 }

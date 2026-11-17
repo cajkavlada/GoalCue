@@ -2,6 +2,21 @@ import { literals } from "convex-helpers/validators";
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
+export const recurrenceRule = v.object({
+  kind: literals("calendar", "frequency", "volume", "completion"),
+  unit: literals("day", "week", "month", "year"),
+  interval: v.number(),
+  startDate: v.string(),
+  time: v.string(),
+  timezone: v.string(),
+  weekStartsOn: v.number(),
+  count: v.number(),
+  volume: v.number(),
+  carryForward: v.boolean(),
+  endDate: v.optional(v.string()),
+  endAfter: v.optional(v.number()),
+});
+
 const sessionFields = {
   userId: v.string(),
   taskId: v.id("tasks"),
@@ -46,6 +61,19 @@ export const taskDbSchema = {
     priorityClassId: v.id("priorityClasses"),
     priorityIndex: v.string(),
     repetitionId: v.optional(v.id("repetitions")),
+    recurrence: v.optional(recurrenceRule),
+    recurrenceRevision: v.optional(v.number()),
+    recurrenceFromAt: v.optional(v.number()),
+    seriesId: v.optional(v.id("tasks")),
+    occurrenceKey: v.optional(v.string()),
+    occurrenceStartAt: v.optional(v.number()),
+    occurrenceTimezone: v.optional(v.string()),
+    occurrenceEndAt: v.optional(v.number()),
+    occurrenceCarryForward: v.optional(v.boolean()),
+    occurrenceException: v.optional(v.boolean()),
+    occurrencePreviousId: v.optional(v.id("tasks")),
+    occurrencePreviousCompletedAt: v.optional(v.number()),
+    expiredAt: v.optional(v.number()),
     effortMinutes: v.optional(v.number()),
     minSessionMinutes: v.optional(v.number()),
     maxSessionMinutes: v.optional(v.number()),
@@ -73,9 +101,18 @@ export const taskDbSchema = {
       "priorityIndex",
     ])
     .index("by_user_priority", ["userId", "priorityClassId", "priorityIndex"])
+    .index("by_series", ["seriesId"])
+    .index("by_user_catalog", [
+      "userId",
+      "seriesId",
+      "archivedAt",
+      "completedAt",
+      "priorityClassId",
+      "priorityIndex",
+    ])
     .searchIndex("search_title", {
       searchField: "title",
-      filterFields: ["userId", "archivedAt", "completedAt"],
+      filterFields: ["userId", "archivedAt", "completedAt", "seriesId"],
     }),
   sessions: defineTable(sessionFields)
     .index("by_user_start", ["userId", "startAt"])

@@ -2,11 +2,13 @@ import { localDateTime, planSessions } from "@gc/validators";
 
 import { Doc, Id } from "../_generated/dataModel";
 import { AuthedMutationCtx } from "./authedFunctions";
+import { syncOccurrences } from "./recurrence";
 
 export async function autoPlan(
   ctx: AuthedMutationCtx,
   selection?: { date: string; timezone: string; replanAll?: boolean }
 ) {
+  await syncOccurrences(ctx, selection?.date);
   const state = await ctx.db
     .query("dayPlans")
     .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
@@ -51,7 +53,7 @@ export async function autoPlan(
     date,
     now,
     replanAll: selection?.replanAll,
-    tasks,
+    tasks: tasks.filter((t) => !t.recurrence),
     sessions,
     events: events.filter((e) => e.deletedAt === undefined),
     settings: settings ?? {

@@ -32,6 +32,7 @@ export const createTaskConvexSchema = v.object({
     "taskTypeId",
     "priorityClassId",
     "repetitionId",
+    "recurrence",
     "dueAt",
     "effortMinutes",
     "minSessionMinutes",
@@ -61,6 +62,7 @@ export const createTaskZodSchema = z
       taskTypeId: true,
       priorityClassId: true,
       repetitionId: true,
+      recurrence: true,
       initialNumValue: true,
       completedNumValue: true,
       tags: true,
@@ -116,11 +118,13 @@ export const taskWithCorrectValuesSchema = z.discriminatedUnion("valueKind", [
 
 export const updateTaskConvexSchema = v.object({
   taskId: taskConvexSchema._id,
+  editScope: v.optional(v.union(v.literal("future"), v.literal("occurrence"))),
   ...pick(taskConvexSchema, [
     "title",
     "description",
     "priorityClassId",
     "repetitionId",
+    "recurrence",
     "dueAt",
     "effortMinutes",
     "minSessionMinutes",
@@ -149,6 +153,7 @@ export const updateTaskZodSchema = z
       description: true,
       priorityClassId: true,
       repetitionId: true,
+      recurrence: true,
       initialNumValue: true,
       completedNumValue: true,
       tags: true,

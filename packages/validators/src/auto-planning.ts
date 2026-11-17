@@ -20,6 +20,10 @@ type PlanningTask = {
   finishKind?: "firm" | "preferred";
   archivedAt?: number;
   completedAt?: number;
+  occurrenceStartAt?: number;
+  occurrenceEndAt?: number;
+  occurrenceCarryForward?: boolean;
+  expiredAt?: number;
 };
 type PlanningSession = Interval & {
   _id: string;
@@ -88,7 +92,10 @@ export function planSessions({
   };
   const priority = { low: 0, normal: 1, high: 2, critical: 3 };
   const eligible = tasks.filter(
-    (t) => t.archivedAt === undefined && t.completedAt === undefined
+    (t) =>
+      t.archivedAt === undefined &&
+      t.completedAt === undefined &&
+      t.expiredAt === undefined
   );
   const byId = new Map(eligible.map((t) => [t._id, t]));
   const duration = (s: Interval) => (s.endAt - s.startAt) / 60000;
@@ -186,11 +193,27 @@ export function planSessions({
       placementConflicts(s, settings, events).length > 0 ||
       (s.manualOverride === false &&
         t !== undefined &&
-        (duration(s) < (t.minSessionMinutes ?? 15) ||
+        (duration(s) <
+          Math.min(
+            t.minSessionMinutes ?? 15,
+            Math.max(
+              1,
+              (effort(t) ?? Infinity) -
+                original
+                  .filter(
+                    (other) => other.taskId === t._id && other._id !== s._id
+                  )
+                  .reduce((sum, other) => sum + credit(other), 0)
+            )
+          ) ||
           duration(s) > (t.maxSessionMinutes ?? 60))) ||
       (t?.dueAt !== undefined &&
         t.finishKind !== "preferred" &&
-        s.endAt > t.dueAt)
+        s.endAt > t.dueAt) ||
+      (t?.occurrenceStartAt !== undefined && s.startAt < t.occurrenceStartAt) ||
+      (t?.occurrenceEndAt !== undefined &&
+        !t.occurrenceCarryForward &&
+        s.endAt > t.occurrenceEndAt)
     );
   };
   for (const s of original.filter((s) => overlaps(s, { startAt, endAt }))) {
@@ -251,10 +274,13 @@ export function planSessions({
     options?: { date?: string; oneSession?: boolean }
   ) => {
     const result = [...current];
-    const minimum = task.minSessionMinutes ?? 15;
+    if (needed <= 0) return { plan: result, needed };
+    const minimum = Math.min(task.minSessionMinutes ?? 15, needed);
     const maximum = task.maxSessionMinutes ?? 60;
-    const until =
-      task.finishKind !== "preferred" ? (task.dueAt ?? endAt) : endAt;
+    const until = Math.min(
+      task.finishKind !== "preferred" ? (task.dueAt ?? endAt) : endAt,
+      task.occurrenceCarryForward ? endAt : (task.occurrenceEndAt ?? endAt)
+    );
     const removed = original.filter(
       (s) => s.taskId === task._id && !current.some((p) => p._id === s._id)
     );
@@ -292,7 +318,10 @@ export function planSessions({
               (s) => s.taskId === task._id && credit(s) > 0 && overlaps(s, day)
             ).length
           );
-      let cursor = window.startAt;
+      let cursor = Math.max(
+        window.startAt,
+        task.occurrenceStartAt ?? window.startAt
+      );
       const preferred = removed[0];
       if (
         !replanAll &&

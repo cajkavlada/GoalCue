@@ -1,6 +1,10 @@
+import { convexQuery } from "@convex-dev/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { Pencil, Trash2 } from "lucide-react";
 
+import { api } from "@gc/convex/api";
 import { m } from "@gc/i18n/messages";
+import { getLocale } from "@gc/i18n/runtime";
 import { useItemSelect } from "@gc/react-kit";
 import {
   ActionMenu,
@@ -25,6 +29,9 @@ export function TaskListItem({
   completedAfter?: number;
 }) {
   const { openDialog, openDrawer } = useModal();
+  const { data: settings } = useSuspenseQuery(
+    convexQuery(api.planning.getSettings, {})
+  );
   const { isItemSelected, toggleSelectItem } = useItemSelect(task);
 
   return (
@@ -33,30 +40,50 @@ export function TaskListItem({
         "flex min-w-0 select-none flex-wrap items-center gap-2 rounded px-1 py-1",
         isItemSelected && "bg-accent text-accent-foreground"
       )}
-      onClick={toggleSelectItem}
+      onClick={(event) => {
+        if (!task.recurrence || task.seriesId) toggleSelectItem(event);
+      }}
     >
       <TruncateWithTooltip
         text={task.title}
         className="min-w-0 flex-1 basis-24"
       />
+      {task.seriesId && (
+        <span className="text-muted-foreground text-xs">
+          {task.expiredAt !== undefined
+            ? m.recurrence_expired()
+            : m.recurrence_occurrence()}{" "}
+          ·{" "}
+          {new Intl.DateTimeFormat(getLocale(), {
+            dateStyle: "medium",
+            timeZone: settings?.timezone,
+          }).format(task.occurrenceStartAt)}
+        </span>
+      )}
+      {task.recurrence && !task.seriesId && (
+        <span className="text-muted-foreground text-xs">
+          {m.recurrence_title()}
+        </span>
+      )}
       <div
         className="flex min-w-0 max-w-full flex-wrap items-center gap-2"
         onClick={(e) => e.stopPropagation()}
       >
-        {task.valueKind === "boolean" && (
-          <BoolTaskActionCheckbox
-            task={task}
-            completedAfter={completedAfter}
-          />
-        )}
-        {task.valueKind === "number" && (
+        {(!task.recurrence || task.seriesId) &&
+          task.valueKind === "boolean" && (
+            <BoolTaskActionCheckbox
+              task={task}
+              completedAfter={completedAfter}
+            />
+          )}
+        {(!task.recurrence || task.seriesId) && task.valueKind === "number" && (
           <NumberTaskActionInput
             key={task.progressMeasure}
             task={task}
             completedAfter={completedAfter}
           />
         )}
-        {task.valueKind === "enum" && (
+        {(!task.recurrence || task.seriesId) && task.valueKind === "enum" && (
           <EnumTaskActionSelect
             task={task}
             completedAfter={completedAfter}

@@ -19,6 +19,7 @@ export const dateOverride = v.object({
 });
 export const planningFields = {
   timezone: v.string(),
+  weekStartsOn: v.optional(v.number()),
   restrictAvailability: v.optional(v.boolean()),
   weekly: v.array(weeklyWindow),
   overrides: v.array(dateOverride),

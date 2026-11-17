@@ -187,6 +187,7 @@ export function PlanningTimeSettings() {
         e.preventDefault();
         save.mutate({
           timezone: settings.timezone,
+          weekStartsOn: settings.weekStartsOn ?? 1,
           restrictAvailability:
             settings.restrictAvailability ?? settings.weekly.length > 0,
           weekly: settings.weekly,
@@ -207,6 +208,24 @@ export function PlanningTimeSettings() {
       <p className="text-muted-foreground text-sm">
         {m.constraints_default_hint()}
       </p>
+      <label>
+        {m.recurrence_week_start()}
+        <Select
+          value={String(settings.weekStartsOn ?? 1)}
+          onValueChange={(value) =>
+            setSettings({ ...settings, weekStartsOn: Number(value) })
+          }
+          options={[
+            m.constraints_sunday(),
+            m.constraints_monday(),
+            m.constraints_tuesday(),
+            m.constraints_wednesday(),
+            m.constraints_thursday(),
+            m.constraints_friday(),
+            m.constraints_saturday(),
+          ].map((label, day) => ({ label, value: String(day) }))}
+        />
+      </label>
       <h3>{m.constraints_protected()}</h3>
       <Windows
         weekly
