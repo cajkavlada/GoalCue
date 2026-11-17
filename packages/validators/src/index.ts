@@ -1,5 +1,6 @@
 export * from "./schemas";
 export * from "./planning";
+export * from "./travel";
 export * from "./auto-planning";
 export * from "./recurrence";
 export * from "./utils/customErrorReasons";

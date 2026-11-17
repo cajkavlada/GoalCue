@@ -173,7 +173,7 @@ function PlanOverview({
     convexQuery(api.sessions.listSessions, {})
   );
   const { data: events } = useSuspenseQuery(
-    convexQuery(api.planning.listEvents, {})
+    convexQuery(api.planning.listEvents, { timezone })
   );
   const { data: tasks } = useSuspenseQuery(
     convexQuery(api.planning.listWork, {})
@@ -214,16 +214,18 @@ function PlanOverview({
           startAt: s.startAt,
           endAt: s.endAt,
           event: false,
+          allDay: false,
         })),
       ...events
         .filter((e) => e.startAt < bounds.endAt && e.endAt > bounds.startAt)
         .map((e) => ({
           id: e._id,
-          title: e.title,
+          title: e.sourceTitle ? `${e.title} · ${e.sourceTitle}` : e.title,
           kind: `${m.plan_event()} · ${e.attention === "background" ? m.constraints_background() : m.constraints_focused()}`,
           startAt: e.startAt,
           endAt: e.endAt,
           event: true,
+          allDay: !!e.allDayStart,
         })),
     ].sort((a, b) => a.startAt - b.startAt || a.endAt - b.endAt);
   };
@@ -363,7 +365,9 @@ function PlanOverview({
                           <span className="block">{item.kind}</span>
                           <strong>{item.title}</strong>
                           <span className="block">
-                            {clock(item.startAt)}–{clock(item.endAt)}
+                            {item.allDay
+                              ? m.calendar_all_day()
+                              : `${clock(item.startAt)}–${clock(item.endAt)}`}
                           </span>
                         </button>
                       );
@@ -446,8 +450,10 @@ function PlanOverview({
               className={`rounded border p-2 ${item.event ? "border-dashed" : "border-l-4"}`}
             >
               <span>{item.kind}: </span>
-              <strong>{item.title}</strong> · {clock(item.startAt)}–
-              {clock(item.endAt)}
+              <strong>{item.title}</strong> ·{" "}
+              {item.allDay
+                ? m.calendar_all_day()
+                : `${clock(item.startAt)}–${clock(item.endAt)}`}
             </li>
           ))}
         </ul>

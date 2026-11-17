@@ -3,9 +3,14 @@ import { ConvexError, v } from "convex/values";
 import { fixedEventFields, planningFields } from "@gc/db";
 import {
   dayBounds,
+  localDateTime,
+  locationConflicts,
   overlaps,
   placementConflicts,
+  projectAllDayEvent,
+  shiftDate,
   validatePlanning,
+  validateTravel,
 } from "@gc/validators";
 
 import { taskQueries } from "./dbQueries";
@@ -112,7 +117,8 @@ export const undoPlan = authedMutation({
       .query("dayPlans")
       .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
       .first();
-    if (!state?.changes.length) return;
+    if (!state || (!state.changes.length && !state.recoveryUndo?.length))
+      return;
     const settings = await ctx.db
       .query("planningSettings")
       .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
@@ -128,6 +134,27 @@ export const undoPlan = authedMutation({
       .withIndex("by_user_start", (q) => q.eq("userId", ctx.userId))
       .collect();
     const now = Date.now();
+    for (const undo of state.recoveryUndo ?? []) {
+      const request = await ctx.db.get(undo.requestId);
+      if (!request || request.revision !== undo.revision)
+        throw new ConvexError({
+          message: "Recovery has changed; adjust it individually",
+        });
+      for (const id of undo.sessionIds) {
+        const session = sessions.find((s) => s._id === id);
+        if (
+          !session ||
+          session.startAt <= now ||
+          session.pinned ||
+          session.manualOverride ||
+          session.checkIn ||
+          session.unscheduledAt !== undefined
+        )
+          throw new ConvexError({
+            message: "Recovery has changed or started; adjust it individually",
+          });
+      }
+    }
     for (const change of state.changes) {
       const session = sessions.find((s) => s._id === change.sessionId);
       const task = await ctx.db.get(change.taskId);
@@ -150,6 +177,7 @@ export const undoPlan = authedMutation({
         change.before &&
         (change.before.startAt <= now ||
           placementConflicts(change.before, settings, events).length ||
+          locationConflicts(change.before, task, events).length ||
           (task.dueAt !== undefined &&
             task.finishKind !== "preferred" &&
             change.before.endAt > task.dueAt) ||
@@ -164,6 +192,15 @@ export const undoPlan = authedMutation({
           message:
             "The previous placement is no longer possible; resolve its boundary conflict first",
         });
+    }
+    for (const undo of state.recoveryUndo ?? []) {
+      await ctx.db.patch(undo.requestId, {
+        revision: undo.revision + 1,
+        allocations: undo.allocations,
+        ...(undo.created ? { undoneAt: now } : { dismissedAt: now }),
+      });
+      for (const id of undo.sessionIds)
+        await ctx.db.patch(id, { unscheduledAt: now });
     }
     for (const change of state.changes) {
       await ctx.db.patch(change.sessionId, {
@@ -180,7 +217,72 @@ export const undoPlan = authedMutation({
       changes: [],
       shortfalls: [],
       conflicts: [],
+      recoveryUndo: [],
     });
+    await autoPlan(ctx);
+  },
+});
+
+export const listRecovery = authedQuery({
+  args: {},
+  handler: async (ctx) =>
+    (
+      await ctx.db
+        .query("recoveryRequests")
+        .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
+        .collect()
+    ).filter((r) => r.undoneAt === undefined),
+});
+
+export const updateRecovery = authedMutation({
+  args: {
+    requestId: v.id("recoveryRequests"),
+    action: v.union(v.literal("dismiss"), v.literal("extend")),
+  },
+  rateLimit: { name: "updateRecovery" },
+  handler: async (ctx, { requestId, action }) => {
+    const request = await ctx.db.get(requestId);
+    if (
+      !request ||
+      request.userId !== ctx.userId ||
+      request.undoneAt !== undefined
+    )
+      throw new ConvexError({ message: "Recovery request not found" });
+    const settings = await ctx.db
+      .query("planningSettings")
+      .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
+      .first();
+    const today = localDateTime(Date.now(), settings?.timezone ?? "UTC").slice(
+      0,
+      10
+    );
+    await ctx.db.patch(
+      requestId,
+      action === "dismiss"
+        ? { dismissedAt: Date.now(), revision: (request.revision ?? 0) + 1 }
+        : {
+            revision: (request.revision ?? 0) + 1,
+            dismissedAt: undefined,
+            expiresOn: shiftDate(
+              request.expiresOn > today ? request.expiresOn : today,
+              settings?.recoveryWindowDays ?? 7
+            ),
+          }
+    );
+    if (action === "dismiss") {
+      const sessions = await ctx.db
+        .query("sessions")
+        .withIndex("by_user_start", (q) => q.eq("userId", ctx.userId))
+        .collect();
+      for (const session of sessions.filter(
+        (s) =>
+          s.recoveryRequestId === requestId &&
+          s.startAt > Date.now() &&
+          !s.pinned &&
+          !s.checkIn
+      ))
+        await ctx.db.patch(session._id, { unscheduledAt: Date.now() });
+    }
     await autoPlan(ctx);
   },
 });
@@ -225,20 +327,41 @@ export const saveSettings = authedMutation({
 });
 
 export const listEvents = authedQuery({
-  args: {},
-  handler: async (ctx) =>
+  args: { timezone: v.optional(v.string()) },
+  handler: async (ctx, { timezone }) =>
     (
       await ctx.db
         .query("fixedEvents")
         .withIndex("by_user_start", (q) => q.eq("userId", ctx.userId))
         .collect()
-    ).filter((event) => event.deletedAt === undefined),
+    )
+      .filter((event) => event.deletedAt === undefined)
+      .map((event) => projectAllDayEvent(event, timezone ?? event.timezone)),
+});
+
+export const setEventAttention = authedMutation({
+  args: { eventId: v.id("fixedEvents"), attention: fixedEventFields.attention },
+  rateLimit: { name: "setEventAttention" },
+  handler: async (ctx, { eventId, attention }) => {
+    const event = await ctx.db.get(eventId);
+    if (!event || event.userId !== ctx.userId || event.deletedAt !== undefined)
+      throw new ConvexError({ message: "Event not found" });
+    await ctx.db.patch(eventId, { attention, attentionUncertain: false });
+    await autoPlan(ctx);
+  },
 });
 
 export const saveEvent = authedMutation({
   args: { eventId: v.optional(v.id("fixedEvents")), ...fixedEventFields },
   rateLimit: { name: "saveEvent" },
   handler: async (ctx, { eventId, ...event }) => {
+    try {
+      validateTravel(event);
+    } catch (error) {
+      throw new ConvexError({
+        message: error instanceof Error ? error.message : "Invalid travel",
+      });
+    }
     if (
       !event.title.trim() ||
       !Number.isFinite(event.startAt) ||
@@ -267,7 +390,31 @@ export const saveEvent = authedMutation({
         existing.deletedAt !== undefined
       )
         throw new ConvexError({ message: "Event not found" });
-      await ctx.db.patch(eventId, values);
+      if (existing.sourceId) {
+        if (
+          event.title !== existing.title ||
+          event.startAt !== existing.startAt ||
+          event.endAt !== existing.endAt ||
+          event.timezone !== existing.timezone
+        )
+          throw new ConvexError({
+            message: "Imported Event details are read-only",
+          });
+        await ctx.db.patch(eventId, {
+          attention: event.attention,
+          attentionUncertain: false,
+        });
+        await autoPlan(ctx);
+        return eventId;
+      }
+      await ctx.db.patch(eventId, {
+        ...values,
+        ...(existing.workSourceId &&
+        event.startAt === existing.startAt &&
+        event.endAt === existing.endAt
+          ? {}
+          : { allDayStart: undefined, allDayEnd: undefined }),
+      });
       await autoPlan(ctx);
       return eventId;
     }
@@ -287,7 +434,14 @@ export const deleteEvent = authedMutation({
     const event = await ctx.db.get(eventId);
     if (!event || event.userId !== ctx.userId)
       throw new ConvexError({ message: "Event not found" });
-    await ctx.db.patch(eventId, { deletedAt: Date.now() });
+    if (event.sourceId)
+      throw new ConvexError({
+        message: "Disconnect the calendar Source to remove imported Events",
+      });
+    await ctx.db.patch(eventId, {
+      deletedAt: Date.now(),
+      ...(event.workSourceId ? { locallyDeleted: true } : {}),
+    });
     await autoPlan(ctx);
   },
 });

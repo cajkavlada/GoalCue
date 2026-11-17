@@ -2,6 +2,8 @@ import { literals } from "convex-helpers/validators";
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
+import { attendanceFields } from "./planningDbSchema";
+
 export const recurrenceRule = v.object({
   kind: literals("calendar", "frequency", "volume", "completion"),
   unit: literals("day", "week", "month", "year"),
@@ -13,6 +15,7 @@ export const recurrenceRule = v.object({
   count: v.number(),
   volume: v.number(),
   carryForward: v.boolean(),
+  weekdays: v.optional(v.array(v.number())),
   endDate: v.optional(v.string()),
   endAfter: v.optional(v.number()),
 });
@@ -31,6 +34,7 @@ const sessionFields = {
   checkInRequestedAt: v.optional(v.number()),
   checkInUpdatedAt: v.optional(v.number()),
   planningEffortMinutes: v.optional(v.number()),
+  recoveryRequestId: v.optional(v.id("recoveryRequests")),
   checkIn: v.optional(
     v.object({
       outcome: literals("finished", "progress", "missed"),
@@ -53,6 +57,7 @@ const progressSnapshot = {
 
 export const taskDbSchema = {
   tasks: defineTable({
+    ...attendanceFields,
     title: v.string(),
     jiraSourceId: v.optional(v.id("jiraSources")),
     jiraIdentity: v.optional(v.string()),
@@ -86,6 +91,9 @@ export const taskDbSchema = {
     projectId: v.optional(v.id("projects")),
     milestoneId: v.optional(v.id("milestones")),
     description: v.optional(v.string()),
+    mailSourceId: v.optional(v.id("mailSources")),
+    mailRoutine: v.optional(literals("inbox", "spam")),
+    mailBatchSize: v.optional(v.number()),
     i18nKey: v.optional(v.string()),
     userId: v.string(),
     taskTypeId: v.id("taskTypes"),
@@ -106,6 +114,8 @@ export const taskDbSchema = {
     occurrencePreviousCompletedAt: v.optional(v.number()),
     expiredAt: v.optional(v.number()),
     effortMinutes: v.optional(v.number()),
+    leisure: v.optional(v.boolean()),
+    recoveryWindowDays: v.optional(v.number()),
     minSessionMinutes: v.optional(v.number()),
     maxSessionMinutes: v.optional(v.number()),
     automaticSchedulingPaused: v.optional(v.boolean()),
