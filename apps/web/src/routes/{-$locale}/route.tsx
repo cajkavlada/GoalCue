@@ -1,9 +1,8 @@
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
-import { Home, Settings } from "lucide-react";
 
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@gc/auth";
 import { m } from "@gc/i18n/messages";
-import { ModeSelector } from "@gc/ui";
+import { Button, ModeSelector } from "@gc/ui";
 
 import { LocaleSelector } from "@/components/locale-selector";
 
@@ -12,18 +11,40 @@ export const Route = createFileRoute("/{-$locale}")({
 });
 
 function RouteComponent() {
+  const links = [
+    { to: "/{-$locale}/dashboard/day", label: m.planning_day() },
+    { to: "/{-$locale}/dashboard/week", label: m.plan_week() },
+    { to: "/{-$locale}/dashboard/month", label: m.plan_month() },
+    { to: "/{-$locale}/dashboard/projects", label: m.projects_title() },
+    { to: "/{-$locale}/settings", label: m.nav_settings() },
+  ] as const;
   return (
-    <div className="flex h-full flex-col gap-2">
-      <div className="flex items-center justify-end gap-2 border-b px-4 py-2">
+    <div className="flex h-full min-h-0 flex-col">
+      <header className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-b px-3 py-2">
         <SignedIn>
-          <div className="mr-auto flex gap-4">
-            <Link to="/{-$locale}/dashboard">
-              <Home />
-            </Link>
-            <Link to="/{-$locale}/settings">
-              <Settings />
-            </Link>
-          </div>
+          <nav
+            aria-label={m.plan_navigation()}
+            className="mr-auto flex flex-wrap items-center gap-1"
+          >
+            {links.map((link) => (
+              <Button
+                key={link.to}
+                variant="ghost"
+                asChild
+              >
+                <Link
+                  to={link.to}
+                  search={(prev) => prev}
+                  activeProps={{
+                    className: "bg-accent text-accent-foreground",
+                  }}
+                  activeOptions={{ exact: true, includeSearch: false }}
+                >
+                  {link.label}
+                </Link>
+              </Button>
+            ))}
+          </nav>
         </SignedIn>
         <LocaleSelector />
         <ModeSelector />
@@ -35,8 +56,8 @@ function RouteComponent() {
             {m.auth_signIn_button_label()}
           </SignInButton>
         </SignedOut>
-      </div>
-      <div className="flex-1 overflow-hidden">
+      </header>
+      <div className="min-h-0 flex-1 overflow-hidden">
         <Outlet />
       </div>
     </div>

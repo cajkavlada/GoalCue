@@ -89,6 +89,28 @@ GoalCue/
 └── pnpm-workspace.yaml
 ```
 
+### Personal Google Calendar
+
+Configure a Google OAuth **Web application** client with the Calendar API enabled.
+Set these server-side variables on the Convex deployment:
+
+- `GOOGLE_CALENDAR_CLIENT_ID`
+- `GOOGLE_CALENDAR_CLIENT_SECRET`
+- `GOOGLE_CALENDAR_APP_URL`: the web app's Settings URL, for example `https://planner.example/settings` or `http://localhost:5173/settings`. OAuth completion requires the same authenticated GoalCue user who started the connection.
+- `CALENDAR_ENCRYPTION_KEY`: a random 32-byte key encoded as base64. Keep this key stable; replacing it requires reconnecting accounts.
+
+Register `https://<deployment>.convex.site/calendar/google/callback` as an authorized redirect URI, using the deployment's `CONVEX_SITE_URL`. No Google credentials belong in Vite environment variables. Configure the Google consent screen and test users before testing an unpublished OAuth client.
+
+In **Settings → Personal calendars**, choose busy-only or full read-only access, authorize a personal Google account, then select calendars. Google Workspace accounts are rejected. Only selected calendars are read; there are no calendar writes or AI calls. Refresh tokens are encrypted with AES-256-GCM and never returned to the browser.
+
+The five-minute Convex cron and manual refresh import the past 30 days and next 365 days. All pages must succeed before a snapshot replaces that scope. Failures keep prior Events; Settings shows the last success and errors, and the Day view warns when data is stale. Google expands recurring instances and exceptions; GoalCue retains their identities and series rules. Date-only start and exclusive end dates remain authoritative for all-day Events; numeric day bounds are only projections for the existing planner, and the UI displays dates rather than invented source times.
+
+Busy-only connections request free/busy permissions, never Event-detail permissions. Google returns busy intervals without Event identities, recurrence or descriptive fields, so those intervals use stable normalized time-range identities within their Source. Full-detail Events use Google's Event IDs. Imported attention is visibly uncertain and conservatively focused until corrected; refreshes preserve that correction.
+
+Disconnect a calendar independently or disconnect the entire account. Access stops immediately and in-flight refresh results are rejected; disconnecting the account also discards its credentials. The confirmation defaults to keeping derived Events; removal affects only Events from the selected Source or account. Retained Events keep their Source links and attention corrections. Reconnecting the same calendar reuses its Source identity and updates retained Events without duplicates.
+
+Google API references: [OAuth web-server flow](https://developers.google.com/identity/protocols/oauth2/web-server), [Events list](https://developers.google.com/workspace/calendar/api/v3/reference/events/list), [Free/busy query](https://developers.google.com/workspace/calendar/api/v3/reference/freebusy/query).
+
 ### Available Scripts
 
 - `pnpm dev` - Start development server for all apps

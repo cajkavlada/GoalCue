@@ -310,6 +310,9 @@ importers:
       '@gc/validators':
         specifier: workspace:*
         version: link:../validators
+      axios:
+        specifier: ^1.21.1
+        version: 1.21.1
       convex:
         specifier: catalog:convex
         version: 1.50.0(@clerk/clerk-react@5.51.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)
@@ -335,6 +338,9 @@ importers:
       '@ianvs/prettier-plugin-sort-imports':
         specifier: catalog:prettier
         version: 4.7.0(prettier@3.6.2)
+      '@types/node':
+        specifier: ^24.7.1
+        version: 24.7.1
       eslint:
         specifier: catalog:eslint
         version: 9.37.0(jiti@2.6.1)
