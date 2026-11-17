@@ -76,6 +76,8 @@ function TaskCreateForm({
   const defaultDueAt = addDays(endOfDay(new Date()), 2);
   const defaultValues: CreateTaskClientArgs = {
     title: "",
+    leisure: false,
+    recoveryWindowDays: undefined,
     effortMinutes: undefined,
     minSessionMinutes: undefined,
     maxSessionMinutes: undefined,
@@ -223,6 +225,25 @@ function TaskCreateForm({
             );
           }}
         </form.Subscribe>
+        <form.AppField name="leisure">
+          {(field) => <field.Switch label={m.recovery_leisure()} />}
+        </form.AppField>
+        <form.AppField name="recoveryWindowDays">
+          {(field) => (
+            <field.Input
+              label={m.recovery_window()}
+              type="number"
+              min="1"
+              max="90"
+              placeholder={String(settings?.recoveryWindowDays ?? 7)}
+              onChange={(e) =>
+                field.handleChange(
+                  e.target.value ? Number(e.target.value) : undefined
+                )
+              }
+            />
+          )}
+        </form.AppField>
         <form.AppField name="effortMinutes">
           {(field) => (
             <field.Input

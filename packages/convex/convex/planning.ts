@@ -3,8 +3,10 @@ import { ConvexError, v } from "convex/values";
 import { fixedEventFields, planningFields } from "@gc/db";
 import {
   dayBounds,
+  localDateTime,
   overlaps,
   placementConflicts,
+  shiftDate,
   validatePlanning,
 } from "@gc/validators";
 
@@ -112,7 +114,8 @@ export const undoPlan = authedMutation({
       .query("dayPlans")
       .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
       .first();
-    if (!state?.changes.length) return;
+    if (!state || (!state.changes.length && !state.recoveryUndo?.length))
+      return;
     const settings = await ctx.db
       .query("planningSettings")
       .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
@@ -128,6 +131,27 @@ export const undoPlan = authedMutation({
       .withIndex("by_user_start", (q) => q.eq("userId", ctx.userId))
       .collect();
     const now = Date.now();
+    for (const undo of state.recoveryUndo ?? []) {
+      const request = await ctx.db.get(undo.requestId);
+      if (!request || request.revision !== undo.revision)
+        throw new ConvexError({
+          message: "Recovery has changed; adjust it individually",
+        });
+      for (const id of undo.sessionIds) {
+        const session = sessions.find((s) => s._id === id);
+        if (
+          !session ||
+          session.startAt <= now ||
+          session.pinned ||
+          session.manualOverride ||
+          session.checkIn ||
+          session.unscheduledAt !== undefined
+        )
+          throw new ConvexError({
+            message: "Recovery has changed or started; adjust it individually",
+          });
+      }
+    }
     for (const change of state.changes) {
       const session = sessions.find((s) => s._id === change.sessionId);
       const task = await ctx.db.get(change.taskId);
@@ -165,6 +189,15 @@ export const undoPlan = authedMutation({
             "The previous placement is no longer possible; resolve its boundary conflict first",
         });
     }
+    for (const undo of state.recoveryUndo ?? []) {
+      await ctx.db.patch(undo.requestId, {
+        revision: undo.revision + 1,
+        allocations: undo.allocations,
+        ...(undo.created ? { undoneAt: now } : { dismissedAt: now }),
+      });
+      for (const id of undo.sessionIds)
+        await ctx.db.patch(id, { unscheduledAt: now });
+    }
     for (const change of state.changes) {
       await ctx.db.patch(change.sessionId, {
         ...change.before,
@@ -180,7 +213,72 @@ export const undoPlan = authedMutation({
       changes: [],
       shortfalls: [],
       conflicts: [],
+      recoveryUndo: [],
     });
+    await autoPlan(ctx);
+  },
+});
+
+export const listRecovery = authedQuery({
+  args: {},
+  handler: async (ctx) =>
+    (
+      await ctx.db
+        .query("recoveryRequests")
+        .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
+        .collect()
+    ).filter((r) => r.undoneAt === undefined),
+});
+
+export const updateRecovery = authedMutation({
+  args: {
+    requestId: v.id("recoveryRequests"),
+    action: v.union(v.literal("dismiss"), v.literal("extend")),
+  },
+  rateLimit: { name: "updateRecovery" },
+  handler: async (ctx, { requestId, action }) => {
+    const request = await ctx.db.get(requestId);
+    if (
+      !request ||
+      request.userId !== ctx.userId ||
+      request.undoneAt !== undefined
+    )
+      throw new ConvexError({ message: "Recovery request not found" });
+    const settings = await ctx.db
+      .query("planningSettings")
+      .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
+      .first();
+    const today = localDateTime(Date.now(), settings?.timezone ?? "UTC").slice(
+      0,
+      10
+    );
+    await ctx.db.patch(
+      requestId,
+      action === "dismiss"
+        ? { dismissedAt: Date.now(), revision: (request.revision ?? 0) + 1 }
+        : {
+            revision: (request.revision ?? 0) + 1,
+            dismissedAt: undefined,
+            expiresOn: shiftDate(
+              request.expiresOn > today ? request.expiresOn : today,
+              settings?.recoveryWindowDays ?? 7
+            ),
+          }
+    );
+    if (action === "dismiss") {
+      const sessions = await ctx.db
+        .query("sessions")
+        .withIndex("by_user_start", (q) => q.eq("userId", ctx.userId))
+        .collect();
+      for (const session of sessions.filter(
+        (s) =>
+          s.recoveryRequestId === requestId &&
+          s.startAt > Date.now() &&
+          !s.pinned &&
+          !s.checkIn
+      ))
+        await ctx.db.patch(session._id, { unscheduledAt: Date.now() });
+    }
     await autoPlan(ctx);
   },
 });

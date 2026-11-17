@@ -474,5 +474,19 @@
   "recurrence_future": "This and future Occurrences",
   "recurrence_only": "Only this Occurrence",
   "recurrence_expired": "Expired Occurrence",
-  "recurrence_occurrence": "Occurrence"
+  "recurrence_occurrence": "Occurrence",
+  "recovery_leisure": "Leisure Task",
+  "recovery_window": "Recovery window (days)",
+  "recovery_cap": "Daily recovery cap (minutes)",
+  "recovery_reserve_preferred": "Preferred daily free-time reserve (minutes)",
+  "recovery_reserve_minimum": "Protected daily reserve minimum (minutes)",
+  "recovery_title": "Leisure and free-time recovery",
+  "recovery_expired": "Expired opportunity; no debt carries forward",
+  "recovery_pending": "Recovery opportunity",
+  "recovery_restored": "Opportunity restored",
+  "recovery_dismissed": "Dismissed",
+  "recovery_dismiss": "Dismiss",
+  "recovery_extend": "Extend window",
+  "recovery_until": "until",
+  "recovery_session": "Recovery Session"
 }

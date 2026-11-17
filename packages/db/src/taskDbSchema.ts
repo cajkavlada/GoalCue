@@ -31,6 +31,7 @@ const sessionFields = {
   checkInRequestedAt: v.optional(v.number()),
   checkInUpdatedAt: v.optional(v.number()),
   planningEffortMinutes: v.optional(v.number()),
+  recoveryRequestId: v.optional(v.id("recoveryRequests")),
   checkIn: v.optional(
     v.object({
       outcome: literals("finished", "progress", "missed"),
@@ -77,6 +78,8 @@ export const taskDbSchema = {
     occurrencePreviousCompletedAt: v.optional(v.number()),
     expiredAt: v.optional(v.number()),
     effortMinutes: v.optional(v.number()),
+    leisure: v.optional(v.boolean()),
+    recoveryWindowDays: v.optional(v.number()),
     minSessionMinutes: v.optional(v.number()),
     maxSessionMinutes: v.optional(v.number()),
     automaticSchedulingPaused: v.optional(v.boolean()),

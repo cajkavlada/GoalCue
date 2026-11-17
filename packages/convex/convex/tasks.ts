@@ -271,6 +271,8 @@ export const update = authedMutation({
       milestoneId: taskArgs.milestoneId,
       dueAt: taskArgs.dueAt ?? undefined,
       effortMinutes: taskArgs.effortMinutes,
+      leisure: taskArgs.leisure,
+      recoveryWindowDays: taskArgs.recoveryWindowDays,
       minSessionMinutes: taskArgs.minSessionMinutes,
       maxSessionMinutes: taskArgs.maxSessionMinutes,
       automaticSchedulingPaused: taskArgs.automaticSchedulingPaused,

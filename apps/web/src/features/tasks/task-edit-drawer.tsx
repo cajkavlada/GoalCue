@@ -159,6 +159,8 @@ function TaskEditForm({ editedTask }: { editedTask: ExtendedTask }) {
   const defaultDueAt = addDays(endOfDay(new Date()), 2);
   const defaultValues: UpdateTaskClientArgs = {
     title: editedTask.title,
+    leisure: editedTask.leisure ?? false,
+    recoveryWindowDays: editedTask.recoveryWindowDays,
     effortMinutes: editedTask.effortMinutes,
     minSessionMinutes: editedTask.minSessionMinutes,
     maxSessionMinutes: editedTask.maxSessionMinutes,
@@ -250,6 +252,25 @@ function TaskEditForm({ editedTask }: { editedTask: ExtendedTask }) {
             )
           }
         </form.Subscribe>
+        <form.AppField name="leisure">
+          {(field) => <field.Switch label={m.recovery_leisure()} />}
+        </form.AppField>
+        <form.AppField name="recoveryWindowDays">
+          {(field) => (
+            <field.Input
+              label={m.recovery_window()}
+              type="number"
+              min="1"
+              max="90"
+              placeholder={String(settings?.recoveryWindowDays ?? 7)}
+              onChange={(e) =>
+                field.handleChange(
+                  e.target.value ? Number(e.target.value) : undefined
+                )
+              }
+            />
+          )}
+        </form.AppField>
         <form.AppField name="effortMinutes">
           {(field) => (
             <field.Input

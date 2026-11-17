@@ -4294,3 +4294,405 @@ test("Scheduling a series resumes the selected Occurrence and frequency drops us
   });
   assert.equal((await f.db.get(selected)).automaticSchedulingPaused, false);
 });
+
+test("Leisure displacement records only net duration lost to pressing work; moves and manual skips create no request", () => {
+  const leisure = task("reading", 60, {
+    leisure: true,
+    priority: "low",
+    recoveryWindowDays: 3,
+  });
+  const work = task("work", 180, {
+    priority: "critical",
+    dueAt: autoAt("12:00"),
+  });
+  const previous = session("read", "reading", "09:00", "10:00");
+  const lost = plan([leisure, work], [previous]);
+  assert.equal(lost.recoveries.length, 1);
+  assert.equal(lost.recoveries[0].minutes, 60);
+  assert.equal(lost.recoveries[0].expiresOn, "2030-01-10");
+  assert.equal(lost.recoveries[0].taskId, "reading");
+  const shortened = plan(
+    [leisure, { ...work, effortMinutes: 150 }],
+    [previous]
+  );
+  assert.equal(shortened.recoveries[0].minutes, 30);
+  const moved = plan([leisure, { ...work, effortMinutes: 60 }], [previous]);
+  assert.equal(moved.recoveries.length, 0);
+  assert.equal(
+    plan([leisure], [{ ...previous, unscheduledAt: autoAt("08:00") }])
+      .recoveries.length,
+    0
+  );
+  assert.equal(
+    plan([leisure], [previous], { replanAll: true }).recoveries.length,
+    0
+  );
+});
+
+test("Leisure and reserve recovery share the daily cap, preserve activity identity, and expire without ordinary effort debt", () => {
+  const request = {
+    _id: "leisure",
+    taskId: "reading",
+    kind: "leisure",
+    title: "Read",
+    date: "2030-01-06",
+    expiresOn: "2030-01-09",
+    minutes: 90,
+    allocations: [],
+  };
+  const reserve = {
+    ...request,
+    _id: "reserve",
+    taskId: undefined,
+    kind: "reserve",
+    title: "Free-time reserve",
+    minutes: 60,
+  };
+  const rules = {
+    ...autoSettings,
+    weekly: Array.from({ length: 7 }, (_, weekday) => ({
+      weekday,
+      start: 540,
+      end: 720,
+    })),
+    dailyRecoveryMinutes: 30,
+  };
+  const result = plan(
+    [task("reading", 90, { leisure: true, maxSessionMinutes: 20 })],
+    [],
+    { settings: rules, recoveryRequests: [request, reserve] }
+  );
+  assert.ok(result.recoveryPlacements.length > 0);
+  assert.ok(
+    result.recoveryPlacements.every(
+      (p) =>
+        p.taskId === "reading" &&
+        p.requestId === "leisure" &&
+        (p.endAt - p.startAt) / 60000 <= 20
+    )
+  );
+  assert.ok(result.changes.length === 0);
+  const byDay = new Map();
+  for (const allocation of result.recoveries.flatMap((r) => r.allocations)) {
+    const date = localDateTime(allocation.startAt, rules.timezone).slice(0, 10);
+    byDay.set(
+      date,
+      (byDay.get(date) ?? 0) + (allocation.endAt - allocation.startAt) / 60000
+    );
+    assert.ok(date <= request.expiresOn);
+  }
+  assert.ok([...byDay.values()].every((minutes) => minutes <= 30));
+  assert.ok(
+    result.recoveries.find((r) => r.kind === "reserve").allocations.length > 0
+  );
+  const expired = plan([task("reading", 90, { leisure: true })], [], {
+    recoveryRequests: [{ ...request, expiresOn: "2030-01-06" }],
+  });
+  assert.deepEqual(expired.changes, []);
+  assert.deepEqual(expired.recoveryPlacements, []);
+  assert.equal(expired.recoveries[0].minutes, 90);
+});
+
+test("Reserve borrowing preserves the protected minimum, records only automatic borrowing, and restores unallocated time", () => {
+  const rules = {
+    ...autoSettings,
+    reservePreferredMinutes: 60,
+    reserveMinimumMinutes: 30,
+  };
+  const ordinary = plan([task("ordinary", 180)], [], { settings: rules });
+  assert.equal(
+    ordinary.changes.reduce(
+      (n, c) => n + (c.after.endAt - c.after.startAt) / 60000,
+      0
+    ),
+    120
+  );
+  assert.equal(ordinary.recoveries.length, 0);
+  const work = task("work", 180, { priority: "critical" });
+  const urgent = plan([work], [], { settings: rules });
+  assert.equal(
+    urgent.changes.reduce(
+      (n, c) => n + (c.after.endAt - c.after.startAt) / 60000,
+      0
+    ),
+    150
+  );
+  assert.equal(urgent.recoveries.length, 1);
+  assert.equal(urgent.recoveries[0].kind, "reserve");
+  assert.equal(urgent.recoveries[0].minutes, 30);
+  const sessions = urgent.changes.map((c) => ({
+    _id: c.id,
+    taskId: c.taskId,
+    ...c.after,
+    manualOverride: false,
+  }));
+  const reload = plan([work], sessions, {
+    settings: rules,
+    recoveryRequests: urgent.recoveries,
+  });
+  assert.equal(reload.recoveries.length, 1);
+  const manual = plan(
+    [work],
+    [session("manual", "work", "09:00", "12:00", { manualOverride: true })],
+    { settings: rules }
+  );
+  assert.equal(manual.recoveries.length, 0);
+  const restored = plan([], [], {
+    settings: rules,
+    date: "2030-01-14",
+    now: at("2030-01-14T08:00"),
+    recoveryRequests: urgent.recoveries,
+  });
+  assert.equal(restored.recoveryPlacements.length, 0);
+  assert.equal(
+    restored.recoveries[0].allocations.reduce(
+      (n, a) => n + (a.endAt - a.startAt) / 60000,
+      0
+    ),
+    30
+  );
+});
+
+test("Recovery respects boundaries and exposes repeated displacement without extending old requests", () => {
+  const requests = ["2030-01-04", "2030-01-05", "2030-01-06"].map(
+    (date, i) => ({
+      _id: String(i),
+      taskId: "read",
+      kind: "leisure",
+      title: "Read",
+      date,
+      expiresOn: "2030-01-07",
+      minutes: 60,
+      allocations: [],
+    })
+  );
+  const result = plan([task("read", 180, { leisure: true })], [], {
+    recoveryRequests: requests,
+    settings: {
+      ...autoSettings,
+      protectedDates: [{ date: autoDate, start: 540, end: 720 }],
+    },
+  });
+  assert.equal(result.recoveryImbalance, true);
+  assert.deepEqual(result.recoveryPlacements, []);
+  assert.ok(result.recoveries.every((r) => r.expiresOn === "2030-01-07"));
+  assert.throws(
+    () =>
+      validatePlanning({
+        ...autoSettings,
+        reservePreferredMinutes: 10,
+        reserveMinimumMinutes: 20,
+      }),
+    /minimum/
+  );
+  assert.throws(() =>
+    validatePlanning({ ...autoSettings, dailyRecoveryMinutes: -1 })
+  );
+  assert.throws(() =>
+    validatePlanning({ ...autoSettings, recoveryWindowDays: 0 })
+  );
+});
+
+test("Recovery requests and same-activity Sessions persist without duplicates; ownership, extension, dismissal and undo are enforced", async () => {
+  const { db, context } = database();
+  const alice = context("alice");
+  await db.insert("planningSettings", { userId: "alice", ...autoSettings });
+  const readId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Read",
+    leisure: true,
+    effortMinutes: 60,
+    priority: "low",
+  });
+  const readSessionId = await db.insert("sessions", {
+    userId: "alice",
+    taskId: readId,
+    startAt: autoAt("09:00"),
+    endAt: autoAt("10:00"),
+    manualOverride: false,
+  });
+  await db.insert("tasks", {
+    userId: "alice",
+    title: "Urgent",
+    priority: "critical",
+    effortMinutes: 180,
+    dueAt: autoAt("12:00"),
+  });
+  const selection = { date: autoDate, timezone: autoSettings.timezone };
+  await planning.planDay._handler(alice, selection);
+  let requests = await planning.listRecovery._handler(alice, {});
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].minutes, 60);
+  assert.equal(requests[0].taskId, readId);
+  await planning.planDay._handler(alice, selection);
+  assert.equal((await planning.listRecovery._handler(alice, {})).length, 1);
+  await planning.undoPlan._handler(alice, {});
+  assert.equal((await planning.listRecovery._handler(alice, {})).length, 0);
+  assert.equal((await db.get(readSessionId)).unscheduledAt, undefined);
+  assert.deepEqual(
+    await planning.listRecovery._handler(context("bob"), {}),
+    []
+  );
+
+  const requestId = await db.insert("recoveryRequests", {
+    userId: "alice",
+    kind: "leisure",
+    taskId: readId,
+    title: "Read",
+    date: "2030-01-06",
+    expiresOn: "2030-01-10",
+    minutes: 60,
+    allocations: [],
+  });
+  await db.patch(readSessionId, { unscheduledAt: Date.now() });
+  await db.patch(readId, { automaticSchedulingPaused: false });
+  await planning.planDay._handler(alice, selection);
+  const recoverySessions = await db.query("sessions").collect();
+  const restored = recoverySessions.filter(
+    (s) => s.recoveryRequestId === requestId && s.unscheduledAt === undefined
+  );
+  assert.equal(restored.length, 1);
+  assert.equal(restored[0].taskId, readId);
+  assert.equal((restored[0].endAt - restored[0].startAt) / 60000, 60);
+  await planning.planDay._handler(alice, selection);
+  assert.equal(
+    (await db.query("sessions").collect()).filter(
+      (s) => s.recoveryRequestId === requestId && s.unscheduledAt === undefined
+    ).length,
+    1
+  );
+  await assert.rejects(
+    planning.updateRecovery._handler(context("bob"), {
+      requestId,
+      action: "dismiss",
+    })
+  );
+  await saveSession._handler(alice, {
+    sessionId: restored[0]._id,
+    taskId: readId,
+    startAt: autoAt("10:00"),
+    endAt: autoAt("11:00"),
+  });
+  assert.deepEqual((await db.get(requestId)).allocations, [
+    { startAt: autoAt("10:00"), endAt: autoAt("11:00") },
+  ]);
+  await assert.rejects(
+    planning.undoPlan._handler(alice, {}),
+    /Recovery has changed/
+  );
+  await planning.updateRecovery._handler(alice, {
+    requestId,
+    action: "extend",
+  });
+  assert.equal((await db.get(requestId)).expiresOn, "2030-01-17");
+  await planning.updateRecovery._handler(alice, {
+    requestId,
+    action: "dismiss",
+  });
+  assert.ok((await db.get(requestId)).dismissedAt);
+  assert.ok((await db.get(restored[0]._id)).unscheduledAt);
+});
+
+test("A new fixed Event replans a recovery opportunity within its original window instead of creating fresh debt", () => {
+  const allocation = { startAt: autoAt("09:00"), endAt: autoAt("10:00") };
+  const request = {
+    _id: "recover",
+    taskId: "read",
+    kind: "leisure",
+    title: "Read",
+    date: "2030-01-06",
+    expiresOn: "2030-01-07",
+    minutes: 60,
+    allocations: [allocation],
+  };
+  const result = plan(
+    [task("read", 60, { leisure: true })],
+    [
+      {
+        _id: "recovery-session",
+        taskId: "read",
+        recoveryRequestId: "recover",
+        ...allocation,
+      },
+    ],
+    {
+      recoveryRequests: [request],
+      events: [{ title: "Meeting", attention: "focused", ...allocation }],
+    }
+  );
+  assert.equal(result.recoveries.length, 1);
+  assert.equal(result.recoveries[0].expiresOn, request.expiresOn);
+  assert.equal(result.recoveryPlacements.length, 1);
+  assert.equal(result.recoveryPlacements[0].startAt, autoAt("10:00"));
+  assert.ok(
+    result.changes.some(
+      (c) => c.id === "recovery-session" && c.after === undefined
+    )
+  );
+  assert.deepEqual(request.allocations, [allocation]);
+});
+
+test("Recovery opportunities outlive an expired leisure Occurrence and remain editable without generating recurrence debt", async (t) => {
+  const f = await recurringFixture(t);
+  const first = f.occurrences()[0];
+  await f.db.patch(first._id, { leisure: true });
+  await f.db.insert("recoveryRequests", {
+    userId: "alice",
+    kind: "leisure",
+    taskId: first._id,
+    title: "Exercise",
+    date: "2030-01-07",
+    expiresOn: "2030-01-10",
+    minutes: 30,
+    allocations: [],
+  });
+  f.now("2030-01-08T08:00");
+  await planning.planDay._handler(f.context("alice"), {
+    date: "2030-01-08",
+    timezone: f.rule.timezone,
+  });
+  assert.ok((await f.db.get(first._id)).expiredAt);
+  const recovery = (await f.db.query("sessions").collect()).find(
+    (s) => s.recoveryRequestId
+  );
+  assert.ok(recovery);
+  assert.equal(recovery.taskId, first._id);
+  await saveSession._handler(f.context("alice"), {
+    sessionId: recovery._id,
+    taskId: first._id,
+    startAt: at("2030-01-08T15:00"),
+    endAt: at("2030-01-08T15:30"),
+  });
+  await f.sync();
+  assert.equal((await f.db.get(recovery._id)).unscheduledAt, undefined);
+});
+
+test("Changing the protected reserve minimum adjusts flexible automatic Sessions and surfaces immovable shortfalls", () => {
+  const rules = {
+    ...autoSettings,
+    reservePreferredMinutes: 60,
+    reserveMinimumMinutes: 30,
+  };
+  const work = task("work", 180, { priority: "critical" });
+  const automatic = plan(
+    [work],
+    [session("work-session", "work", "09:00", "12:00")],
+    { settings: rules }
+  );
+  const placements = automatic.changes.filter((c) => c.after);
+  assert.equal(
+    placements.reduce(
+      (n, c) => n + (c.after.endAt - c.after.startAt) / 60000,
+      0
+    ),
+    150
+  );
+  assert.equal(automatic.recoveries.length, 0);
+  const pinned = plan(
+    [work],
+    [session("pinned", "work", "09:00", "12:00", { pinned: true })],
+    { settings: rules }
+  );
+  assert.equal(pinned.changes.length, 0);
+  assert.ok(pinned.conflicts.some((c) => c.includes("reserve minimum")));
+});

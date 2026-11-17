@@ -12,6 +12,8 @@ type PlanningTask = {
   _id: string;
   projectId?: string;
   title: string;
+  leisure?: boolean;
+  recoveryWindowDays?: number;
   effortMinutes?: number;
   minSessionMinutes?: number;
   maxSessionMinutes?: number;
@@ -34,11 +36,26 @@ type PlanningSession = Interval & {
   unscheduledAt?: number;
   checkInUpdatedAt?: number;
   planningEffortMinutes?: number;
+  recoveryRequestId?: string;
   checkIn?: {
     reportedAt: number;
     timeMinutes: number;
     remainingMinutes?: number;
   };
+};
+
+export type RecoveryRequest = {
+  _id: string;
+  revision?: number;
+  taskId?: string;
+  kind: "leisure" | "reserve";
+  title: string;
+  date: string;
+  expiresOn: string;
+  minutes: number;
+  dismissedAt?: number;
+  undoneAt?: number;
+  allocations: Interval[];
 };
 
 export function planSessions({
@@ -50,6 +67,7 @@ export function planSessions({
   now,
   replanAll = false,
   projects = [],
+  recoveryRequests = [],
 }: {
   date: string;
   settings: PlanningSettings;
@@ -64,15 +82,72 @@ export function planSessions({
     weeklyMinutes: number;
     weekdays: number[];
   }[];
+  recoveryRequests?: RecoveryRequest[];
 }) {
   const startAt = Math.max(dayBounds(date, settings.timezone).startAt, now);
   const endAt = dayBounds(shiftDate(date, 7), settings.timezone).startAt;
+  recoveryRequests = recoveryRequests.map((r) => ({
+    ...r,
+    allocations: [...r.allocations],
+  }));
+  const releasedRecovery: PlanningSession[] = [];
+  const recoveryConflicts: string[] = [];
+  sessions = sessions.map((session) => {
+    if (!session.recoveryRequestId || session.unscheduledAt !== undefined)
+      return session;
+    const request = recoveryRequests.find(
+      (r) => r._id === session.recoveryRequestId
+    );
+    const conflict =
+      placementConflicts(session, settings, events).length > 0 ||
+      sessions.some(
+        (s) =>
+          s._id !== session._id &&
+          s.unscheduledAt === undefined &&
+          !s.recoveryRequestId &&
+          overlaps(s, session)
+      );
+    if (!conflict) return session;
+    if (
+      session.pinned ||
+      session.manualOverride ||
+      session.checkIn ||
+      session.startAt <= now
+    ) {
+      recoveryConflicts.push(
+        `${request?.title ?? "Recovery Session"}: resolve the pinned, active, or manual recovery conflict`
+      );
+      return session;
+    }
+    if (request)
+      request.allocations = request.allocations.filter(
+        (a) => a.startAt !== session.startAt || a.endAt !== session.endAt
+      );
+    releasedRecovery.push(session);
+    return { ...session, unscheduledAt: now };
+  });
+  for (const request of recoveryRequests.filter((r) => r.kind === "reserve"))
+    request.allocations = request.allocations.filter(
+      (a) =>
+        a.startAt <= now ||
+        (!placementConflicts(a, settings, events).length &&
+          !sessions.some(
+            (s) => s.unscheduledAt === undefined && overlaps(s, a)
+          ))
+    );
   const windows = Array.from({ length: 7 }, (_, i) =>
     availabilityOn(shiftDate(date, i), settings)
   );
   const hardBlocks = [
     ...windows.flatMap((w) => w.protected),
     ...events.filter((e) => e.attention === "focused"),
+    ...recoveryRequests.flatMap((r) =>
+      r.kind === "reserve" &&
+      r.dismissedAt === undefined &&
+      r.undoneAt === undefined
+        ? r.allocations
+        : []
+    ),
   ];
   const available = windows
     .flatMap((w) => w.available)
@@ -109,7 +184,23 @@ export function planSessions({
   const duration = (s: Interval) => (s.endAt - s.startAt) / 60000;
   const credit = (s: PlanningSession) =>
     s.checkIn ? s.checkIn.timeMinutes : duration(s);
-  const original = sessions.filter((s) => s.unscheduledAt === undefined);
+  const original = sessions.filter(
+    (s) => s.unscheduledAt === undefined && !s.recoveryRequestId
+  );
+  hardBlocks.push(
+    ...sessions.filter(
+      (s) => s.unscheduledAt === undefined && s.recoveryRequestId
+    )
+  );
+  const recoveryCredit = (taskId: string) =>
+    recoveryRequests
+      .filter(
+        (r) =>
+          r.kind === "leisure" &&
+          r.taskId === taskId &&
+          r.undoneAt === undefined
+      )
+      .reduce((n, r) => n + r.minutes, 0);
   const effort = (task: PlanningTask) => {
     const reports = original
       .filter(
@@ -168,7 +259,7 @@ export function planSessions({
   );
   let plan = [...original];
   const reasons = new Map<string, string>();
-  const conflicts: string[] = [];
+  const conflicts: string[] = [...recoveryConflicts];
   const movable = (s: PlanningSession) =>
     s.startAt >= startAt &&
     s.endAt <= endAt &&
@@ -251,6 +342,44 @@ export function planSessions({
     }
   }
   const accepted: PlanningSession[] = [];
+  if ((settings.reserveMinimumMinutes ?? 0) > 0) {
+    for (let i = 0; i < 7; i++) {
+      const currentDate = shiftDate(date, i);
+      const day = dayBounds(currentDate, settings.timezone);
+      if (!available.some((window) => overlaps(window, day))) continue;
+      const freeMinutes = () =>
+        gaps(plan).reduce(
+          (n, w) =>
+            n +
+            Math.max(
+              0,
+              Math.min(w.endAt, day.endAt) - Math.max(w.startAt, day.startAt)
+            ) /
+              60000,
+          0
+        );
+      for (const session of [...plan]
+        .filter(
+          (s) => overlaps(s, day) && movable(s) && s.manualOverride === false
+        )
+        .sort(
+          (a, b) =>
+            rank(byId.get(a.taskId) ?? { _id: "", title: "" }) -
+            rank(byId.get(b.taskId) ?? { _id: "", title: "" })
+        )) {
+        if (freeMinutes() >= settings.reserveMinimumMinutes!) break;
+        plan = plan.filter((s) => s._id !== session._id);
+        reasons.set(
+          session._id,
+          "Preserve the protected free-time reserve minimum"
+        );
+      }
+      if (freeMinutes() < settings.reserveMinimumMinutes!)
+        conflicts.push(
+          `${currentDate}: insufficient unallocated time for the protected free-time reserve minimum; review fixed, pinned, or manual commitments`
+        );
+    }
+  }
   for (const s of [...plan].sort(
     (a, b) =>
       Number(movable(a) && a.manualOverride === false) -
@@ -279,7 +408,7 @@ export function planSessions({
     task: PlanningTask,
     current: PlanningSession[],
     needed: number,
-    options?: { date?: string; oneSession?: boolean }
+    options?: { date?: string; oneSession?: boolean; borrowReserve?: boolean }
   ) => {
     const result = [...current];
     if (needed <= 0) return { plan: result, needed };
@@ -318,6 +447,9 @@ export function planSessions({
       );
       if (options?.date && windowDate !== options.date) continue;
       const day = dayBounds(windowDate, settings.timezone);
+      const reserve = options?.borrowReserve
+        ? (settings.reserveMinimumMinutes ?? 0)
+        : (settings.reservePreferredMinutes ?? 0);
       const lowLimit = replanAll
         ? 1
         : Math.max(
@@ -353,7 +485,21 @@ export function planSessions({
         let minutes = Math.min(
           needed,
           maximum,
-          (window.endAt - cursor) / 60000
+          (window.endAt - cursor) / 60000,
+          Math.max(
+            0,
+            gaps(result).reduce(
+              (n, gap) =>
+                n +
+                Math.max(
+                  0,
+                  Math.min(gap.endAt, day.endAt) -
+                    Math.max(gap.startAt, day.startAt)
+                ) /
+                  60000,
+              0
+            ) - reserve
+          )
         );
         if (needed > minutes && needed - minutes < minimum)
           minutes -= minimum - (needed - minutes);
@@ -384,7 +530,9 @@ export function planSessions({
       .reduce((n, s) => n + duration(s), 0);
     const needed = Math.max(
       0,
-      (effort(task) ?? scheduled + removedMinutes) - scheduled
+      (effort(task) ?? scheduled + removedMinutes) -
+        recoveryCredit(task._id) -
+        scheduled
     );
     let attempt = place(task, plan, needed);
     if (
@@ -438,6 +586,13 @@ export function planSessions({
         if (attempt.needed === 0) break;
       }
     }
+    if (
+      attempt.needed > 0 &&
+      (pressing(task) || priority[task.priority ?? "normal"] >= 2)
+    )
+      attempt = place(task, attempt.plan, attempt.needed, {
+        borrowReserve: true,
+      });
     plan = attempt.plan;
   };
   const urgent = ordered.filter(
@@ -509,7 +664,10 @@ export function planSessions({
           const scheduled = plan
             .filter((s) => s.taskId === task._id)
             .reduce((n, s) => n + credit(s), 0);
-          const remaining = Math.max(0, effort(task)! - scheduled);
+          const remaining = Math.max(
+            0,
+            effort(task)! - recoveryCredit(task._id) - scheduled
+          );
           const needed = Math.min(
             remaining,
             Math.max(budget, task.minSessionMinutes ?? 15)
@@ -577,7 +735,10 @@ export function planSessions({
           const scheduled = plan
             .filter((s) => s.taskId === task._id)
             .reduce((sum, s) => sum + credit(s), 0);
-          const needed = Math.max(0, (effort(task) ?? scheduled) - scheduled);
+          const needed = Math.max(
+            0,
+            (effort(task) ?? scheduled) - recoveryCredit(task._id) - scheduled
+          );
           const attempt = place(task, plan, needed, {
             date: currentDate,
             oneSession: true,
@@ -598,7 +759,210 @@ export function planSessions({
     }
   }
   for (const task of ordinary) scheduleTask(task);
+  const recoveries = recoveryRequests.map((r) => ({
+    ...r,
+    allocations: [...r.allocations],
+  }));
+  for (const task of eligible.filter((t) => t.leisure)) {
+    const before = original.filter((s) => s.taskId === task._id);
+    let lost = Math.max(
+      0,
+      before.reduce((n, s) => n + duration(s), 0) -
+        plan
+          .filter((s) => s.taskId === task._id)
+          .reduce((n, s) => n + duration(s), 0)
+    );
+    for (const session of before.filter((s) =>
+      reasons.get(s._id)?.startsWith("Make room for pressing Task:")
+    )) {
+      const minutes = Math.min(lost, duration(session));
+      if (minutes <= 0) continue;
+      const displacedDate = localDateTime(
+        session.startAt,
+        settings.timezone
+      ).slice(0, 10);
+      recoveries.push({
+        _id: `new:leisure:${session._id}`,
+        taskId: task._id,
+        kind: "leisure",
+        title: task.title,
+        date: displacedDate,
+        expiresOn: shiftDate(
+          displacedDate,
+          task.recoveryWindowDays ?? settings.recoveryWindowDays ?? 7
+        ),
+        minutes,
+        allocations: [],
+      });
+      lost -= minutes;
+    }
+  }
+  for (let i = 0; i < 7; i++) {
+    const currentDate = shiftDate(date, i);
+    const day = dayBounds(currentDate, settings.timezone);
+    const free = gaps(plan).reduce(
+      (n, w) =>
+        n +
+        Math.max(
+          0,
+          Math.min(w.endAt, day.endAt) - Math.max(w.startAt, day.startAt)
+        ) /
+          60000,
+      0
+    );
+    const borrowed = recoveries
+      .filter(
+        (r) =>
+          r.kind === "reserve" &&
+          r.date === currentDate &&
+          r.undoneAt === undefined
+      )
+      .reduce((n, r) => n + r.minutes, 0);
+    const beforeFree = gaps(original).reduce(
+      (n, w) =>
+        n +
+        Math.max(
+          0,
+          Math.min(w.endAt, day.endAt) - Math.max(w.startAt, day.startAt)
+        ) /
+          60000,
+      0
+    );
+    const minutes = Math.max(
+      0,
+      Math.min(
+        (settings.reservePreferredMinutes ?? 0) - free - borrowed,
+        beforeFree - free
+      )
+    );
+    if (
+      minutes > 0 &&
+      plan.some(
+        (s) =>
+          overlaps(s, day) &&
+          byId.has(s.taskId) &&
+          (pressing(byId.get(s.taskId)!) ||
+            priority[byId.get(s.taskId)!.priority ?? "normal"] >= 2)
+      )
+    )
+      recoveries.push({
+        _id: `new:reserve:${currentDate}`,
+        kind: "reserve",
+        title: "Free-time reserve",
+        date: currentDate,
+        expiresOn: shiftDate(currentDate, settings.recoveryWindowDays ?? 7),
+        minutes,
+        allocations: [],
+      });
+  }
+  const recoveryPlacements: {
+    requestId: string;
+    taskId: string;
+    startAt: number;
+    endAt: number;
+  }[] = [];
+  for (const request of recoveries
+    .filter(
+      (r) =>
+        r.dismissedAt === undefined &&
+        r.undoneAt === undefined &&
+        r.expiresOn >= date
+    )
+    .sort(
+      (a, b) =>
+        a.expiresOn.localeCompare(b.expiresOn) || a.date.localeCompare(b.date)
+    )) {
+    const task = tasks.find((t) => t._id === request.taskId);
+    if (
+      request.kind === "leisure" &&
+      (!task ||
+        task.archivedAt !== undefined ||
+        task.completedAt !== undefined ||
+        task.automaticSchedulingPaused)
+    )
+      continue;
+    let remaining =
+      request.minutes -
+      request.allocations.reduce((n, w) => n + duration(w), 0);
+    for (let i = 0; i < 7 && remaining > 0; i++) {
+      const recoveryDate = shiftDate(date, i);
+      if (recoveryDate <= request.date || recoveryDate > request.expiresOn)
+        continue;
+      const day = dayBounds(recoveryDate, settings.timezone);
+      let budget = Math.max(
+        0,
+        (settings.dailyRecoveryMinutes ?? 60) -
+          recoveries
+            .flatMap((r) => r.allocations)
+            .filter((w) => overlaps(w, day))
+            .reduce((n, w) => n + duration(w), 0)
+      );
+      for (const gap of gaps(plan)) {
+        const startAt = Math.max(gap.startAt, day.startAt);
+        const endAt = Math.min(gap.endAt, day.endAt);
+        const free = gaps(plan).reduce(
+          (n, w) =>
+            n +
+            Math.max(
+              0,
+              Math.min(w.endAt, day.endAt) - Math.max(w.startAt, day.startAt)
+            ) /
+              60000,
+          0
+        );
+        let capacity = Math.min(
+          remaining,
+          budget,
+          Math.max(0, free - (settings.reservePreferredMinutes ?? 0)),
+          (endAt - startAt) / 60000
+        );
+        let cursor = startAt;
+        while (capacity > 0) {
+          const minutes = Math.min(capacity, task?.maxSessionMinutes ?? 60);
+          if (
+            request.kind === "leisure" &&
+            minutes < Math.min(remaining, task?.minSessionMinutes ?? 15)
+          )
+            break;
+          const allocation = {
+            startAt: cursor,
+            endAt: cursor + minutes * 60000,
+          };
+          request.allocations.push(allocation);
+          hardBlocks.push(allocation);
+          if (request.taskId)
+            recoveryPlacements.push({
+              requestId: request._id,
+              taskId: request.taskId,
+              ...allocation,
+            });
+          remaining -= minutes;
+          budget -= minutes;
+          capacity -= minutes;
+          cursor = allocation.endAt;
+        }
+      }
+    }
+  }
+  const recoveryImbalance =
+    new Set(
+      recoveries
+        .filter(
+          (r) =>
+            r.undoneAt === undefined &&
+            r.date >= shiftDate(date, -(settings.recoveryWindowDays ?? 7)) &&
+            r.date <= shiftDate(date, 6)
+        )
+        .map((r) => r.date)
+    ).size >= 3;
   const changes = [
+    ...releasedRecovery.map((s) => ({
+      id: s._id,
+      taskId: s.taskId,
+      before: { startAt: s.startAt, endAt: s.endAt },
+      after: undefined as Interval | undefined,
+      reason: "Recovery placement conflicts with a boundary or Session",
+    })),
     ...original
       .filter((s) => !plan.some((p) => p._id === s._id))
       .map((s) => ({
@@ -646,7 +1010,10 @@ export function planSessions({
       const planned = plan
         .filter((s) => s.taskId === task._id && s.endAt <= until)
         .reduce((n, s) => n + credit(s), 0);
-      const minutes = Math.max(0, effort(task)! - planned);
+      const minutes = Math.max(
+        0,
+        effort(task)! - recoveryCredit(task._id) - planned
+      );
       return minutes > 0
         ? [
             {
@@ -662,6 +1029,9 @@ export function planSessions({
         : [];
     });
   return {
+    recoveries,
+    recoveryPlacements,
+    recoveryImbalance,
     changes,
     shortfalls,
     conflicts,
