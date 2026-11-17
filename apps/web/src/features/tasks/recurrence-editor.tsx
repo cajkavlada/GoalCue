@@ -44,8 +44,12 @@ export function RecurrenceEditor({
           : unit
             ? translatePregeneratedItem(unit).name
             : m.planning_quantity();
-  const update = (patch: Partial<RecurrenceRule>) =>
-    onChange({ ...value!, ...patch });
+  const update = (patch: Partial<RecurrenceRule>) => {
+    const next = { ...value!, ...patch };
+    if (next.kind !== "calendar" || next.unit !== "day")
+      next.weekdays = undefined;
+    onChange(next);
+  };
   const ending = value?.endDate
     ? "date"
     : value?.endAfter !== undefined
@@ -84,6 +88,37 @@ export function RecurrenceEditor({
       </label>
       {value && (
         <>
+          {value.kind === "calendar" && value.unit === "day" && (
+            <fieldset className="space-y-2">
+              <legend>{m.mail_weekdays()}</legend>
+              {[
+                m.constraints_sunday(),
+                m.constraints_monday(),
+                m.constraints_tuesday(),
+                m.constraints_wednesday(),
+                m.constraints_thursday(),
+                m.constraints_friday(),
+                m.constraints_saturday(),
+              ].map((label, day) => (
+                <label
+                  key={day}
+                  className="flex items-center gap-2"
+                >
+                  <Switch
+                    checked={!value.weekdays || value.weekdays.includes(day)}
+                    onCheckedChange={(checked) => {
+                      const days = value.weekdays ?? [0, 1, 2, 3, 4, 5, 6];
+                      const next = checked
+                        ? [...days, day]
+                        : days.filter((d) => d !== day);
+                      if (next.length) update({ weekdays: next });
+                    }}
+                  />
+                  {label}
+                </label>
+              ))}
+            </fieldset>
+          )}
           <label className="block">
             {m.recurrence_kind()}
             <Select

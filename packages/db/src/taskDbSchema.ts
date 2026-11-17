@@ -13,6 +13,7 @@ export const recurrenceRule = v.object({
   count: v.number(),
   volume: v.number(),
   carryForward: v.boolean(),
+  weekdays: v.optional(v.array(v.number())),
   endDate: v.optional(v.string()),
   endAfter: v.optional(v.number()),
 });
@@ -55,6 +56,9 @@ export const taskDbSchema = {
   tasks: defineTable({
     title: v.string(),
     description: v.optional(v.string()),
+    mailSourceId: v.optional(v.id("mailSources")),
+    mailRoutine: v.optional(literals("inbox", "spam")),
+    mailBatchSize: v.optional(v.number()),
     i18nKey: v.optional(v.string()),
     userId: v.string(),
     taskTypeId: v.id("taskTypes"),

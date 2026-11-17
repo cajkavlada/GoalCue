@@ -4,6 +4,7 @@ import { m } from "@gc/i18n/messages";
 import { ErrorSuspense } from "@gc/react-kit";
 import { Card, CardContent, CardHeader, CardTitle } from "@gc/ui";
 
+import { MailSettings } from "@/features/mail/mail-settings";
 import { PriorityClassCard } from "@/features/priority-classes/priority-class-card";
 import { TagCard } from "@/features/tags/tag-card";
 import { TaskTypeCard } from "@/features/task-types/task-type-card";
@@ -17,6 +18,9 @@ export const Route = createFileRoute("/{-$locale}/_protected/settings")({
 function RouteComponent() {
   return (
     <div className="flex h-full flex-col gap-4 overflow-auto p-4">
+      <ErrorSuspense>
+        <MailSettings />
+      </ErrorSuspense>
       <Card className="mx-auto w-full max-w-xl shrink-0">
         <CardHeader>
           <CardTitle>{m.constraints_planning_time()}</CardTitle>
