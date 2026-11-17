@@ -15,6 +15,9 @@ type PlanningTask = Attendance & {
   _id: string;
   projectId?: string;
   title: string;
+  jiraSourceId?: string;
+  jiraBoards?: string[];
+  jiraBalancingBoard?: string;
   leisure?: boolean;
   recoveryWindowDays?: number;
   effortMinutes?: number;
@@ -633,7 +636,8 @@ export function planSessions({
     plan = attempt.plan;
   };
   const urgent = ordered.filter(
-    (task) => pressing(task) || task.priority === "critical"
+    (task) =>
+      pressing(task) || (task.priority === "critical" && !task.jiraSourceId)
   );
   for (const task of urgent) scheduleTask(task);
   const projectShortfalls: {
@@ -756,15 +760,71 @@ export function planSessions({
         );
         return priority[task.priority ?? "normal"] + Math.min(3, waitingDays);
       };
+      const boardLoads = new Map<string, number>();
       for (let round = 0; round < 3; round++) {
-        const candidates = [...ordinary].sort(
-          (a, b) =>
-            waitingRank(b) - waitingRank(a) ||
-            rank(b) - rank(a) ||
-            (a.dueAt ?? Infinity) - (b.dueAt ?? Infinity) ||
-            a._id.localeCompare(b._id)
-        );
-        for (const task of candidates) {
+        const boardLoad = (task: PlanningTask) => {
+          if (!task.jiraBalancingBoard) return undefined;
+          const key = JSON.stringify([
+            task.jiraSourceId,
+            task.jiraBalancingBoard,
+          ]);
+          if (boardLoads.has(key)) return boardLoads.get(key)!;
+          const board = task.jiraBalancingBoard;
+          const members = ordinary.filter(
+            (t) =>
+              t.jiraSourceId === task.jiraSourceId &&
+              t.jiraBalancingBoard === board
+          );
+          const demand = members.reduce((sum, t) => {
+            const scheduled = plan
+              .filter((s) => s.taskId === t._id && s.endAt <= day.startAt)
+              .reduce((n, s) => n + credit(s), 0);
+            const daysLeft =
+              t.dueAt === undefined
+                ? 7
+                : Math.max(0, (t.dueAt - day.startAt) / 86400000);
+            return (
+              sum +
+              Math.max(0, (effort(t) ?? 0) - scheduled) *
+                (1 + 1 / (1 + daysLeft))
+            );
+          }, 0);
+          const minutes = plan
+            .filter(
+              (s) => overlaps(s, day) && members.some((t) => t._id === s.taskId)
+            )
+            .reduce((sum, s) => sum + credit(s), 0);
+          const last = Math.max(
+            startAt - 86400000,
+            ...plan
+              .filter(
+                (s) =>
+                  s.startAt < day.startAt &&
+                  members.some((t) => t._id === s.taskId)
+              )
+              .map((s) => s.startAt)
+          );
+          const load =
+            minutes / Math.sqrt(Math.max(1, demand)) +
+            ((last - startAt) / 86400000) * 0.000001;
+          boardLoads.set(key, load);
+          return load;
+        };
+        const candidates = [...ordinary];
+        while (candidates.length) {
+          candidates.sort(
+            (a, b) =>
+              (a.jiraSourceId === b.jiraSourceId &&
+              boardLoad(a) !== undefined &&
+              boardLoad(b) !== undefined
+                ? boardLoad(a)! - boardLoad(b)!
+                : 0) ||
+              waitingRank(b) - waitingRank(a) ||
+              rank(b) - rank(a) ||
+              (a.dueAt ?? Infinity) - (b.dueAt ?? Infinity) ||
+              a._id.localeCompare(b._id)
+          );
+          const task = candidates.shift()!;
           const daily = plan.filter(
             (s) => s.taskId === task._id && credit(s) > 0 && overlaps(s, day)
           );
@@ -787,10 +847,15 @@ export function planSessions({
             )
               reasons.set(
                 session._id,
-                "Give Tasks a turn according to Priority and waiting time"
+                task.jiraBalancingBoard
+                  ? "Give Jira Boards meaningful daily attention while respecting deadline pressure"
+                  : "Give Tasks a turn according to Priority and waiting time"
               );
           }
           plan = attempt.plan;
+          boardLoads.delete(
+            JSON.stringify([task.jiraSourceId, task.jiraBalancingBoard])
+          );
         }
       }
     }

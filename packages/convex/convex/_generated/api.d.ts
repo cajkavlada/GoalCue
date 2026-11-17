@@ -9,6 +9,7 @@
  */
 
 import type * as dbQueries_index from "../dbQueries/index.js";
+import type * as jira from "../jira.js";
 import type * as calendars from "../calendars.js";
 import type * as googleCalendar from "../googleCalendar.js";
 import type * as utils_calendarImport from "../utils/calendarImport.js";
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   googleCalendar: typeof googleCalendar;
   "utils/calendarImport": typeof utils_calendarImport;
   "dbQueries/index": typeof dbQueries_index;
+  jira: typeof jira;
   planning: typeof planning;
   mail: typeof mail;
   priorityClasses: typeof priorityClasses;

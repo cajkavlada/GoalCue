@@ -13,6 +13,7 @@ import { MailSettings } from "@/features/mail/mail-settings";
 import { PriorityClassCard } from "@/features/priority-classes/priority-class-card";
 import { TagCard } from "@/features/tags/tag-card";
 import { TaskTypeCard } from "@/features/task-types/task-type-card";
+import { JiraImport } from "@/features/tasks/jira-import";
 import { PlanningTimeSettings } from "@/features/tasks/schedule-constraints";
 import { UnitCard } from "@/features/units/unit-card";
 import { WorkCalendars } from "@/features/work-calendars";
@@ -69,6 +70,16 @@ function RouteComponent() {
         <CardContent>
           <ErrorSuspense>
             <PlanningTimeSettings />
+          </ErrorSuspense>
+        </CardContent>
+      </Card>
+      <Card className="mx-auto w-full max-w-xl shrink-0">
+        <CardHeader>
+          <CardTitle>{m.jira_title()}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ErrorSuspense>
+            <JiraImport />
           </ErrorSuspense>
         </CardContent>
       </Card>

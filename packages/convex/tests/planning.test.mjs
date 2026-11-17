@@ -63,6 +63,10 @@ const {
   zonedInstant,
 } = await import("../../validators/src/planning.ts");
 const { planSessions } = await import("../../validators/src/auto-planning.ts");
+const jira = await import("../convex/jira.ts");
+const { parseJiraCsv, mapJiraRow } = await import(
+  "../../validators/src/jira.ts"
+);
 const { planTravel, locationConflicts } = await import(
   "../../validators/src/travel.ts"
 );
@@ -972,6 +976,350 @@ const settings = {
   protectedDates: [],
 };
 const at = (local) => zonedInstant(local, settings.timezone);
+
+test("Jira CSV preserves quoted descriptions and keeps story points separate from time", () => {
+  const parsed = parseJiraCsv(
+    '\uFEFFKey,Summary,Description,Points,Estimate,Remaining,SprintEnd\r\nA-1,"Fix, test","Line 1\nLine ""2""",8,120,,2030-01-11'
+  );
+  const mapping = {
+    identity: "Key",
+    summary: "Summary",
+    description: "Description",
+    storyPoints: "Points",
+    estimateMinutes: "Estimate",
+    remainingMinutes: "Remaining",
+    sprintEnd: "SprintEnd",
+  };
+  const row = mapJiraRow(parsed.headers, parsed.rows[0], mapping, 45);
+  assert.equal(row.title, "Fix, test");
+  assert.equal(row.description, 'Line 1\nLine "2"');
+  assert.equal(row.storyPoints, 8);
+  assert.equal(row.effortMinutes, 60);
+  assert.equal(row.finishKind, "preferred");
+  assert.equal(row.dueAt, Date.parse("2030-01-11T23:59:59.999Z"));
+  const remaining = [...parsed.rows[0]];
+  remaining[5] = "20";
+  assert.equal(
+    mapJiraRow(parsed.headers, remaining, mapping, 45).effortMinutes,
+    20
+  );
+  const pointsOnly = mapJiraRow(
+    ["Key", "Summary", "Points"],
+    ["A-1", "Task", "100"],
+    { identity: "Key", summary: "Summary", storyPoints: "Points" },
+    45
+  );
+  assert.equal(pointsOnly.effortMinutes, 45);
+  assert.equal(pointsOnly.sprintEnd, undefined);
+  assert.equal(pointsOnly.dueAt, undefined);
+  assert.throws(() => parseJiraCsv("Key,Key\n1,2"));
+  assert.throws(() => parseJiraCsv('Key,Summary\n1,"open'));
+  assert.throws(() =>
+    mapJiraRow(
+      ["Key", "Summary", "End"],
+      ["1", "Task", "2030-02-30"],
+      { identity: "Key", summary: "Summary", sprintEnd: "End" },
+      45
+    )
+  );
+});
+
+test("Jira reimports deduplicate board membership, update facts, and retain local planning and progress", async () => {
+  const { db, context, rows } = database();
+  const taskTypeId = await db.insert("taskTypes", {
+    userId: "alice",
+    name: "Task",
+    valueKind: "boolean",
+  });
+  const priorityClassId = await db.insert("priorityClasses", {
+    userId: "alice",
+    name: "Normal",
+    orderKey: "a0",
+  });
+  const args = {
+    instance: "example.atlassian.net/",
+    job: "Work",
+    taskTypeId,
+    priorityClassId,
+    fallbackMinutes: 45,
+    mapping: {
+      identity: "Key",
+      summary: "Summary",
+      boards: "Boards",
+      estimateMinutes: "Estimate",
+      status: "Status",
+      priority: "Priority",
+      sprint: "Sprint",
+      sprintEnd: "End",
+      project: "Project",
+    },
+    statusMapping: { Open: "ready" },
+    priorityMapping: { Highest: "high" },
+    csv: "Key,Summary,Boards,Estimate,Status,Priority,Sprint,End,Project\nA-1,First,Alpha,120,Open,Highest,S-1,2030-01-11,Work\nA-1,First,Beta,120,Open,Highest,S-1,2030-01-11,Work",
+  };
+  const first = await jira.importCsv._handler(context("alice"), args);
+  assert.equal(first.imported, 1);
+  const task = [...rows.values()].find((r) => r.jiraIdentity === "A-1");
+  assert.deepEqual(task.jiraBoards, ["Alpha", "Beta"]);
+  assert.equal(task.jiraBalancingBoard, "Alpha");
+  assert.equal(task.effortMinutes, 60);
+  assert.equal(task.priority, "high");
+  assert.equal(task.finishKind, "preferred");
+  assert.equal((await db.get(task.projectId)).title, "Work");
+  assert.equal(
+    (await jira.importCsv._handler(context("alice"), args)).unchanged,
+    1
+  );
+  await db.patch(task._id, {
+    effortMinutes: 90,
+    priority: "low",
+    dueAt: 42,
+    finishKind: "firm",
+    currentNumValue: 3,
+    completedAt: 5,
+  });
+  const sessionId = await db.insert("sessions", {
+    userId: "alice",
+    taskId: task._id,
+    startAt: 100,
+    endAt: 200,
+    pinned: true,
+  });
+  await jira.setBalancingBoard._handler(context("alice"), {
+    taskId: task._id,
+    board: "Beta",
+  });
+  const changedArgs = {
+    ...args,
+    csv: args.csv
+      .replaceAll("First", "Updated")
+      .replaceAll("120", "240")
+      .replaceAll("2030-01-11", "2030-01-18"),
+  };
+  assert.equal(
+    (await jira.importCsv._handler(context("alice"), changedArgs)).changed,
+    1
+  );
+  const updated = await db.get(task._id);
+  assert.equal(updated.title, "Updated");
+  assert.equal(updated.effortMinutes, 90);
+  assert.equal(updated.priority, "low");
+  assert.equal(updated.dueAt, 42);
+  assert.equal(updated.finishKind, "firm");
+  assert.equal(updated.currentNumValue, 3);
+  assert.equal(updated.completedAt, 5);
+  assert.equal(updated.jiraBalancingBoard, "Beta");
+  assert.equal(updated.jira.sprintEnd, Date.parse("2030-01-18T23:59:59.999Z"));
+  assert.equal((await db.get(sessionId)).pinned, true);
+  assert.equal(
+    [...rows.values()].filter((r) => r.jiraIdentity === "A-1").length,
+    1
+  );
+  await jira.importCsv._handler(context("alice"), {
+    ...args,
+    job: "Another dataset",
+  });
+  assert.equal(
+    [...rows.values()].filter((r) => r.jiraIdentity === "A-1").length,
+    1
+  );
+  await assert.rejects(jira.importCsv._handler(context("bob"), args));
+  await assert.rejects(
+    jira.setBalancingBoard._handler(context("bob"), {
+      taskId: task._id,
+      board: "Alpha",
+    })
+  );
+});
+
+test("Partial Jira imports reject invalid rows and keep missing Tasks; conflicting duplicates are never imported", async () => {
+  const { db, context, rows } = database();
+  const taskTypeId = await db.insert("taskTypes", {
+    userId: "alice",
+    valueKind: "boolean",
+  });
+  const priorityClassId = await db.insert("priorityClasses", {
+    userId: "alice",
+  });
+  const args = {
+    instance: "jira.example.com",
+    job: "Work",
+    taskTypeId,
+    priorityClassId,
+    fallbackMinutes: 45,
+    mapping: { identity: "Key", summary: "Summary", sprintEnd: "End" },
+    statusMapping: {},
+    priorityMapping: {},
+    csv: "Key,Summary,End\nA-1,Valid,\nA-2,Bad,2030-02-30\nA-3,Conflict,\nA-3,Different,",
+  };
+  const result = await jira.importCsv._handler(context("alice"), args);
+  assert.equal(result.imported, 1);
+  assert.equal(result.rejected.length, 2);
+  assert.equal([...rows.values()].filter((r) => r.jiraIdentity).length, 1);
+  await jira.importCsv._handler(context("alice"), {
+    ...args,
+    csv: "Key,Summary,End\nA-4,New,",
+  });
+  assert.equal([...rows.values()].filter((r) => r.jiraIdentity).length, 2);
+  const source = (await jira.list._handler(context("alice"), {}))[0];
+  assert.deepEqual(source.mapping, args.mapping);
+  assert.deepEqual(await jira.list._handler(context("bob"), {}), []);
+});
+
+test("Jira Sprint dates are shared across imported Boards, explicit firm flags win, and unknown dates stay unset", async () => {
+  const { db, context, rows } = database();
+  const taskTypeId = await db.insert("taskTypes", {
+    userId: "alice",
+    valueKind: "boolean",
+  });
+  const priorityClassId = await db.insert("priorityClasses", {
+    userId: "alice",
+  });
+  const args = {
+    instance: "jira.example.com",
+    job: "Work",
+    taskTypeId,
+    priorityClassId,
+    fallbackMinutes: 45,
+    mapping: {
+      identity: "Key",
+      summary: "Summary",
+      sprint: "Sprint",
+      sprintEnd: "End",
+      sprintFirm: "Firm",
+      boards: "Board",
+    },
+    statusMapping: {},
+    priorityMapping: {},
+    csv: "Key,Summary,Sprint,End,Firm,Board\nA-1,First,S-1,2030-01-11,,Alpha\nA-2,Second,S-1,,true,Beta\nA-3,Future,S-2,,,Alpha",
+  };
+  assert.equal(
+    (await jira.importCsv._handler(context("alice"), args)).imported,
+    3
+  );
+  const imported = [...rows.values()].filter((row) => row.jiraIdentity);
+  assert.equal(imported[0].dueAt, imported[1].dueAt);
+  assert.equal(imported[0].finishKind, "preferred");
+  assert.equal(imported[1].finishKind, "firm");
+  assert.equal(imported[2].dueAt, undefined);
+  const conflicting = await jira.importCsv._handler(context("alice"), {
+    ...args,
+    csv: "Key,Summary,Sprint,End,Firm,Board\nA-1,First,S-1,2030-01-12,,Alpha\nA-2,Second,S-1,2030-01-13,,Beta",
+  });
+  assert.equal(conflicting.rejected.length, 2);
+  assert.equal(imported[0].dueAt, Date.parse("2030-01-11T23:59:59.999Z"));
+});
+
+test("Jira Boards receive daily attention and rotate when only one meaningful Session fits", () => {
+  const date = "2030-01-07",
+    now = Date.parse(date + "T00:00Z");
+  const boardTasks = [
+    ...Array.from({ length: 5 }, (_, i) => ({
+      _id: `a${i}`,
+      title: "Alpha",
+      effortMinutes: 300,
+      priority: "normal",
+      jiraSourceId: "source",
+      jiraBalancingBoard: "Alpha",
+    })),
+    {
+      _id: "z",
+      title: "Beta",
+      effortMinutes: 300,
+      priority: "normal",
+      jiraSourceId: "source",
+      jiraBalancingBoard: "Beta",
+    },
+  ];
+  const rules = {
+    timezone: "UTC",
+    restrictAvailability: true,
+    weekly: Array.from({ length: 7 }, (_, weekday) => ({
+      weekday,
+      start: 540,
+      end: 660,
+    })),
+    overrides: [],
+    protectedWeekly: [],
+    protectedDates: [],
+  };
+  const input = {
+    date,
+    now,
+    tasks: boardTasks,
+    sessions: [],
+    events: [],
+    settings: rules,
+  };
+  const result = planSessions(input);
+  const today = result.changes.filter((c) => c.after?.startAt < now + 86400000);
+  assert.equal(today.length, 2);
+  assert(today.some((c) => c.taskId === "z"));
+  const narrow = planSessions({
+    ...input,
+    settings: {
+      ...rules,
+      weekly: rules.weekly.map((w) => ({ ...w, end: 600 })),
+    },
+  });
+  assert(
+    narrow.changes.some(
+      (c) => c.taskId === "z" && c.after.startAt < now + 2 * 86400000
+    )
+  );
+  const existing = result.changes
+    .filter((c) => c.after)
+    .map((c, i) => ({
+      ...c.after,
+      taskId: c.taskId,
+      _id: `s${i}`,
+      manualOverride: false,
+    }));
+  assert.deepEqual(planSessions({ ...input, sessions: existing }).changes, []);
+});
+
+test("Firm Jira deadline risk overrides board variety and exposes genuine shortfall while soft sprints do not", () => {
+  const date = "2030-01-07",
+    now = Date.parse(date + "T00:00Z");
+  const rules = {
+    timezone: "UTC",
+    restrictAvailability: true,
+    weekly: [{ weekday: 1, start: 540, end: 660 }],
+    overrides: [],
+    protectedWeekly: [],
+    protectedDates: [],
+  };
+  const base = { date, now, sessions: [], events: [], settings: rules };
+  const tasks = [
+    {
+      _id: "a",
+      title: "Deadline",
+      effortMinutes: 180,
+      priority: "normal",
+      jiraSourceId: "source",
+      jiraBalancingBoard: "Alpha",
+      dueAt: now + 12 * 3600000,
+      finishKind: "firm",
+    },
+    {
+      _id: "b",
+      title: "Other Board",
+      effortMinutes: 60,
+      jiraSourceId: "source",
+      jiraBalancingBoard: "Beta",
+    },
+  ];
+  const firm = planSessions({ ...base, tasks });
+  assert.equal(firm.changes.filter((c) => c.after).length, 2);
+  assert(firm.changes.every((c) => c.taskId === "a"));
+  assert(firm.shortfalls.some((s) => s.taskId === "a" && s.minutes === 60));
+  const soft = planSessions({
+    ...base,
+    tasks: tasks.map((t) => ({ ...t, finishKind: "preferred" })),
+  });
+  assert(soft.changes.some((c) => c.taskId === "a"));
+  assert(soft.changes.some((c) => c.taskId === "b"));
+});
 
 test("Full days are available without weekly setup, including weekends and DST days", () => {
   const rules = { ...settings, weekly: [], protectedWeekly: [] };
