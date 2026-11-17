@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as ai from "../ai.js";
+import type * as aiActions from "../aiActions.js";
 import type * as dbQueries_index from "../dbQueries/index.js";
 import type * as jira from "../jira.js";
 import type * as calendars from "../calendars.js";
@@ -24,6 +26,8 @@ import type * as taskTypes from "../taskTypes.js";
 import type * as tasks from "../tasks.js";
 import type * as units from "../units.js";
 import type * as users from "../users.js";
+import type * as utils_aiPolicy from "../utils/aiPolicy.js";
+import type * as utils_aiProviders from "../utils/aiProviders.js";
 import type * as workCalendars from "../workCalendars.js";
 import type * as utils_authedFunctions from "../utils/authedFunctions.js";
 import type * as utils_autoPlan from "../utils/autoPlan.js";
@@ -39,6 +43,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  ai: typeof ai;
+  aiActions: typeof aiActions;
   calendars: typeof calendars;
   googleCalendar: typeof googleCalendar;
   "utils/calendarImport": typeof utils_calendarImport;
@@ -55,6 +61,8 @@ declare const fullApi: ApiFromModules<{
   tasks: typeof tasks;
   units: typeof units;
   users: typeof users;
+  "utils/aiPolicy": typeof utils_aiPolicy;
+  "utils/aiProviders": typeof utils_aiProviders;
   workCalendars: typeof workCalendars;
   "utils/authedFunctions": typeof utils_authedFunctions;
   "utils/autoPlan": typeof utils_autoPlan;
