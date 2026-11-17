@@ -11,8 +11,14 @@
 import type * as ai from "../ai.js";
 import type * as aiActions from "../aiActions.js";
 import type * as dbQueries_index from "../dbQueries/index.js";
+import type * as jira from "../jira.js";
+import type * as calendars from "../calendars.js";
+import type * as googleCalendar from "../googleCalendar.js";
+import type * as utils_calendarImport from "../utils/calendarImport.js";
 import type * as planning from "../planning.js";
+import type * as mail from "../mail.js";
 import type * as priorityClasses from "../priorityClasses.js";
+import type * as projects from "../projects.js";
 import type * as sessions from "../sessions.js";
 import type * as tags from "../tags.js";
 import type * as taskActions from "../taskActions.js";
@@ -22,11 +28,13 @@ import type * as units from "../units.js";
 import type * as users from "../users.js";
 import type * as utils_aiPolicy from "../utils/aiPolicy.js";
 import type * as utils_aiProviders from "../utils/aiProviders.js";
+import type * as workCalendars from "../workCalendars.js";
 import type * as utils_authedFunctions from "../utils/authedFunctions.js";
 import type * as utils_autoPlan from "../utils/autoPlan.js";
 import type * as utils_rateLimiter from "../utils/rateLimiter.js";
 import type * as utils_recurrence from "../utils/recurrence.js";
 import type * as utils_relationsUtils from "../utils/relationsUtils.js";
+import type * as utils_workCalendar from "../utils/workCalendar.js";
 
 import type {
   ApiFromModules,
@@ -37,9 +45,15 @@ import type {
 declare const fullApi: ApiFromModules<{
   ai: typeof ai;
   aiActions: typeof aiActions;
+  calendars: typeof calendars;
+  googleCalendar: typeof googleCalendar;
+  "utils/calendarImport": typeof utils_calendarImport;
   "dbQueries/index": typeof dbQueries_index;
+  jira: typeof jira;
   planning: typeof planning;
+  mail: typeof mail;
   priorityClasses: typeof priorityClasses;
+  projects: typeof projects;
   sessions: typeof sessions;
   tags: typeof tags;
   taskActions: typeof taskActions;
@@ -49,11 +63,13 @@ declare const fullApi: ApiFromModules<{
   users: typeof users;
   "utils/aiPolicy": typeof utils_aiPolicy;
   "utils/aiProviders": typeof utils_aiProviders;
+  workCalendars: typeof workCalendars;
   "utils/authedFunctions": typeof utils_authedFunctions;
   "utils/autoPlan": typeof utils_autoPlan;
   "utils/rateLimiter": typeof utils_rateLimiter;
   "utils/recurrence": typeof utils_recurrence;
   "utils/relationsUtils": typeof utils_relationsUtils;
+  "utils/workCalendar": typeof utils_workCalendar;
 }>;
 
 /**

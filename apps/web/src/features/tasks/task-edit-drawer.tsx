@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { convexQuery } from "@convex-dev/react-query";
+import { convexQuery, useConvexMutation } from "@convex-dev/react-query";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { addDays, endOfDay } from "date-fns";
 import { Plus } from "lucide-react";
@@ -19,9 +19,11 @@ import {
 } from "@gc/validators";
 
 import { translatePregeneratedItem } from "../../utils/translate-pregenerated-items";
+import { MailTaskDetails } from "../mail/mail-settings";
 import { priorityClassApi } from "../priority-classes/priority-class.api";
 import { TagCreateDrawer } from "../tags/tag-create-drawer";
 import { tagApi } from "../tags/tag.api";
+import { ProjectFields } from "./projects";
 import { RecurrenceEditor } from "./recurrence-editor";
 import { taskApi } from "./task.api";
 
@@ -39,6 +41,7 @@ export function TaskEditDrawer({ editedTask }: { editedTask: ExtendedTask }) {
     >
       <div className="min-h-0 flex-1 overflow-y-auto">
         <ErrorSuspense>
+          <MailTaskDetails taskId={editedTask._id} />
           <TaskProgress taskId={editedTask._id} />
           <TaskEditForm editedTask={editedTask} />
         </ErrorSuspense>
@@ -48,6 +51,8 @@ export function TaskEditDrawer({ editedTask }: { editedTask: ExtendedTask }) {
 }
 
 export function TaskProgress({ taskId }: { taskId: Id<"tasks"> }) {
+  const setBoard = useConvexMutation(api.jira.setBalancingBoard);
+  const [boardError, setBoardError] = useState("");
   const { data: task } = useSuspenseQuery(
     convexQuery(api.tasks.getExtendedById, { taskId })
   );
@@ -87,6 +92,67 @@ export function TaskProgress({ taskId }: { taskId: Id<"tasks"> }) {
       <p className="text-muted-foreground text-xs">
         {m.check_in_current_progress()}
       </p>
+      {task.jira && (
+        <div className="space-y-2 border-b pb-2">
+          <p>
+            {task.jiraIdentity} · {task.jira.status} · {task.jira.assignee}
+          </p>
+          {/^https?:\/\//i.test(task.jira.link) && (
+            <a
+              className="underline"
+              href={task.jira.link}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {m.jira_field_link()}
+            </a>
+          )}
+          <p>
+            {m.jira_field_boards()}: {task.jiraBoards?.join(", ")}
+          </p>
+          <p>
+            {m.jira_field_parent()}: {task.jira.parent || "—"}
+          </p>
+          <p>
+            {m.jira_field_sprint()}: {task.jira.sprint || "—"} ·{" "}
+            {task.jira.sprintEnd
+              ? new Date(task.jira.sprintEnd).toISOString().slice(0, 10)
+              : "—"}
+          </p>
+          <p>
+            {m.jira_field_storyPoints()}: {task.jira.storyPoints ?? "—"}
+          </p>
+          <p>
+            {m.jira_estimate_basis()}:{" "}
+            {task.jira.estimateBasis === "remaining"
+              ? m.jira_field_remainingMinutes()
+              : task.jira.estimateBasis === "half-original"
+                ? `${m.jira_field_estimateMinutes()} × 50%`
+                : m.jira_fallback()}
+          </p>
+          {!!task.jiraBoards?.length && (
+            <label className="block space-y-1">
+              <span>{m.jira_balancing_board()}</span>
+              <Select
+                value={task.jiraBalancingBoard ?? task.jiraBoards[0]!}
+                options={task.jiraBoards.map((board) => ({
+                  value: board,
+                  label: board,
+                }))}
+                onValueChange={async (board) => {
+                  try {
+                    await setBoard({ taskId, board });
+                    setBoardError("");
+                  } catch (error) {
+                    setBoardError((error as Error).message);
+                  }
+                }}
+              />
+            </label>
+          )}
+          {boardError && <p role="alert">{boardError}</p>}
+        </div>
+      )}
       <p className="font-semibold tabular-nums">
         {task.valueKind === "number"
           ? `${task.currentNumValue ?? 0} / ${task.completedNumValue ?? "—"} ${unit}`
@@ -130,6 +196,12 @@ export function TaskProgress({ taskId }: { taskId: Id<"tasks"> }) {
 }
 
 function TaskEditForm({ editedTask }: { editedTask: ExtendedTask }) {
+  const [membership, setMembership] = useState<
+    Pick<UpdateTaskArgs, "projectId" | "milestoneId">
+  >({
+    projectId: editedTask.projectId,
+    milestoneId: editedTask.milestoneId,
+  });
   const { data: priorityClasses } = priorityClassApi.useList();
   const { data: tags } = tagApi.useList();
 
@@ -151,7 +223,12 @@ function TaskEditForm({ editedTask }: { editedTask: ExtendedTask }) {
 
   const defaultDueAt = addDays(endOfDay(new Date()), 2);
   const defaultValues: UpdateTaskClientArgs = {
+    attendance: editedTask.attendance ?? "unknown",
+    hybridAttendance: editedTask.hybridAttendance,
+    locationRequirement: editedTask.locationRequirement ?? "",
     title: editedTask.title,
+    leisure: editedTask.leisure ?? false,
+    recoveryWindowDays: editedTask.recoveryWindowDays,
     effortMinutes: editedTask.effortMinutes,
     minSessionMinutes: editedTask.minSessionMinutes,
     maxSessionMinutes: editedTask.maxSessionMinutes,
@@ -188,6 +265,7 @@ function TaskEditForm({ editedTask }: { editedTask: ExtendedTask }) {
         ...rest,
         recurrence,
         editScope,
+        ...membership,
       });
     },
   });
@@ -195,6 +273,12 @@ function TaskEditForm({ editedTask }: { editedTask: ExtendedTask }) {
   return (
     <form.AppForm>
       <form.FormRoot className="flex flex-col gap-4">
+        <ProjectFields
+          {...membership}
+          onChange={(projectId, milestoneId) =>
+            setMembership({ projectId, milestoneId })
+          }
+        />
         <form.AppField name="title">
           {(field) => (
             <field.Input
@@ -236,6 +320,66 @@ function TaskEditForm({ editedTask }: { editedTask: ExtendedTask }) {
             )
           }
         </form.Subscribe>
+        <form.AppField name="attendance">
+          {(field) => (
+            <field.Select
+              label={m.travel_attendance()}
+              options={[
+                { value: "unknown", label: m.travel_unknown() },
+                { value: "online", label: m.travel_online() },
+                { value: "physical", label: m.travel_physical() },
+                { value: "hybrid", label: m.travel_hybrid() },
+              ]}
+            />
+          )}
+        </form.AppField>
+        <form.Subscribe selector={(state) => state.values.attendance}>
+          {(attendance) =>
+            attendance === "hybrid" && (
+              <form.AppField name="hybridAttendance">
+                {(field) => (
+                  <field.Select
+                    label={m.travel_intended()}
+                    options={[
+                      { value: "online", label: m.travel_online() },
+                      { value: "physical", label: m.travel_physical() },
+                    ]}
+                  />
+                )}
+              </form.AppField>
+            )
+          }
+        </form.Subscribe>
+        <form.AppField name="locationRequirement">
+          {(field) => (
+            <field.Input
+              label={m.travel_location()}
+              maxLength={500}
+            />
+          )}
+        </form.AppField>
+        <p className="text-muted-foreground text-xs">
+          {m.travel_errands_hint()}
+        </p>
+        <form.AppField name="leisure">
+          {(field) => <field.Switch label={m.recovery_leisure()} />}
+        </form.AppField>
+        <form.AppField name="recoveryWindowDays">
+          {(field) => (
+            <field.Input
+              label={m.recovery_window()}
+              type="number"
+              min="1"
+              max="90"
+              placeholder={String(settings?.recoveryWindowDays ?? 7)}
+              onChange={(e) =>
+                field.handleChange(
+                  e.target.value ? Number(e.target.value) : undefined
+                )
+              }
+            />
+          )}
+        </form.AppField>
         <form.AppField name="effortMinutes">
           {(field) => (
             <field.Input

@@ -2,6 +2,7 @@ import { ConvexError, Infer, v } from "convex/values";
 
 import {
   localDateTime,
+  locationConflicts,
   overlaps,
   placementConflicts,
   supportsBatchCheckIn,
@@ -60,6 +61,10 @@ export const listSessions = authedQuery({
             : {
                 ...session,
                 taskTitle: task.title,
+                attendance: task.attendance,
+                hybridAttendance: task.hybridAttendance,
+                locationRequirement: task.locationRequirement,
+                projectId: task.projectId,
                 seriesId: task.seriesId,
                 taskCompletedAt: task.completedAt,
                 ...(await progressDetails(ctx, task)),
@@ -184,7 +189,10 @@ async function applyCheckIn(
       .query("sessions")
       .withIndex("by_user_start", (q) => q.eq("userId", ctx.userId))
       .collect();
-    const conflicts = placementConflicts(extension, settings, events);
+    const conflicts = [
+      ...placementConflicts(extension, settings, events),
+      ...locationConflicts(extension, task, events),
+    ];
     if (
       sessions.some(
         (s) =>
@@ -378,6 +386,7 @@ function sessionSnapshot(session: Doc<"sessions">) {
     checkInRequestedAt: session.checkInRequestedAt,
     checkInUpdatedAt: session.checkInUpdatedAt,
     planningEffortMinutes: session.planningEffortMinutes,
+    recoveryRequestId: session.recoveryRequestId,
     checkIn: session.checkIn ? { ...session.checkIn } : undefined,
   };
 }
@@ -574,6 +583,12 @@ export const undoBatchCheckIn = authedMutation({
             settings,
             events.filter((e) => e.deletedAt === undefined)
           ).length ||
+          (owner &&
+            locationConflicts(
+              before,
+              owner,
+              events.filter((e) => e.deletedAt === undefined)
+            ).length) ||
           sessions.some(
             (other) =>
               !affected.has(other._id) &&
@@ -644,10 +659,15 @@ export const saveSession = authedMutation({
     )
       throw new ConvexError({ message: "Session end must be after its start" });
     const requested = await taskQueries({ ctx }).getById({ taskId });
+    const existingSession = sessionId ? await ctx.db.get(sessionId) : null;
+    const recovery =
+      existingSession?.recoveryRequestId &&
+      existingSession.userId === ctx.userId &&
+      existingSession.taskId === taskId;
     if (
       requested.archivedAt ||
       requested.completedAt ||
-      requested.expiredAt !== undefined
+      (requested.expiredAt !== undefined && !recovery)
     )
       throw new ConvexError({ message: "Schedule an active Task" });
     if (requested.recurrence && sessionId)
@@ -681,6 +701,7 @@ export const saveSession = authedMutation({
     }
     if (
       task.seriesId &&
+      !recovery &&
       (startAt < task.occurrenceStartAt! ||
         (!task.occurrenceCarryForward &&
           task.occurrenceEndAt !== undefined &&
@@ -703,11 +724,14 @@ export const saveSession = authedMutation({
         .withIndex("by_user_start", (q) => q.eq("userId", ctx.userId))
         .collect()
     ).filter((e) => e.deletedAt === undefined);
-    const conflicts = placementConflicts({ startAt, endAt }, settings, events);
+    const conflicts = [
+      ...placementConflicts({ startAt, endAt }, settings, events),
+      ...locationConflicts({ startAt, endAt }, task, events),
+    ];
     if (conflicts.length && (automatic || !allowConflict))
       throw new ConvexError({ message: conflicts.join("; ") });
     if (sessionId) {
-      const session = await ctx.db.get(sessionId);
+      const session = existingSession ?? (await ctx.db.get(sessionId));
       if (
         !session ||
         session.userId !== ctx.userId ||
@@ -729,6 +753,10 @@ export const saveSession = authedMutation({
         throw new ConvexError({
           message: "Preserve pinned, active, and manually placed Sessions",
         });
+      const previousPlacement = {
+        startAt: session.startAt,
+        endAt: session.endAt,
+      };
       await ctx.db.patch(sessionId, {
         startAt,
         endAt,
@@ -737,6 +765,18 @@ export const saveSession = authedMutation({
         revision: (session.revision ?? 0) + 1,
         automaticReason: undefined,
       });
+      if (session.recoveryRequestId) {
+        const request = (await ctx.db.get(session.recoveryRequestId))!;
+        await ctx.db.patch(request._id, {
+          revision: (request.revision ?? 0) + 1,
+          allocations: request.allocations.map((allocation) =>
+            allocation.startAt === previousPlacement.startAt &&
+            allocation.endAt === previousPlacement.endAt
+              ? { startAt, endAt }
+              : allocation
+          ),
+        });
+      }
       await autoPlan(ctx);
       return sessionId;
     }

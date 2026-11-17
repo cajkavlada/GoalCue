@@ -6,6 +6,7 @@ export const env = createEnv({
   client: {
     VITE_CLERK_PUBLISHABLE_KEY: z.string().min(1),
     VITE_CONVEX_URL: z.string().min(1),
+    VITE_GOOGLE_CLIENT_ID: z.string().optional(),
   },
   runtimeEnv: import.meta.env,
   emptyStringAsUndefined: true,

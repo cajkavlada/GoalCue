@@ -2,7 +2,14 @@
   "extends": ["//"],
   "tasks": {
     "build": {
-      "env": ["VITE_CLERK_FRONTEND_API_URL"],
+      "env": [
+        "VITE_CLERK_FRONTEND_API_URL",
+        "GOOGLE_CALENDAR_CLIENT_ID",
+        "GOOGLE_CALENDAR_CLIENT_SECRET",
+        "GOOGLE_CALENDAR_APP_URL",
+        "CALENDAR_ENCRYPTION_KEY",
+        "CONVEX_SITE_URL"
+      ],
       "dependsOn": ["^build"],
       "outputs": ["dist/**"],
       "passThroughEnv": [

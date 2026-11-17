@@ -2,7 +2,9 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 import { aiDbSchema } from "./aiDbSchema";
+import { calendarDbSchema } from "./calendarDbSchema";
 import { eventsDbSchema } from "./eventsDbSchema";
+import { mailDbSchema } from "./mailDbSchema";
 import { planningDbSchema } from "./planningDbSchema";
 import { priorityClassDbSchema } from "./priorityClassDbSchema";
 import { repetitionDbSchema } from "./repetitionDbSchema";
@@ -20,6 +22,8 @@ export const dbSchema = defineSchema({
   ...priorityClassDbSchema,
   ...tagDbSchema,
   ...eventsDbSchema,
+  ...mailDbSchema,
+  ...calendarDbSchema,
   ...planningDbSchema,
   ...repetitionDbSchema,
 });

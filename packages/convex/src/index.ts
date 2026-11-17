@@ -5,6 +5,7 @@ export {
   Unauthenticated,
   AuthLoading,
   useQuery,
+  useAction,
   usePaginatedQuery,
 } from "convex/react";
 

@@ -2,12 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { convexQuery, useConvexMutation } from "@convex-dev/react-query";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import {
-  ChevronLeft,
-  ChevronRight,
   GripVertical,
   PanelLeftClose,
   PanelLeftOpen,
-  Plus,
   RefreshCw,
   Trash2,
 } from "lucide-react";
@@ -22,9 +19,9 @@ import {
   Button,
   Checkbox,
   Drawer,
-  DrawerButton,
   DropdownMenuItem,
   Input,
+  StatusSpinner,
   Tooltip,
   useModal,
 } from "@gc/ui";
@@ -33,13 +30,15 @@ import {
   dayBounds,
   eventsCompatible,
   localDateTime,
+  locationWindows,
   overlaps,
   placementConflicts,
-  shiftDate,
+  planTravel,
   zonedInstant,
 } from "@gc/validators";
 
 import type { CalendarSession } from "./session-check-ins";
+import { CalendarSources } from "../calendar-sources";
 import {
   adjustSession,
   freeDayMinutes,
@@ -60,7 +59,6 @@ import {
   SessionReviewPanel,
 } from "./session-check-ins";
 import { TaskCard } from "./task-card";
-import { TaskCreateDrawer } from "./task-create-drawer";
 import { TaskDeleteDialog } from "./task-delete-dialog";
 import { TaskEditDrawer, TaskProgress } from "./task-edit-drawer";
 
@@ -83,15 +81,13 @@ type Gesture = Placement & {
   readOnly: boolean;
 };
 
-export function DayView() {
+export function DayView({ selectedDay }: { selectedDay: string }) {
   const { data: settings } = useSuspenseQuery(
     convexQuery(api.planning.getSettings, {})
   );
   const timezone =
     settings?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const [day, setDay] = useState(() =>
-    localDateTime(Date.now(), timezone).slice(0, 10)
-  );
+  const day = selectedDay;
   const [tasksOpen, setTasksOpen] = useState(true);
   const [highlightedTaskId, setHighlightedTaskId] =
     useState<Id<"tasks"> | null>(null);
@@ -124,7 +120,7 @@ export function DayView() {
     convexQuery(api.sessions.listSessions, {})
   );
   const { data: events } = useSuspenseQuery(
-    convexQuery(api.planning.listEvents, {})
+    convexQuery(api.planning.listEvents, { timezone })
   );
   const { data: dayPlan } = useSuspenseQuery(
     convexQuery(api.planning.getDayPlan, {})
@@ -189,8 +185,14 @@ export function DayView() {
   const constraints = settings
     ? availabilityOn(day, settings)
     : { available: [{ startAt: start, endAt: end }], protected: [] };
-  const dayEvents = events.filter(
-    (event) => event.startAt < end && event.endAt > start
+  const dayEvents = events.filter((event) =>
+    event.allDayStart && event.allDayEnd
+      ? event.allDayStart <= day && event.allDayEnd > day
+      : event.startAt < end && event.endAt > start
+  );
+  const travel = planTravel(events);
+  const dayJourneys = travel.journeys.filter(
+    (j) => j.startAt < end && j.eventStartAt >= start
   );
   const focusedEvents = dayEvents.filter(
     (event) => event.attention === "focused"
@@ -200,7 +202,12 @@ export function DayView() {
     (total, window) =>
       total +
       freeDayMinutes(
-        [...today, ...focusedEvents, ...constraints.protected],
+        [
+          ...today,
+          ...focusedEvents,
+          ...constraints.protected,
+          ...travel.blocks,
+        ],
         window.startAt,
         window.endAt
       ),
@@ -470,6 +477,7 @@ export function DayView() {
             endAt: overlay.endAt,
             taskTitle: tasks.find((t) => t._id === overlay.taskId)?.title ?? "",
             taskCompletedAt: undefined,
+            recoveryRequestId: undefined,
           },
         ]
     : today;
@@ -478,7 +486,7 @@ export function DayView() {
       ...session,
       endAt: Math.max(session.endAt, session.startAt + (8 / PX) * MINUTE),
     })),
-    ...dayEvents,
+    ...dayEvents.filter((event) => !event.allDayStart),
   ]);
   const pendingCheckIns = sessions
     .filter(
@@ -492,7 +500,22 @@ export function DayView() {
 
   return (
     <div className="bg-background flex h-full min-h-0 flex-col">
-      <header className="flex shrink-0 flex-wrap items-center gap-3 border-b px-4 py-3">
+      <ErrorSuspense>
+        <CalendarSources compact />
+      </ErrorSuspense>
+      {dayEvents
+        .filter((event) => event.allDayStart)
+        .map((event) => (
+          <Button
+            key={event._id}
+            variant="outline"
+            className="shrink-0 justify-start"
+            onClick={() => editEvent(event)}
+          >
+            {m.calendar_all_day()}: {event.title} · {event.sourceTitle}
+          </Button>
+        ))}
+      <div className="flex shrink-0 items-center gap-2 border-b px-3 py-1">
         <Button
           size="icon"
           variant="ghost"
@@ -508,60 +531,19 @@ export function DayView() {
         >
           {tasksOpen ? <PanelLeftClose /> : <PanelLeftOpen />}
         </Button>
-        <h1 className="mr-auto text-lg font-semibold">{m.planning_day()}</h1>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            disabled={replan.isPending || save.isPending}
-            onClick={() =>
-              replan.mutate({ date: day, timezone, replanAll: true })
-            }
-          >
-            <RefreshCw
-              className={replan.isPending ? "animate-spin" : undefined}
-            />
-            {m.planning_replan_all()}
-          </Button>
-          <DrawerButton
-            variant="outline"
-            drawerContent={<TaskCreateDrawer />}
-          >
-            <Plus />
-            {m.planning_create_task()}
-          </DrawerButton>
-
-          <Button
-            variant="outline"
-            onClick={() => editEvent()}
-          >
-            <Plus />
-            {m.constraints_new_event()}
-          </Button>
-        </div>
         <Button
-          size="icon"
           variant="outline"
-          aria-label={m.planning_previous()}
-          onClick={() => setDay(shiftDate(day, -1))}
+          disabled={replan.isPending || save.isPending}
+          onClick={() =>
+            replan.mutate({ date: day, timezone, replanAll: true })
+          }
         >
-          <ChevronLeft />
-        </Button>
-        <div className="w-48">
-          <PlanningDatePicker
-            label={m.planning_displayed_day()}
-            value={day}
-            onChange={setDay}
+          <RefreshCw
+            className={replan.isPending ? "animate-spin" : undefined}
           />
-        </div>
-        <Button
-          size="icon"
-          variant="outline"
-          aria-label={m.planning_next()}
-          onClick={() => setDay(shiftDate(day, 1))}
-        >
-          <ChevronRight />
+          {m.planning_replan_all()}
         </Button>
-      </header>
+      </div>
       <div className="flex min-h-0 flex-1 max-md:flex-col">
         <div
           aria-hidden={!tasksOpen}
@@ -806,45 +788,48 @@ export function DayView() {
                 )}
                 {replan.error && <p role="alert">{replan.error.message}</p>}
                 {undo.error && <p role="alert">{undo.error.message}</p>}
-                {!!dayPlan?.changes.length && (
-                  <details>
-                    <summary>
-                      {m.planning_automatic_changes({
-                        count: dayPlan.changes.length,
-                      })}
-                    </summary>
-                    <ul>
-                      {dayPlan.changes.map((change) => (
-                        <li key={change.sessionId}>
-                          {change.title}: {change.reason}
-                          {change.before && (
-                            <>
-                              {" "}
-                              · {localDateTime(change.before.startAt, timezone)}
-                              –{clock(change.before.endAt)}
-                            </>
-                          )}
-                          {" → "}
-                          {change.after ? (
-                            <>
-                              {localDateTime(change.after.startAt, timezone)}–
-                              {clock(change.after.endAt)}
-                            </>
-                          ) : (
-                            m.planning_unschedule_session()
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                    <Button
-                      variant="outline"
-                      disabled={undo.isPending}
-                      onClick={() => undo.mutate({})}
-                    >
-                      {m.planning_undo_plan()}
-                    </Button>
-                  </details>
-                )}
+                {!!dayPlan &&
+                  (!!dayPlan.changes.length ||
+                    !!dayPlan.recoveryUndo?.length) && (
+                    <details>
+                      <summary>
+                        {m.planning_automatic_changes({
+                          count: dayPlan.changes.length,
+                        })}
+                      </summary>
+                      <ul>
+                        {dayPlan.changes.map((change) => (
+                          <li key={change.sessionId}>
+                            {change.title}: {change.reason}
+                            {change.before && (
+                              <>
+                                {" "}
+                                ·{" "}
+                                {localDateTime(change.before.startAt, timezone)}
+                                –{clock(change.before.endAt)}
+                              </>
+                            )}
+                            {" → "}
+                            {change.after ? (
+                              <>
+                                {localDateTime(change.after.startAt, timezone)}–
+                                {clock(change.after.endAt)}
+                              </>
+                            ) : (
+                              m.planning_unschedule_session()
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                      <Button
+                        variant="outline"
+                        disabled={undo.isPending}
+                        onClick={() => undo.mutate({})}
+                      >
+                        {m.planning_undo_plan()}
+                      </Button>
+                    </details>
+                  )}
                 {!!dayPlan?.shortfalls.length && (
                   <details open>
                     <summary>{m.planning_shortfalls()}</summary>
@@ -869,6 +854,7 @@ export function DayView() {
                     {conflict}
                   </p>
                 ))}
+                <RecoveryHistory timezone={timezone} />
               </div>
             </details>
             <details
@@ -883,6 +869,94 @@ export function DayView() {
           </aside>
         </div>
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {dayJourneys.length > 0 && (
+            <details
+              className="max-h-60 shrink-0 overflow-auto border-b px-4 py-2"
+              open
+            >
+              <summary>{m.travel_agenda()}</summary>
+              {dayJourneys.map((j, index) => {
+                const visit = events.find(
+                  (e) => e.startAt === j.eventStartAt && e.title === j.title
+                );
+                const shared = visit
+                  ? sessions.filter(
+                      (s) =>
+                        s.locationRequirement?.trim() === j.destination &&
+                        locationWindows(s, events)?.some(
+                          (w) =>
+                            w.startAt ===
+                              visit.endAt + j.wrapUpMinutes * MINUTE &&
+                            s.startAt >= w.startAt &&
+                            s.endAt <= w.endAt
+                        )
+                    )
+                  : [];
+                return (
+                  <div
+                    key={index}
+                    className="space-y-1 border-t py-2 text-sm"
+                  >
+                    <Button
+                      variant="link"
+                      onClick={() =>
+                        editEvent(
+                          events.find(
+                            (e) =>
+                              e.startAt === j.eventStartAt &&
+                              e.title === j.title
+                          )
+                        )
+                      }
+                    >
+                      {j.title}
+                    </Button>
+                    <p>
+                      {j.origin || m.travel_unknown()} →{" "}
+                      {j.destination || m.travel_unknown()} ·{" "}
+                      {j.mode ?? m.travel_unknown()} · {clock(j.startAt)}–
+                      {clock(j.endAt)}
+                    </p>
+                    <p>
+                      {m.travel_route_summary({
+                        route:
+                          j.routeMinutes === undefined
+                            ? m.travel_unresolved()
+                            : j.routeMinutes,
+                        margin: Math.ceil(j.marginMinutes),
+                        arrival: j.arrivalMinutes,
+                        wrap: j.wrapUpMinutes,
+                      })}
+                    </p>
+                    {shared.length > 0 && (
+                      <p>
+                        {m.travel_shared()}{" "}
+                        {shared.map((s) => (
+                          <Button
+                            key={s._id}
+                            variant="link"
+                            onClick={() => openTask(s.taskId)}
+                          >
+                            {s.taskTitle}
+                          </Button>
+                        ))}
+                      </p>
+                    )}
+                    {(j.uncertainty || j.shortfallMinutes > 0) && (
+                      <p role="alert">
+                        {j.uncertainty}{" "}
+                        {j.shortfallMinutes > 0 &&
+                          m.travel_shortfall({
+                            minutes: Math.ceil(j.shortfallMinutes),
+                          })}{" "}
+                        {m.travel_options()}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </details>
+          )}
           <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
             <div
               className="flex min-h-0 flex-1 flex-col"
@@ -932,6 +1006,27 @@ export function DayView() {
                         <span className="text-xs">
                           {m.constraints_availability()}
                         </span>
+                      </div>
+                    ))}
+                  {travel.blocks
+                    .filter((b) => overlaps(b, { startAt: start, endAt: end }))
+                    .map((block, index) => (
+                      <div
+                        key={`travel-${index}`}
+                        className="pointer-events-none absolute inset-x-0 border-l-4 border-sky-600 bg-sky-500/20"
+                        style={{
+                          top:
+                            ((Math.max(start, block.startAt) - start) /
+                              MINUTE) *
+                            PX,
+                          height:
+                            ((Math.min(end, block.endAt) -
+                              Math.max(start, block.startAt)) /
+                              MINUTE) *
+                            PX,
+                        }}
+                      >
+                        <span className="text-xs">{block.title}</span>
                       </div>
                     ))}
                   {constraints.protected.map((window, index) => (
@@ -1000,6 +1095,9 @@ export function DayView() {
                         content={
                           <div>
                             <p className="font-semibold">{session.taskTitle}</p>
+                            {session.recoveryRequestId && (
+                              <p>{m.recovery_session()}</p>
+                            )}
                             <p>
                               {clock(session.startAt)}–{clock(session.endAt)} ·{" "}
                               {Math.round(
@@ -1068,6 +1166,9 @@ export function DayView() {
                             {!compact && (
                               <p className="truncate text-xs font-semibold">
                                 {session.taskTitle}
+                                {session.recoveryRequestId && (
+                                  <> · {m.recovery_session()}</>
+                                )}
                               </p>
                             )}
                             {!compact &&
@@ -1118,45 +1219,55 @@ export function DayView() {
                       </Tooltip>
                     );
                   })}
-                  {dayEvents.map((event) => {
-                    const pos = positions.get(event._id)!;
-                    return (
-                      <button
-                        key={event._id}
-                        className="bg-muted absolute z-[2] overflow-auto rounded border-2 border-dashed p-2 text-left text-xs"
-                        onClick={() => editEvent(event)}
-                        style={{
-                          top:
-                            ((Math.max(start, event.startAt) - start) /
-                              MINUTE) *
-                            PX,
-                          height:
-                            ((Math.min(end, event.endAt) -
-                              Math.max(start, event.startAt)) /
-                              MINUTE) *
-                            PX,
-                          left: `calc(${(pos.lane / pos.lanes) * 100}% + 3px)`,
-                          width: `calc(${100 / pos.lanes}% - 6px)`,
-                        }}
-                      >
-                        <p className="font-semibold">
-                          {event.attention === "focused"
-                            ? m.constraints_focused()
-                            : m.constraints_background()}
-                          : {event.title}
-                        </p>
-                        <p>
-                          {clock(event.startAt)}–{clock(event.endAt)}
-                        </p>
-                        {!!eventConflicts(event).length && (
-                          <p role="status">
-                            {m.constraints_conflicts()}:{" "}
-                            {eventConflicts(event).join(", ")}
+                  {dayEvents
+                    .filter((event) => !event.allDayStart)
+                    .map((event) => {
+                      const pos = positions.get(event._id)!;
+                      return (
+                        <button
+                          key={event._id}
+                          className="bg-muted absolute z-[2] overflow-auto rounded border-2 border-dashed p-2 text-left text-xs"
+                          onClick={() => editEvent(event)}
+                          style={{
+                            top:
+                              ((Math.max(start, event.startAt) - start) /
+                                MINUTE) *
+                              PX,
+                            height:
+                              ((Math.min(end, event.endAt) -
+                                Math.max(start, event.startAt)) /
+                                MINUTE) *
+                              PX,
+                            left: `calc(${(pos.lane / pos.lanes) * 100}% + 3px)`,
+                            width: `calc(${100 / pos.lanes}% - 6px)`,
+                          }}
+                        >
+                          <p className="font-semibold">
+                            {event.attention === "focused"
+                              ? m.constraints_focused()
+                              : m.constraints_background()}
+                            : {event.title}
                           </p>
-                        )}
-                      </button>
-                    );
-                  })}
+                          <p>
+                            {clock(event.startAt)}–{clock(event.endAt)}
+                          </p>
+                          {event.sourceTitle && (
+                            <p>
+                              {m.calendar_source()}: {event.sourceTitle}
+                            </p>
+                          )}
+                          {event.attentionUncertain && (
+                            <p>{m.calendar_attention_uncertain()}</p>
+                          )}
+                          {!!eventConflicts(event).length && (
+                            <p role="status">
+                              {m.constraints_conflicts()}:{" "}
+                              {eventConflicts(event).join(", ")}
+                            </p>
+                          )}
+                        </button>
+                      );
+                    })}
                 </div>
               </div>
             </div>
@@ -1194,6 +1305,86 @@ export function DayView() {
         </div>
       )}
     </div>
+  );
+}
+
+function RecoveryHistory({ timezone }: { timezone: string }) {
+  const { data: requests } = useSuspenseQuery(
+    convexQuery(api.planning.listRecovery, {})
+  );
+  const update = useMutation({
+    mutationFn: useConvexMutation(api.planning.updateRecovery),
+  });
+  const today = localDateTime(Date.now(), timezone).slice(0, 10);
+  if (!requests.length) return null;
+  return (
+    <details open>
+      <summary>{m.recovery_title()}</summary>
+      <ul className="space-y-3">
+        {requests.map((request) => {
+          const restored = request.allocations.reduce(
+            (n, w) => n + (w.endAt - w.startAt) / 60000,
+            0
+          );
+          const status =
+            request.dismissedAt !== undefined
+              ? m.recovery_dismissed()
+              : restored >= request.minutes
+                ? m.recovery_restored()
+                : request.expiresOn < today
+                  ? m.recovery_expired()
+                  : m.recovery_pending();
+          return (
+            <li key={request._id}>
+              <p>
+                {request.title}: {restored}/{request.minutes} min · {status} ·{" "}
+                {m.recovery_until()} {request.expiresOn}
+              </p>
+              {request.allocations.map((allocation) => (
+                <p
+                  key={allocation.startAt}
+                  className="text-muted-foreground text-xs"
+                >
+                  {localDateTime(allocation.startAt, timezone)}–
+                  {localDateTime(allocation.endAt, timezone)}
+                </p>
+              ))}
+              {restored < request.minutes && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    disabled={update.isPending}
+                    onClick={() =>
+                      update.mutate({
+                        requestId: request._id,
+                        action: "extend",
+                      })
+                    }
+                  >
+                    {m.recovery_extend()}
+                  </Button>
+                  {request.dismissedAt === undefined && (
+                    <Button
+                      variant="outline"
+                      disabled={update.isPending}
+                      onClick={() =>
+                        update.mutate({
+                          requestId: request._id,
+                          action: "dismiss",
+                        })
+                      }
+                    >
+                      {m.recovery_dismiss()}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {update.error && <p role="alert">{update.error.message}</p>}
+    </details>
   );
 }
 
@@ -1410,6 +1601,11 @@ function SessionDetails({ placement }: { placement: Placement }) {
           }
         >
           {m.save()}
+          <StatusSpinner
+            status={
+              save.isPending ? "pending" : save.isError ? "error" : "idle"
+            }
+          />
         </Button>
       </Drawer.Footer>
     </>
