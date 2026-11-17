@@ -15,6 +15,7 @@ import { TagCard } from "@/features/tags/tag-card";
 import { TaskTypeCard } from "@/features/task-types/task-type-card";
 import { PlanningTimeSettings } from "@/features/tasks/schedule-constraints";
 import { UnitCard } from "@/features/units/unit-card";
+import { WorkCalendars } from "@/features/work-calendars";
 
 export const Route = createFileRoute("/{-$locale}/_protected/settings")({
   validateSearch: (
@@ -71,6 +72,9 @@ function RouteComponent() {
           </ErrorSuspense>
         </CardContent>
       </Card>
+      <ErrorSuspense>
+        <WorkCalendars />
+      </ErrorSuspense>
       <div className="flex min-h-96 shrink-0 flex-wrap justify-center gap-4">
         <TaskTypeCard />
         <UnitCard />

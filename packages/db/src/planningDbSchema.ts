@@ -71,6 +71,12 @@ export const fixedEventFields = {
   attention: v.union(v.literal("focused"), v.literal("background")),
 };
 export const planningDbSchema = {
+  workCalendarSources: defineTable({
+    userId: v.string(),
+    name: v.string(),
+    aiEnabled: v.boolean(),
+    lastSuccessAt: v.optional(v.number()),
+  }).index("by_user", ["userId"]),
   recoveryRequests: defineTable({
     userId: v.string(),
     revision: v.optional(v.number()),
@@ -168,6 +174,14 @@ export const planningDbSchema = {
     allDayEnd: importedEventFields.allDayEnd,
     attentionUncertain: v.optional(v.boolean()),
     compatibleActivities: v.optional(v.array(v.string())),
+    workSourceId: v.optional(v.id("workCalendarSources")),
+    importScope: v.optional(v.string()),
+    sourceKey: v.optional(v.string()),
+    sourceSnapshot: v.optional(v.string()),
+    sourceOverrides: v.optional(v.array(v.string())),
+    sourceRemoved: v.optional(v.boolean()),
+    locallyDeleted: v.optional(v.boolean()),
+    sourceLink: v.optional(v.string()),
     deletedAt: v.optional(v.number()),
   })
     .index("by_user_start", ["userId", "startAt"])

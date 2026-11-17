@@ -409,8 +409,11 @@ export const saveEvent = authedMutation({
       }
       await ctx.db.patch(eventId, {
         ...values,
-        allDayStart: undefined,
-        allDayEnd: undefined,
+        ...(existing.workSourceId &&
+        event.startAt === existing.startAt &&
+        event.endAt === existing.endAt
+          ? {}
+          : { allDayStart: undefined, allDayEnd: undefined }),
       });
       await autoPlan(ctx);
       return eventId;
@@ -435,7 +438,10 @@ export const deleteEvent = authedMutation({
       throw new ConvexError({
         message: "Disconnect the calendar Source to remove imported Events",
       });
-    await ctx.db.patch(eventId, { deletedAt: Date.now() });
+    await ctx.db.patch(eventId, {
+      deletedAt: Date.now(),
+      ...(event.workSourceId ? { locallyDeleted: true } : {}),
+    });
     await autoPlan(ctx);
   },
 });
