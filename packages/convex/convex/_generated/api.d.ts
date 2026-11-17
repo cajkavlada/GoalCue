@@ -13,6 +13,7 @@ import type * as calendars from "../calendars.js";
 import type * as googleCalendar from "../googleCalendar.js";
 import type * as utils_calendarImport from "../utils/calendarImport.js";
 import type * as planning from "../planning.js";
+import type * as mail from "../mail.js";
 import type * as priorityClasses from "../priorityClasses.js";
 import type * as projects from "../projects.js";
 import type * as sessions from "../sessions.js";
@@ -40,6 +41,7 @@ declare const fullApi: ApiFromModules<{
   "utils/calendarImport": typeof utils_calendarImport;
   "dbQueries/index": typeof dbQueries_index;
   planning: typeof planning;
+  mail: typeof mail;
   priorityClasses: typeof priorityClasses;
   projects: typeof projects;
   sessions: typeof sessions;

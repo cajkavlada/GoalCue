@@ -9,6 +9,7 @@ import {
   CalendarAuthorization,
   CalendarSources,
 } from "@/features/calendar-sources";
+import { MailSettings } from "@/features/mail/mail-settings";
 import { PriorityClassCard } from "@/features/priority-classes/priority-class-card";
 import { TagCard } from "@/features/tags/tag-card";
 import { TaskTypeCard } from "@/features/task-types/task-type-card";
@@ -40,6 +41,9 @@ function RouteComponent() {
   const navigate = Route.useNavigate();
   return (
     <div className="flex h-full flex-col gap-4 overflow-auto p-4">
+      <ErrorSuspense>
+        <MailSettings />
+      </ErrorSuspense>
       <Card className="mx-auto w-full max-w-xl shrink-0">
         <CardHeader>
           <CardTitle>{m.calendar_personal_calendars()}</CardTitle>

@@ -4,6 +4,14 @@ import { dayBounds, shiftDate, zonedInstant } from "./planning";
 export type RecurrenceRule = NonNullable<CreateTaskArgs["recurrence"]>;
 
 export function validateRecurrence(rule: RecurrenceRule) {
+  if (
+    rule.weekdays &&
+    (rule.kind !== "calendar" ||
+      rule.unit !== "day" ||
+      !rule.weekdays.length ||
+      rule.weekdays.some((day) => !Number.isInteger(day) || day < 0 || day > 6))
+  )
+    throw new Error("Choose valid weekdays for a daily calendar recurrence");
   if (rule.endDate && rule.endAfter !== undefined)
     throw new Error("Choose either an end date or an Occurrence count");
   const date = (value: string) =>
@@ -93,11 +101,29 @@ export function recurrenceWindows(
   for (let index = first; ; index++) {
     const date = recurrenceDate(anchor, rule.unit, index * rule.interval);
     if (date > through || (rule.endDate && date > rule.endDate)) break;
+    if (
+      rule.weekdays &&
+      !rule.weekdays.includes(new Date(`${date}T12:00Z`).getUTCDay())
+    )
+      continue;
     const next = recurrenceDate(anchor, rule.unit, (index + 1) * rule.interval);
     const count = rule.kind === "frequency" ? rule.count : 1;
+    const startWeekday = new Date(`${anchor}T12:00Z`).getUTCDay();
+    const selectedBefore = (length: number) =>
+      Array.from({ length }, (_, offset) =>
+        Number(
+          rule.weekdays!.includes((startWeekday + offset * rule.interval) % 7)
+        )
+      ).reduce((a, b) => a + b, 0);
+    const ordinal = rule.weekdays
+      ? Math.floor(index / 7) * selectedBefore(7) + selectedBefore(index % 7)
+      : index;
     if (next <= from) continue;
     for (let slot = 0; slot < count; slot++) {
-      if (rule.endAfter !== undefined && index * count + slot >= rule.endAfter)
+      if (
+        rule.endAfter !== undefined &&
+        ordinal * count + slot >= rule.endAfter
+      )
         return result;
       const start = date < rule.startDate ? rule.startDate : date;
       const end =

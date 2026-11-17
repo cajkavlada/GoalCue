@@ -158,6 +158,9 @@ importers:
       '@tanstack/react-router':
         specifier: catalog:tanstack
         version: 1.132.47(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      axios:
+        specifier: ^1.21.1
+        version: 1.21.1
       babel-plugin-react-compiler:
         specifier: catalog:react
         version: 1.0.0

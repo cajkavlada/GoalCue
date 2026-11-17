@@ -45,6 +45,7 @@ registerHooks({
 const { saveSession, listSessions, unscheduleSession, reportCheckIn } =
   await import("../convex/sessions.ts");
 const tasks = await import("../convex/tasks.ts");
+const mail = await import("../convex/mail.ts");
 const planning = await import("../convex/planning.ts");
 const calendars = await import("../convex/calendars.ts");
 const { calendarEvent } = await import("../convex/utils/calendarImport.ts");
@@ -4305,6 +4306,297 @@ test("Scheduling a series resumes the selected Occurrence and frequency drops us
     timezone: f.rule.timezone,
   });
   assert.equal((await f.db.get(selected)).automaticSchedulingPaused, false);
+});
+
+async function mailFixture() {
+  const f = database();
+  const ctx = f.context("alice");
+  const taskTypeId = await f.db.insert("taskTypes", {
+    userId: "alice",
+    valueKind: "boolean",
+  });
+  const priorityClassId = await f.db.insert("priorityClasses", {
+    userId: "alice",
+  });
+  const permissions = {
+    account: "alice@gmail.com",
+    labelId: "INBOX",
+    labelName: "Inbox",
+    bodies: true,
+    threadContext: true,
+    attachments: false,
+    excluded: false,
+    aiAllowed: false,
+  };
+  const sourceId = await mail.saveSource._handler(ctx, permissions);
+  const action = {
+    sourceId,
+    taskTypeId,
+    priorityClassId,
+    messageId: "message-1",
+    threadId: "thread-1",
+    actionKey: "request-1",
+    kind: "reply",
+    title: "Confirm attendance",
+    missingInputs: ["arrival time"],
+    excerpt: "Please confirm",
+    suggestedReply: "I can attend.",
+  };
+  return {
+    ...f,
+    ctx,
+    sourceId,
+    taskTypeId,
+    priorityClassId,
+    permissions,
+    action,
+  };
+}
+
+test("Mail actions are idempotent per account/thread/action, preserve planning and progress, and allow multiple independent requests", async () => {
+  const f = await mailFixture();
+  const id = await mail.saveAction._handler(f.ctx, f.action);
+  await f.db.patch(id, {
+    effortMinutes: 45,
+    priority: "high",
+    completedAt: 50,
+    title: "My edited title",
+  });
+  const sessionId = await f.db.insert("sessions", {
+    userId: "alice",
+    taskId: id,
+    startAt: 1000,
+    endAt: 2000,
+    pinned: true,
+  });
+  assert.equal(
+    await mail.saveAction._handler(f.ctx, {
+      ...f.action,
+      messageId: "message-2",
+      excerpt: "Updated request",
+    }),
+    id
+  );
+  const task = await f.db.get(id);
+  assert.equal(task.completedAt, 50);
+  assert.equal(task.effortMinutes, 45);
+  assert.equal(task.priority, "high");
+  assert.equal(task.title, "My edited title");
+  assert.equal((await f.db.get(sessionId)).pinned, true);
+  const details = await mail.taskDetails._handler(f.ctx, { taskId: id });
+  assert.equal(details.messageId, "message-2");
+  assert.match(details.suggestedReply, /\[INPUT NEEDED: arrival time\]/);
+  assert.equal(details.excerpt, "Updated request");
+  const second = await mail.saveAction._handler(f.ctx, {
+    ...f.action,
+    actionKey: "request-2",
+    kind: "action",
+  });
+  assert.notEqual(second, id);
+  const unrelated = await mail.saveAction._handler(f.ctx, {
+    ...f.action,
+    threadId: "unrelated-thread",
+  });
+  assert.notEqual(unrelated, id);
+  const label = await mail.saveSource._handler(f.ctx, {
+    ...f.permissions,
+    labelId: "Label_1",
+    labelName: "Personal",
+  });
+  assert.equal(
+    await mail.saveAction._handler(f.ctx, { ...f.action, sourceId: label }),
+    id
+  );
+  assert.equal(
+    (
+      await mail.actionsForThread._handler(f.ctx, {
+        sourceId: label,
+        threadId: "thread-1",
+      })
+    ).length,
+    2
+  );
+});
+
+test("Mail permission revocation clears derived content, blocks excluded sources and enforces user ownership", async () => {
+  const f = await mailFixture();
+  const id = await mail.saveAction._handler(f.ctx, f.action);
+  await mail.saveSource._handler(f.ctx, {
+    ...f.permissions,
+    sourceId: f.sourceId,
+    bodies: false,
+  });
+  const details = await mail.taskDetails._handler(f.ctx, { taskId: id });
+  assert.equal(details.excerpt, undefined);
+  assert.equal(details.suggestedReply, undefined);
+  await assert.rejects(mail.saveAction._handler(f.ctx, f.action));
+  const reply = await mail.saveAction._handler(f.ctx, {
+    ...f.action,
+    actionKey: "metadata-reply",
+    excerpt: undefined,
+    suggestedReply: undefined,
+    missingInputs: [],
+  });
+  assert.equal(
+    (await mail.taskDetails._handler(f.ctx, { taskId: reply })).suggestedReply,
+    undefined
+  );
+  await assert.rejects(
+    mail.actionsForThread._handler(f.context("bob"), {
+      sourceId: f.sourceId,
+      threadId: "thread-1",
+    })
+  );
+  await assert.rejects(mail.saveAction._handler(f.context("bob"), f.action));
+  await assert.rejects(
+    mail.taskDetails._handler(f.context("bob"), { taskId: id })
+  );
+  await assert.rejects(mail.list._handler(f.context(null), {}));
+  await mail.saveSource._handler(f.ctx, {
+    ...f.permissions,
+    sourceId: f.sourceId,
+    excluded: true,
+  });
+  await assert.rejects(mail.saveAction._handler(f.ctx, f.action));
+  assert.equal((await f.db.get(id)).completedAt, undefined);
+});
+
+test("Mail routines use weekday and weekly defaults, freeze batches across starts and retain manual fallback after disconnection", async () => {
+  const f = await mailFixture();
+  const seriesId = await mail.createRoutine._handler(f.ctx, {
+    sourceId: f.sourceId,
+    kind: "inbox",
+    taskTypeId: f.taskTypeId,
+    priorityClassId: f.priorityClassId,
+    timezone: "Europe/Prague",
+    batchSize: 2,
+  });
+  const series = await f.db.get(seriesId);
+  assert.equal(series.effortMinutes, 15);
+  assert.equal(series.priority, "normal");
+  assert.equal(series.dueAt, undefined);
+  assert.equal(series.recurrence.carryForward, false);
+  assert.deepEqual(series.recurrence.weekdays, [1, 2, 3, 4, 5]);
+  const occurrences = [...f.rows.values()].filter(
+    (r) => r.seriesId === seriesId
+  );
+  assert.ok(occurrences.length > 0);
+  assert.ok(
+    occurrences.every(
+      (o) =>
+        ![0, 6].includes(
+          new Date(
+            localDateTime(o.occurrenceStartAt, "Europe/Prague").slice(0, 10) +
+              "T12:00Z"
+          ).getUTCDay()
+        )
+    )
+  );
+  const taskId = occurrences[0]._id;
+  await mail.startBatch._handler(f.ctx, {
+    taskId,
+    messageIds: ["one", "two"],
+    manual: false,
+  });
+  await mail.startBatch._handler(f.ctx, {
+    taskId,
+    messageIds: ["new"],
+    manual: false,
+  });
+  assert.deepEqual((await mail.batch._handler(f.ctx, { taskId })).messageIds, [
+    "one",
+    "two",
+  ]);
+  await mail.reviewMessage._handler(f.ctx, { taskId, messageId: "one" });
+  await mail.reviewMessage._handler(f.ctx, { taskId, messageId: "one" });
+  assert.deepEqual((await mail.batch._handler(f.ctx, { taskId })).reviewedIds, [
+    "one",
+  ]);
+  await assert.rejects(
+    mail.reviewMessage._handler(f.ctx, { taskId, messageId: "new" })
+  );
+  assert.equal((await f.db.get(taskId)).completedAt, undefined);
+  const spam = await mail.createRoutine._handler(f.ctx, {
+    kind: "spam",
+    taskTypeId: f.taskTypeId,
+    priorityClassId: f.priorityClassId,
+    timezone: "Europe/Prague",
+    batchSize: 25,
+  });
+  assert.equal((await f.db.get(spam)).effortMinutes, 10);
+  assert.equal((await f.db.get(spam)).recurrence.unit, "week");
+  await mail.disconnect._handler(f.ctx, {
+    sourceId: f.sourceId,
+    routines: "manual",
+  });
+  assert.equal((await f.db.get(taskId)).mailSourceId, undefined);
+  assert.equal((await f.db.get(seriesId)).archivedAt, undefined);
+  await mail.startBatch._handler(f.ctx, {
+    taskId: occurrences[1]._id,
+    messageIds: [],
+    manual: true,
+  });
+  assert.equal(
+    (await mail.batch._handler(f.ctx, { taskId: occurrences[1]._id })).manual,
+    true
+  );
+});
+
+test("Weekday recurrence counts selected dates in endAfter and follows local dates through daylight saving", () => {
+  const rule = {
+    kind: "calendar",
+    unit: "day",
+    interval: 1,
+    startDate: "2030-03-29",
+    time: "09:00",
+    timezone: "Europe/Prague",
+    weekStartsOn: 1,
+    count: 1,
+    volume: 1,
+    carryForward: false,
+    weekdays: [1, 2, 3, 4, 5],
+    endAfter: 3,
+  };
+  const windows = recurrenceWindows(rule, "2030-03-29", "2030-04-05");
+  assert.deepEqual(
+    windows.map((w) => w.date),
+    ["2030-03-29", "2030-04-01", "2030-04-02"]
+  );
+  assert.ok(
+    windows.every(
+      (w) => localDateTime(w.startAt, rule.timezone).slice(11, 16) === "09:00"
+    )
+  );
+  assert.throws(() => validateRecurrence({ ...rule, weekdays: [] }));
+  assert.throws(() => validateRecurrence({ ...rule, weekdays: [8] }));
+});
+
+test("Stopping mail routines preserves completed history and cancels only future Occurrences", async () => {
+  const f = await mailFixture();
+  const seriesId = await mail.createRoutine._handler(f.ctx, {
+    sourceId: f.sourceId,
+    kind: "inbox",
+    taskTypeId: f.taskTypeId,
+    priorityClassId: f.priorityClassId,
+    timezone: "UTC",
+    batchSize: 25,
+  });
+  const occurrences = [...f.rows.values()].filter(
+    (r) => r.seriesId === seriesId
+  );
+  const completed = occurrences[0];
+  await f.db.patch(completed._id, { completedAt: 50 });
+  await mail.disconnect._handler(f.ctx, {
+    sourceId: f.sourceId,
+    routines: "stop",
+  });
+  assert.equal((await f.db.get(completed._id)).archivedAt, undefined);
+  assert.equal((await f.db.get(completed._id)).completedAt, 50);
+  assert.ok((await f.db.get(seriesId)).archivedAt !== undefined);
+  for (const occurrence of occurrences
+    .slice(1)
+    .filter((o) => o.occurrenceStartAt > 100))
+    assert.ok((await f.db.get(occurrence._id)).archivedAt !== undefined);
 });
 
 async function calendarFixture(access = "full") {

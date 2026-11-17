@@ -19,6 +19,7 @@ import {
 } from "@gc/validators";
 
 import { translatePregeneratedItem } from "../../utils/translate-pregenerated-items";
+import { MailTaskDetails } from "../mail/mail-settings";
 import { priorityClassApi } from "../priority-classes/priority-class.api";
 import { TagCreateDrawer } from "../tags/tag-create-drawer";
 import { tagApi } from "../tags/tag.api";
@@ -40,6 +41,7 @@ export function TaskEditDrawer({ editedTask }: { editedTask: ExtendedTask }) {
     >
       <div className="min-h-0 flex-1 overflow-y-auto">
         <ErrorSuspense>
+          <MailTaskDetails taskId={editedTask._id} />
           <TaskProgress taskId={editedTask._id} />
           <TaskEditForm editedTask={editedTask} />
         </ErrorSuspense>
