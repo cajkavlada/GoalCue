@@ -46,6 +46,8 @@ const { saveSession, listSessions, unscheduleSession, reportCheckIn } =
   await import("../convex/sessions.ts");
 const tasks = await import("../convex/tasks.ts");
 const planning = await import("../convex/planning.ts");
+const calendars = await import("../convex/calendars.ts");
+const { calendarEvent } = await import("../convex/utils/calendarImport.ts");
 const projects = await import("../convex/projects.ts");
 const {
   availabilityOn,
@@ -53,6 +55,7 @@ const {
   eventsCompatible,
   localDateTime,
   placementConflicts,
+  projectAllDayEvent,
   validatePlanning,
   zonedInstant,
 } = await import("../../validators/src/planning.ts");
@@ -276,6 +279,7 @@ function database() {
   const reads = { collected: 0, pages: [] };
   let nextId = 0;
   const db = {
+    delete: async (id) => rows.delete(id),
     get: async (id) => rows.get(id) ?? null,
     insert: async (table, value) => {
       const id = `${table}-${++nextId}`;
@@ -336,6 +340,11 @@ function database() {
           };
         },
         first: async () => (await query.collect())[0] ?? null,
+        unique: async () => {
+          const matches = await query.collect();
+          assert.ok(matches.length <= 1);
+          return matches[0] ?? null;
+        },
       };
       return query;
     },
@@ -4296,6 +4305,820 @@ test("Scheduling a series resumes the selected Occurrence and frequency drops us
     timezone: f.rule.timezone,
   });
   assert.equal((await f.db.get(selected)).automaticSchedulingPaused, false);
+});
+
+async function calendarFixture(access = "full") {
+  const f = database();
+  const grantId = await f.db.insert("calendarGrants", {
+    userId: "alice",
+    access,
+    email: "alice@gmail.com",
+    credentials: "encrypted",
+    calendars: [
+      { id: "personal", title: "Personal", timezone: "Europe/Prague" },
+    ],
+  });
+  const sourceId = await f.db.insert("calendarSources", {
+    userId: "alice",
+    grantId,
+    calendarId: "personal",
+    title: "Personal",
+    timezone: "Europe/Prague",
+    access,
+    generation: 1,
+  });
+  const snapshot = {
+    sourceId,
+    generation: 1,
+    scopeStart: 0,
+    scopeEnd: 100_000,
+    cancelledIds: [],
+    events: [
+      {
+        sourceEventId: "event-1",
+        title: "Original",
+        startAt: 1000,
+        endAt: 2000,
+        timezone: "Europe/Prague",
+        location: "Library",
+      },
+    ],
+  };
+  return { ...f, grantId, sourceId, snapshot };
+}
+
+test("Calendar refresh updates stable Source links, clears removed details, preserves attention corrections and restores cancelled Events", async () => {
+  const f = await calendarFixture();
+  await calendars.applyRefresh._handler(f.context("alice"), f.snapshot);
+  const [event] = await planning.listEvents._handler(f.context("alice"), {});
+  assert.equal(event.sourceId, f.sourceId);
+  assert.equal(event.attentionUncertain, true);
+  await planning.saveEvent._handler(f.context("alice"), {
+    eventId: event._id,
+    title: event.title,
+    startAt: event.startAt,
+    endAt: event.endAt,
+    timezone: event.timezone,
+    attention: "background",
+  });
+  await assert.rejects(
+    planning.saveEvent._handler(f.context("alice"), {
+      eventId: event._id,
+      title: "Changed source fact",
+      startAt: event.startAt,
+      endAt: event.endAt,
+      timezone: event.timezone,
+      attention: "focused",
+    })
+  );
+  await assert.rejects(
+    planning.deleteEvent._handler(f.context("alice"), { eventId: event._id })
+  );
+  await calendars.applyRefresh._handler(f.context("alice"), {
+    ...f.snapshot,
+    events: [
+      {
+        ...f.snapshot.events[0],
+        title: "Updated",
+        location: undefined,
+        startAt: 3000,
+        endAt: 4000,
+      },
+    ],
+  });
+  const [updated] = await planning.listEvents._handler(f.context("alice"), {});
+  assert.equal(updated._id, event._id);
+  assert.equal(updated.title, "Updated");
+  assert.equal(updated.location, undefined);
+  assert.equal(updated.attention, "background");
+  assert.equal(updated.attentionUncertain, false);
+  await calendars.applyRefresh._handler(f.context("alice"), {
+    ...f.snapshot,
+    events: [],
+    cancelledIds: ["event-1"],
+  });
+  assert.deepEqual(
+    await planning.listEvents._handler(f.context("alice"), {}),
+    []
+  );
+  assert.equal((await f.db.get(event._id)).sourceStatus, "cancelled");
+  await calendars.applyRefresh._handler(f.context("alice"), f.snapshot);
+  const restored = await planning.listEvents._handler(f.context("alice"), {});
+  assert.equal(restored.length, 1);
+  assert.equal(restored[0]._id, event._id);
+  assert.equal(restored[0].attention, "background");
+});
+
+test("Failed and superseded refreshes retain previous Events; complete replacement affects only its Import scope", async () => {
+  const f = await calendarFixture();
+  await calendars.applyRefresh._handler(f.context("alice"), f.snapshot);
+  const [event] = await planning.listEvents._handler(f.context("alice"), {});
+  await calendars.failRefresh._handler(f.context("alice"), {
+    sourceId: f.sourceId,
+    generation: 1,
+  });
+  assert.equal((await f.db.get(f.sourceId)).lastSuccessAt, 100);
+  assert.ok((await f.db.get(f.sourceId)).error);
+  assert.equal(
+    (await planning.listEvents._handler(f.context("alice"), {}))[0]._id,
+    event._id
+  );
+  await calendars.applyRefresh._handler(f.context("alice"), {
+    ...f.snapshot,
+    generation: 0,
+    events: [],
+  });
+  assert.equal(
+    (await planning.listEvents._handler(f.context("alice"), {})).length,
+    1
+  );
+  const outside = await f.db.insert("fixedEvents", {
+    ...event,
+    _id: undefined,
+    startAt: 200_000,
+    endAt: 300_000,
+    sourceEventId: "outside",
+  });
+  await calendars.applyRefresh._handler(f.context("alice"), {
+    ...f.snapshot,
+    events: [],
+  });
+  assert.equal((await f.db.get(event._id)).sourceStatus, "missing");
+  assert.equal((await f.db.get(outside)).deletedAt, undefined);
+  assert.equal((await f.db.get(f.sourceId)).error, undefined);
+});
+
+test("Disconnect stops queued and in-flight refreshes, deletes credentials, and keeps or removes only the account's derived records", async () => {
+  for (const removeRecords of [false, true]) {
+    const f = await calendarFixture();
+    await calendars.applyRefresh._handler(f.context("alice"), f.snapshot);
+    const [event] = await planning.listEvents._handler(f.context("alice"), {});
+    const independent = await f.db.insert("fixedEvents", {
+      userId: "alice",
+      title: "Manual",
+      startAt: 5000,
+      endAt: 6000,
+      timezone: "UTC",
+      attention: "focused",
+    });
+    await assert.rejects(
+      calendars.disconnect._handler(f.context("bob"), {
+        grantId: f.grantId,
+        removeRecords,
+      })
+    );
+    await calendars.disconnect._handler(f.context("alice"), {
+      grantId: f.grantId,
+      removeRecords,
+    });
+    assert.equal((await f.db.get(f.grantId)).credentials, undefined);
+    assert.equal(
+      await calendars.claimRefresh._handler(f.context("alice"), {
+        sourceId: f.sourceId,
+      }),
+      null
+    );
+    assert.equal(
+      await calendars.active._handler(f.context("alice"), {
+        sourceId: f.sourceId,
+        generation: 1,
+      }),
+      false
+    );
+    await calendars.applyRefresh._handler(f.context("alice"), {
+      ...f.snapshot,
+      events: [{ ...f.snapshot.events[0], title: "Late refresh" }],
+    });
+    const kept = await f.db.get(event._id);
+    if (removeRecords) assert.equal(kept, null);
+    else {
+      assert.equal(kept.title, "Original");
+      assert.equal(kept.sourceId, f.sourceId);
+    }
+    assert.ok(await f.db.get(independent));
+    await calendars.disconnect._handler(f.context("alice"), {
+      grantId: f.grantId,
+      removeRecords,
+    });
+  }
+});
+
+test("Calendar selection is authenticated, scoped to granted calendars, idempotent and never exposes credentials", async () => {
+  const f = await calendarFixture();
+  const scheduled = [];
+  const ctx = {
+    ...f.context("alice"),
+    scheduler: { runAfter: async (...args) => scheduled.push(args) },
+  };
+  const result = await calendars.list._handler(ctx, {});
+  assert.equal(result.grants[0].credentials, undefined);
+  assert.deepEqual(
+    (await calendars.list._handler(f.context("bob"), {})).grants,
+    []
+  );
+  await assert.rejects(calendars.list._handler(f.context(null), {}));
+  await assert.rejects(
+    calendars.select._handler(ctx, {
+      grantId: f.grantId,
+      calendarIds: ["unselected"],
+    })
+  );
+  await assert.rejects(
+    calendars.select._handler(f.context("bob"), {
+      grantId: f.grantId,
+      calendarIds: ["personal"],
+    })
+  );
+  await calendars.select._handler(ctx, {
+    grantId: f.grantId,
+    calendarIds: ["personal", "personal"],
+  });
+  assert.equal(scheduled.length, 0);
+  assert.equal((await calendars.list._handler(ctx, {})).sources.length, 1);
+  const claimed = await calendars.claimRefresh._handler(ctx, {
+    sourceId: f.sourceId,
+  });
+  assert.equal(claimed.generation, 2);
+  assert.equal(
+    await calendars.claimRefresh._handler(ctx, { sourceId: f.sourceId }),
+    null
+  );
+});
+
+test("Google Event mapping preserves date-only DST boundaries, recurrence exceptions, status, timezone, links and identity", () => {
+  const allDay = calendarEvent(
+    {
+      id: "holiday",
+      summary: "Holiday",
+      status: "tentative",
+      start: { date: "2030-03-31" },
+      end: { date: "2030-04-01" },
+      iCalUID: "uid",
+      recurrence: ["RRULE:FREQ=YEARLY"],
+      location: "Home",
+      htmlLink: "https://calendar.google.com/event",
+      conferenceData: {
+        entryPoints: [
+          { entryPointType: "video", uri: "https://meet.google.com/test" },
+        ],
+      },
+    },
+    "Europe/Prague"
+  );
+  assert.equal(allDay.allDayStart, "2030-03-31");
+  assert.equal(allDay.allDayEnd, "2030-04-01");
+  assert.equal(allDay.endAt - allDay.startAt, 23 * 3600_000);
+  assert.equal(allDay.sourceStatus, "tentative");
+  assert.equal(allDay.iCalUID, "uid");
+  assert.equal(allDay.meetingLink, "https://meet.google.com/test");
+  const instance = calendarEvent(
+    {
+      id: "instance",
+      recurringEventId: "series",
+      start: {
+        dateTime: "2030-10-27T09:00:00+01:00",
+        timeZone: "Europe/Prague",
+      },
+      end: { dateTime: "2030-10-27T10:00:00+01:00" },
+      originalStartTime: { dateTime: "2030-10-27T08:00:00+01:00" },
+    },
+    "UTC",
+    ["RRULE:FREQ=WEEKLY"]
+  );
+  assert.equal(instance.timezone, "Europe/Prague");
+  assert.equal(instance.recurringEventId, "series");
+  assert.equal(instance.originalStart, "2030-10-27T08:00:00+01:00");
+  assert.deepEqual(instance.recurrence, ["RRULE:FREQ=WEEKLY"]);
+  assert.throws(() =>
+    calendarEvent({ id: "broken", start: {}, end: {} }, "UTC")
+  );
+});
+
+test("OAuth and Google refresh use scoped read-only APIs, encrypt credentials and commit only complete paginated snapshots", async (t) => {
+  const { default: axios } = await import("axios");
+  const { getFunctionName } = await import("convex/server");
+  const originalEnv = { ...process.env };
+  Object.assign(process.env, {
+    GOOGLE_CALENDAR_CLIENT_ID: "test-client",
+    GOOGLE_CALENDAR_CLIENT_SECRET: "test-secret",
+    CALENDAR_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString("base64"),
+    CONVEX_SITE_URL: "https://test.convex.site",
+    GOOGLE_CALENDAR_APP_URL: "https://planner.example/settings",
+  });
+  t.after(() => {
+    for (const name of [
+      "GOOGLE_CALENDAR_CLIENT_ID",
+      "GOOGLE_CALENDAR_CLIENT_SECRET",
+      "CALENDAR_ENCRYPTION_KEY",
+      "CONVEX_SITE_URL",
+      "GOOGLE_CALENDAR_APP_URL",
+    ]) {
+      if (originalEnv[name] === undefined) delete process.env[name];
+      else process.env[name] = originalEnv[name];
+    }
+  });
+  let access = "full";
+  let failPage = false;
+  let emptySnapshot = false;
+  let malformedSnapshot = false;
+  let workspaceAccount = false;
+  let summary = "Original";
+  const requests = [];
+  const transport = {
+    async post(url, body) {
+      requests.push({ method: "POST", url, body });
+      if (url.endsWith("/token")) {
+        if (body.get("grant_type") === "refresh_token") {
+          assert.equal(body.get("refresh_token"), "private-refresh-token");
+          return { data: { access_token: "short-lived-token" } };
+        }
+        const claims = {
+          aud: "test-client",
+          iss: "https://accounts.google.com",
+          exp: 100_000,
+          email: "alice@gmail.com",
+          email_verified: true,
+          ...(workspaceAccount ? { hd: "work.example" } : {}),
+        };
+        return {
+          data: {
+            access_token: "short-lived-token",
+            refresh_token: "private-refresh-token",
+            id_token: `header.${Buffer.from(JSON.stringify(claims)).toString("base64url")}.signature`,
+            scope: `https://www.googleapis.com/auth/calendar.calendarlist.readonly https://www.googleapis.com/auth/calendar.${access === "busy" ? "events.freebusy" : "events.readonly"}`,
+          },
+        };
+      }
+      assert.ok(url.endsWith("/freeBusy"));
+      assert.deepEqual(body.items, [{ id: "personal" }]);
+      return {
+        data: {
+          calendars: {
+            personal: failPage
+              ? { errors: [{ reason: "internalError" }] }
+              : {
+                  busy: [
+                    {
+                      start: "1970-01-01T10:00:00Z",
+                      end: "1970-01-01T11:00:00Z",
+                    },
+                  ],
+                },
+          },
+        },
+      };
+    },
+    async get(url, options) {
+      requests.push({ method: "GET", url, params: options.params });
+      if (url.endsWith("/calendarList"))
+        return {
+          data: {
+            items: [
+              {
+                id: "personal",
+                summary: "Personal",
+                timeZone: "Europe/Prague",
+                accessRole: "owner",
+              },
+            ],
+          },
+        };
+      assert.ok(url.endsWith("/calendars/personal/events"));
+      assert.equal(access, "full");
+      if (malformedSnapshot) return { data: {} };
+      if (emptySnapshot) return { data: { kind: "calendar#events" } };
+      if (!options.params.singleEvents)
+        return {
+          data: {
+            items: [{ id: "series", recurrence: ["RRULE:FREQ=WEEKLY"] }],
+          },
+        };
+      if (options.params.pageToken) {
+        if (failPage) throw new Error("Second page unavailable");
+        return { data: { items: [{ id: "second", status: "cancelled" }] } };
+      }
+      return {
+        data: {
+          items: [
+            {
+              id: "one",
+              summary,
+              recurringEventId: "series",
+              start: { dateTime: "1970-01-01T10:00:00Z" },
+              end: { dateTime: "1970-01-01T11:00:00Z" },
+            },
+          ],
+          nextPageToken: "page-two",
+        },
+      };
+    },
+  };
+  t.mock.method(axios, "create", () => transport);
+  const google = await import("../convex/googleCalendar.ts");
+  for (access of ["full", "busy"]) {
+    requests.length = 0;
+    failPage = false;
+    summary = "Original";
+    const f = database();
+    const ctx = {
+      ...f.context("alice"),
+      runMutation: (ref, args) =>
+        calendars[getFunctionName(ref).split(":")[1]]._handler(
+          f.context("alice"),
+          args
+        ),
+      runQuery: (ref, args) =>
+        calendars[getFunctionName(ref).split(":")[1]]._handler(
+          f.context("alice"),
+          args
+        ),
+    };
+    const url = new URL(await google.connect._handler(ctx, { access }));
+    assert.equal(url.searchParams.get("include_granted_scopes"), "false");
+    assert.equal(
+      url.searchParams.get("redirect_uri"),
+      "https://test.convex.site/calendar/google/callback"
+    );
+    assert.equal(
+      url.searchParams.get("scope").includes("calendar.events.readonly"),
+      access === "full"
+    );
+    const state = url.searchParams.get("state");
+    const beforeUnauthorized = requests.length;
+    await assert.rejects(
+      google.completeAuthorization._handler(
+        { ...ctx, auth: { getUserIdentity: async () => ({ subject: "bob" }) } },
+        { state, code: "code" }
+      )
+    );
+    assert.equal(requests.length, beforeUnauthorized);
+    await assert.rejects(
+      google.completeAuthorization._handler(ctx, {
+        state: "unrecognized",
+        code: "code",
+      })
+    );
+    await google.completeAuthorization._handler(ctx, { state, code: "code" });
+    await assert.rejects(
+      google.completeAuthorization._handler(ctx, { state, code: "code" })
+    );
+    const grant = [...f.rows.values()].find((row) =>
+      row._id.startsWith("calendarGrants-")
+    );
+    assert.ok(grant.credentials);
+    assert.ok(!grant.credentials.includes("private-refresh-token"));
+    await calendars.select._handler(
+      { ...f.context("alice"), scheduler: { runAfter: async () => {} } },
+      { grantId: grant._id, calendarIds: ["personal"] }
+    );
+    const source = [...f.rows.values()].find((row) =>
+      row._id.startsWith("calendarSources-")
+    );
+    await google.refresh._handler(ctx, { sourceId: source._id });
+    const [first] = await planning.listEvents._handler(f.context("alice"), {});
+    assert.ok(first);
+    if (access === "busy") {
+      assert.equal(first.title, "Busy");
+      for (const key of [
+        "location",
+        "meetingLink",
+        "recurrence",
+        "sourceUrl",
+        "iCalUID",
+        "sourceStatus",
+      ])
+        assert.equal(first[key], undefined);
+      assert.ok(!requests.some((request) => request.url.endsWith("/events")));
+    } else {
+      assert.deepEqual(first.recurrence, ["RRULE:FREQ=WEEKLY"]);
+      assert.ok(
+        requests.some((request) => request.params?.pageToken === "page-two")
+      );
+    }
+    failPage = true;
+    summary = "Updated";
+    await google.refresh._handler(ctx, { sourceId: source._id });
+    assert.ok((await f.db.get(source._id)).error);
+    assert.equal(
+      (await f.db.get(first._id)).title,
+      access === "busy" ? "Busy" : "Original"
+    );
+    failPage = false;
+    await google.refresh._handler(ctx, { sourceId: source._id });
+    const refreshed = await planning.listEvents._handler(
+      f.context("alice"),
+      {}
+    );
+    assert.equal(refreshed.length, 1);
+    assert.equal(refreshed[0]._id, first._id);
+    assert.equal(refreshed[0].title, access === "busy" ? "Busy" : "Updated");
+    if (access === "full") {
+      malformedSnapshot = true;
+      await google.refresh._handler(ctx, { sourceId: source._id });
+      assert.ok((await f.db.get(source._id)).error);
+      assert.equal(
+        (await planning.listEvents._handler(f.context("alice"), {})).length,
+        1
+      );
+      malformedSnapshot = false;
+      emptySnapshot = true;
+      await google.refresh._handler(ctx, { sourceId: source._id });
+      assert.deepEqual(
+        await planning.listEvents._handler(f.context("alice"), {}),
+        []
+      );
+      assert.equal((await f.db.get(source._id)).error, undefined);
+      emptySnapshot = false;
+      await google.refresh._handler(ctx, { sourceId: source._id });
+      assert.equal(
+        (await planning.listEvents._handler(f.context("alice"), {}))[0]._id,
+        first._id
+      );
+    }
+    assert.ok(
+      requests.every(
+        (request) =>
+          request.method === "GET" ||
+          request.url.endsWith("/token") ||
+          request.url.endsWith("/freeBusy")
+      )
+    );
+    await calendars.disconnect._handler(f.context("alice"), {
+      grantId: grant._id,
+      removeRecords: false,
+    });
+    const count = requests.length;
+    await google.refresh._handler(ctx, { sourceId: source._id });
+    assert.equal(requests.length, count);
+    workspaceAccount = true;
+    const workUrl = new URL(await google.connect._handler(ctx, { access }));
+    await assert.rejects(
+      google.completeAuthorization._handler(ctx, {
+        state: workUrl.searchParams.get("state"),
+        code: "code",
+      }),
+      /personal Google accounts/
+    );
+    workspaceAccount = false;
+  }
+});
+
+test("Disconnecting one calendar preserves other Sources and their Events", async () => {
+  const f = await calendarFixture();
+  await calendars.applyRefresh._handler(f.context("alice"), f.snapshot);
+  const otherId = await f.db.insert("calendarSources", {
+    ...(await f.db.get(f.sourceId)),
+    calendarId: "other",
+  });
+  const otherEvent = await f.db.insert("fixedEvents", {
+    userId: "alice",
+    title: "Other calendar",
+    startAt: 1000,
+    endAt: 2000,
+    timezone: "UTC",
+    attention: "focused",
+    sourceId: otherId,
+  });
+  await assert.rejects(
+    calendars.disconnectSource._handler(f.context("bob"), {
+      sourceId: f.sourceId,
+      removeRecords: true,
+    })
+  );
+  await calendars.disconnectSource._handler(f.context("alice"), {
+    sourceId: f.sourceId,
+    removeRecords: true,
+  });
+  assert.equal((await f.db.get(otherId)).disconnectedAt, undefined);
+  assert.ok(await f.db.get(otherEvent));
+  assert.ok((await f.db.get(f.grantId)).credentials);
+  assert.equal(
+    await calendars.claimRefresh._handler(f.context("alice"), {
+      sourceId: f.sourceId,
+    }),
+    null
+  );
+  assert.deepEqual(
+    (await planning.listEvents._handler(f.context("alice"), {})).map(
+      (event) => event._id
+    ),
+    [otherEvent]
+  );
+});
+
+test("The Day warning distinguishes stale and failed Sources while disconnect confirmation defaults to keeping Events", () => {
+  let sources = [];
+  const render = featureRenderer("../calendar-sources.tsx", "CalendarSources", {
+    Date,
+    useSuspenseQuery: () => ({ data: { grants: [], sources } }),
+    convexQuery: () => ({}),
+    api: {
+      calendars: { list: "list", refresh: "refresh" },
+      googleCalendar: { connect: "connect" },
+    },
+    useState: (initial) => [
+      typeof initial === "function" ? initial() : initial,
+      () => {},
+    ],
+    useEffect: () => {},
+    useAction: () => {},
+    useMutation: () => ({}),
+    useConvexMutation: () => {},
+    Link: "Link",
+  });
+  assert.equal(render({ compact: true }), null);
+  sources = [
+    {
+      _id: "source",
+      title: "Personal",
+      lastSuccessAt: Date.now() - 7 * 60_000,
+    },
+  ];
+  let nodes = featureNodes(render({ compact: true }));
+  assert.ok(nodes.some((node) => node.props.role === "status"));
+  sources[0].lastSuccessAt = Date.now();
+  assert.equal(render({ compact: true }), null);
+  sources[0].error = "failed";
+  nodes = featureNodes(render({ compact: true }));
+  assert.ok(nodes.some((node) => node.type === "Link"));
+  sources[0].disconnectedAt = Date.now();
+  assert.equal(render({ compact: true }), null);
+  const state = [true, false];
+  const changes = [];
+  const disconnect = featureRenderer(
+    "../calendar-sources.tsx",
+    "CalendarSourceDisconnect",
+    {
+      useState: () => [state.shift(), (value) => changes.push(value)],
+      api: { calendars: { disconnectSource: "disconnect" } },
+      useConvexMutation: () => {},
+      useMutation: () => ({ mutate: (args) => changes.push(args) }),
+      Button: "Button",
+      Select: "Select",
+    }
+  );
+  const confirmation = featureNodes(disconnect({ source: { _id: "source" } }));
+  assert.equal(
+    confirmation.find((node) => node.type === "Select").props.value,
+    "keep"
+  );
+  confirmation
+    .find(
+      (node) =>
+        node.type === "Button" &&
+        node.children.includes("calendar_confirm_disconnect")
+    )
+    .props.onClick();
+  assert.equal(changes.at(-1).sourceId, "source");
+  assert.equal(changes.at(-1).removeRecords, false);
+});
+
+test("All-day dates stay on their calendar dates across planning timezones without changing stored source data", async () => {
+  const f = await calendarFixture();
+  const event = calendarEvent(
+    {
+      id: "all-day",
+      summary: "Holiday",
+      start: { date: "2030-03-31" },
+      end: { date: "2030-04-01" },
+    },
+    "Europe/Prague"
+  );
+  await calendars.applyRefresh._handler(f.context("alice"), {
+    ...f.snapshot,
+    events: [event],
+  });
+  const timezone = "America/Los_Angeles";
+  const [display] = await planning.listEvents._handler(f.context("alice"), {
+    timezone,
+  });
+  const bounds = dayBounds("2030-03-31", timezone);
+  assert.equal(display.allDayStart, "2030-03-31");
+  assert.equal(display.startAt, bounds.startAt);
+  assert.equal(display.endAt, bounds.endAt);
+  assert.equal((await f.db.get(display._id)).startAt, event.startAt);
+  assert.equal(
+    projectAllDayEvent(display, "Europe/Prague").startAt,
+    event.startAt
+  );
+  const settings = {
+    timezone,
+    weekly: [],
+    overrides: [],
+    protectedWeekly: [],
+    protectedDates: [],
+  };
+  assert.deepEqual(
+    placementConflicts(
+      { startAt: bounds.startAt - 3600_000, endAt: bounds.startAt },
+      settings,
+      [event]
+    ),
+    []
+  );
+  assert.ok(
+    placementConflicts(
+      { startAt: bounds.endAt - 3600_000, endAt: bounds.endAt },
+      settings,
+      [{ ...event, attention: "focused" }]
+    ).length
+  );
+  const result = planSessions({
+    date: "2030-03-31",
+    now: bounds.startAt,
+    settings,
+    events: [{ ...event, attention: "focused" }],
+    tasks: [{ _id: "task", title: "Read", effortMinutes: 30 }],
+    sessions: [],
+  });
+  assert.ok(result.changes.length);
+  assert.ok(result.changes[0].after.startAt >= bounds.endAt);
+  await planning.setEventAttention._handler(f.context("alice"), {
+    eventId: display._id,
+    attention: "background",
+  });
+  assert.equal((await f.db.get(display._id)).attentionUncertain, false);
+  await assert.rejects(
+    planning.setEventAttention._handler(f.context("bob"), {
+      eventId: display._id,
+      attention: "focused",
+    })
+  );
+});
+
+test("Disconnection cancels an already-consumed OAuth callback before it can attach credentials", async () => {
+  const f = await calendarFixture();
+  await calendars.authorize._handler(f.context("alice"), {
+    state: "pending-state",
+    userId: "alice",
+    access: "full",
+  });
+  const auth = await calendars.consumeAuthorization._handler(
+    f.context("alice"),
+    { state: "pending-state", userId: "alice" }
+  );
+  await calendars.disconnect._handler(f.context("alice"), {
+    grantId: f.grantId,
+    removeRecords: false,
+  });
+  await assert.rejects(
+    calendars.finishAuthorization._handler(f.context("alice"), {
+      authorizationId: auth._id,
+      userId: "alice",
+      access: "full",
+      email: "second@gmail.com",
+      credentials: "encrypted",
+      calendars: [],
+    })
+  );
+  assert.deepEqual(
+    (await calendars.list._handler(f.context("alice"), {})).grants,
+    []
+  );
+});
+
+test("Reconnecting a retained calendar reuses its Source and Event identities without duplicates", async () => {
+  const f = await calendarFixture();
+  await calendars.applyRefresh._handler(f.context("alice"), f.snapshot);
+  const [original] = await planning.listEvents._handler(f.context("alice"), {});
+  await planning.setEventAttention._handler(f.context("alice"), {
+    eventId: original._id,
+    attention: "background",
+  });
+  await calendars.disconnect._handler(f.context("alice"), {
+    grantId: f.grantId,
+    removeRecords: false,
+  });
+  const grantId = await f.db.insert("calendarGrants", {
+    userId: "alice",
+    access: "full",
+    email: "alice@gmail.com",
+    credentials: "new-encrypted-token",
+    calendars: [
+      { id: "personal", title: "Personal", timezone: "Europe/Prague" },
+    ],
+  });
+  await calendars.select._handler(
+    { ...f.context("alice"), scheduler: { runAfter: async () => {} } },
+    { grantId, calendarIds: ["personal"] }
+  );
+  const { sources } = await calendars.list._handler(f.context("alice"), {});
+  assert.equal(sources.length, 1);
+  assert.equal(sources[0]._id, f.sourceId);
+  assert.equal(sources[0].grantId, grantId);
+  const claim = await calendars.claimRefresh._handler(f.context("alice"), {
+    sourceId: f.sourceId,
+  });
+  await calendars.applyRefresh._handler(f.context("alice"), {
+    ...f.snapshot,
+    generation: claim.generation,
+    events: [{ ...f.snapshot.events[0], title: "After reconnect" }],
+  });
+  const records = await planning.listEvents._handler(f.context("alice"), {});
+  assert.equal(records.length, 1);
+  assert.equal(records[0]._id, original._id);
+  assert.equal(records[0].title, "After reconnect");
+  assert.equal(records[0].attention, "background");
 });
 
 const travelInstant = (time) => Date.parse("2026-11-17T" + time + ":00Z");

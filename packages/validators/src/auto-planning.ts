@@ -6,6 +6,7 @@ import {
   localDateTime,
   overlaps,
   placementConflicts,
+  projectAllDayEvent,
   shiftDate,
 } from "./planning";
 import { locationConflicts, locationWindows, planTravel } from "./travel";
@@ -86,6 +87,7 @@ export function planSessions({
   }[];
   recoveryRequests?: RecoveryRequest[];
 }) {
+  events = events.map((event) => projectAllDayEvent(event, settings.timezone));
   const startAt = Math.max(dayBounds(date, settings.timezone).startAt, now);
   const endAt = dayBounds(shiftDate(date, 7), settings.timezone).startAt;
   recoveryRequests = recoveryRequests.map((r) => ({

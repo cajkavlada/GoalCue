@@ -47,7 +47,30 @@ export type FixedEvent = Interval &
     attention: "focused" | "background";
     timezone?: string;
     journey?: JourneyInput;
+    allDayStart?: string;
+    allDayEnd?: string;
   };
+
+export function projectAllDayEvent<
+  T extends Interval & { allDayStart?: string; allDayEnd?: string },
+>(event: T, timezone: string): T {
+  if (!event.allDayStart || !event.allDayEnd) return event;
+  return {
+    ...event,
+    startAt: zonedInstant(
+      `${event.allDayStart}T00:00`,
+      timezone,
+      "earlier",
+      "forward"
+    ),
+    endAt: zonedInstant(
+      `${event.allDayEnd}T00:00`,
+      timezone,
+      "earlier",
+      "forward"
+    ),
+  };
+}
 
 export function localDateTime(instant: number, timezone: string) {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -324,8 +347,11 @@ export function placementConflicts(
       date = shiftDate(date, 1);
     }
   }
-  const concurrent = events.filter((e) => overlaps(e, interval));
-  for (const block of planTravel(events).blocks)
+  const projected = events.map((e) =>
+    projectAllDayEvent(e, settings?.timezone ?? e.timezone ?? "UTC")
+  );
+  const concurrent = projected.filter((e) => overlaps(e, interval));
+  for (const block of planTravel(projected).blocks)
     if (overlaps(block, interval)) reasons.add(block.title);
   for (const event of concurrent)
     if (event.attention === "focused") reasons.add(`Event: ${event.title}`);

@@ -38,6 +38,7 @@ import {
 } from "@gc/validators";
 
 import type { CalendarSession } from "./session-check-ins";
+import { CalendarSources } from "../calendar-sources";
 import {
   adjustSession,
   freeDayMinutes,
@@ -119,7 +120,7 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
     convexQuery(api.sessions.listSessions, {})
   );
   const { data: events } = useSuspenseQuery(
-    convexQuery(api.planning.listEvents, {})
+    convexQuery(api.planning.listEvents, { timezone })
   );
   const { data: dayPlan } = useSuspenseQuery(
     convexQuery(api.planning.getDayPlan, {})
@@ -184,8 +185,10 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
   const constraints = settings
     ? availabilityOn(day, settings)
     : { available: [{ startAt: start, endAt: end }], protected: [] };
-  const dayEvents = events.filter(
-    (event) => event.startAt < end && event.endAt > start
+  const dayEvents = events.filter((event) =>
+    event.allDayStart && event.allDayEnd
+      ? event.allDayStart <= day && event.allDayEnd > day
+      : event.startAt < end && event.endAt > start
   );
   const travel = planTravel(events);
   const dayJourneys = travel.journeys.filter(
@@ -483,7 +486,7 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
       ...session,
       endAt: Math.max(session.endAt, session.startAt + (8 / PX) * MINUTE),
     })),
-    ...dayEvents,
+    ...dayEvents.filter((event) => !event.allDayStart),
   ]);
   const pendingCheckIns = sessions
     .filter(
@@ -497,6 +500,21 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
 
   return (
     <div className="bg-background flex h-full min-h-0 flex-col">
+      <ErrorSuspense>
+        <CalendarSources compact />
+      </ErrorSuspense>
+      {dayEvents
+        .filter((event) => event.allDayStart)
+        .map((event) => (
+          <Button
+            key={event._id}
+            variant="outline"
+            className="shrink-0 justify-start"
+            onClick={() => editEvent(event)}
+          >
+            {m.calendar_all_day()}: {event.title} · {event.sourceTitle}
+          </Button>
+        ))}
       <div className="flex shrink-0 items-center gap-2 border-b px-3 py-1">
         <Button
           size="icon"
@@ -1201,45 +1219,55 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
                       </Tooltip>
                     );
                   })}
-                  {dayEvents.map((event) => {
-                    const pos = positions.get(event._id)!;
-                    return (
-                      <button
-                        key={event._id}
-                        className="bg-muted absolute z-[2] overflow-auto rounded border-2 border-dashed p-2 text-left text-xs"
-                        onClick={() => editEvent(event)}
-                        style={{
-                          top:
-                            ((Math.max(start, event.startAt) - start) /
-                              MINUTE) *
-                            PX,
-                          height:
-                            ((Math.min(end, event.endAt) -
-                              Math.max(start, event.startAt)) /
-                              MINUTE) *
-                            PX,
-                          left: `calc(${(pos.lane / pos.lanes) * 100}% + 3px)`,
-                          width: `calc(${100 / pos.lanes}% - 6px)`,
-                        }}
-                      >
-                        <p className="font-semibold">
-                          {event.attention === "focused"
-                            ? m.constraints_focused()
-                            : m.constraints_background()}
-                          : {event.title}
-                        </p>
-                        <p>
-                          {clock(event.startAt)}–{clock(event.endAt)}
-                        </p>
-                        {!!eventConflicts(event).length && (
-                          <p role="status">
-                            {m.constraints_conflicts()}:{" "}
-                            {eventConflicts(event).join(", ")}
+                  {dayEvents
+                    .filter((event) => !event.allDayStart)
+                    .map((event) => {
+                      const pos = positions.get(event._id)!;
+                      return (
+                        <button
+                          key={event._id}
+                          className="bg-muted absolute z-[2] overflow-auto rounded border-2 border-dashed p-2 text-left text-xs"
+                          onClick={() => editEvent(event)}
+                          style={{
+                            top:
+                              ((Math.max(start, event.startAt) - start) /
+                                MINUTE) *
+                              PX,
+                            height:
+                              ((Math.min(end, event.endAt) -
+                                Math.max(start, event.startAt)) /
+                                MINUTE) *
+                              PX,
+                            left: `calc(${(pos.lane / pos.lanes) * 100}% + 3px)`,
+                            width: `calc(${100 / pos.lanes}% - 6px)`,
+                          }}
+                        >
+                          <p className="font-semibold">
+                            {event.attention === "focused"
+                              ? m.constraints_focused()
+                              : m.constraints_background()}
+                            : {event.title}
                           </p>
-                        )}
-                      </button>
-                    );
-                  })}
+                          <p>
+                            {clock(event.startAt)}–{clock(event.endAt)}
+                          </p>
+                          {event.sourceTitle && (
+                            <p>
+                              {m.calendar_source()}: {event.sourceTitle}
+                            </p>
+                          )}
+                          {event.attentionUncertain && (
+                            <p>{m.calendar_attention_uncertain()}</p>
+                          )}
+                          {!!eventConflicts(event).length && (
+                            <p role="status">
+                              {m.constraints_conflicts()}:{" "}
+                              {eventConflicts(event).join(", ")}
+                            </p>
+                          )}
+                        </button>
+                      );
+                    })}
                 </div>
               </div>
             </div>
