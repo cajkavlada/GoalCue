@@ -2,6 +2,7 @@ import { ConvexError, Infer, v } from "convex/values";
 
 import {
   localDateTime,
+  locationConflicts,
   overlaps,
   placementConflicts,
   supportsBatchCheckIn,
@@ -60,6 +61,9 @@ export const listSessions = authedQuery({
             : {
                 ...session,
                 taskTitle: task.title,
+                attendance: task.attendance,
+                hybridAttendance: task.hybridAttendance,
+                locationRequirement: task.locationRequirement,
                 projectId: task.projectId,
                 seriesId: task.seriesId,
                 taskCompletedAt: task.completedAt,
@@ -185,7 +189,10 @@ async function applyCheckIn(
       .query("sessions")
       .withIndex("by_user_start", (q) => q.eq("userId", ctx.userId))
       .collect();
-    const conflicts = placementConflicts(extension, settings, events);
+    const conflicts = [
+      ...placementConflicts(extension, settings, events),
+      ...locationConflicts(extension, task, events),
+    ];
     if (
       sessions.some(
         (s) =>
@@ -576,6 +583,12 @@ export const undoBatchCheckIn = authedMutation({
             settings,
             events.filter((e) => e.deletedAt === undefined)
           ).length ||
+          (owner &&
+            locationConflicts(
+              before,
+              owner,
+              events.filter((e) => e.deletedAt === undefined)
+            ).length) ||
           sessions.some(
             (other) =>
               !affected.has(other._id) &&
@@ -711,7 +724,10 @@ export const saveSession = authedMutation({
         .withIndex("by_user_start", (q) => q.eq("userId", ctx.userId))
         .collect()
     ).filter((e) => e.deletedAt === undefined);
-    const conflicts = placementConflicts({ startAt, endAt }, settings, events);
+    const conflicts = [
+      ...placementConflicts({ startAt, endAt }, settings, events),
+      ...locationConflicts({ startAt, endAt }, task, events),
+    ];
     if (conflicts.length && (automatic || !allowConflict))
       throw new ConvexError({ message: conflicts.join("; ") });
     if (sessionId) {

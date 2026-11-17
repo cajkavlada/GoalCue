@@ -2,6 +2,33 @@ import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export const timeWindow = v.object({ start: v.number(), end: v.number() });
+export const attendanceFields = {
+  attendance: v.optional(
+    v.union(
+      v.literal("unknown"),
+      v.literal("online"),
+      v.literal("physical"),
+      v.literal("hybrid")
+    )
+  ),
+  hybridAttendance: v.optional(
+    v.union(v.literal("online"), v.literal("physical"))
+  ),
+  locationRequirement: v.optional(v.string()),
+};
+export const journey = v.object({
+  origin: v.string(),
+  mode: v.union(
+    v.literal("walk"),
+    v.literal("cycle"),
+    v.literal("drive"),
+    v.literal("transit")
+  ),
+  routeMinutes: v.optional(v.number()),
+  marginPercent: v.number(),
+  arrivalMinutes: v.number(),
+  wrapUpMinutes: v.number(),
+});
 export const weeklyWindow = v.object({
   weekday: v.number(),
   start: v.number(),
@@ -33,6 +60,8 @@ export const planningFields = {
   ),
 };
 export const fixedEventFields = {
+  ...attendanceFields,
+  journey: v.optional(journey),
   title: v.string(),
   startAt: v.number(),
   endAt: v.number(),

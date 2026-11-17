@@ -57,6 +57,9 @@ const {
   zonedInstant,
 } = await import("../../validators/src/planning.ts");
 const { planSessions } = await import("../../validators/src/auto-planning.ts");
+const { planTravel, locationConflicts } = await import(
+  "../../validators/src/travel.ts"
+);
 const { recurrenceWindows, recurrenceDate, validateRecurrence } = await import(
   "../../validators/src/recurrence.ts"
 );
@@ -4295,6 +4298,295 @@ test("Scheduling a series resumes the selected Occurrence and frequency drops us
   assert.equal((await f.db.get(selected)).automaticSchedulingPaused, false);
 });
 
+const travelInstant = (time) => Date.parse("2026-11-17T" + time + ":00Z");
+const travelEvent = (values = {}) => ({
+  title: "Visit",
+  startAt: travelInstant("10:00"),
+  endAt: travelInstant("11:00"),
+  timezone: "UTC",
+  attention: "focused",
+  attendance: "physical",
+  locationRequirement: "Clinic",
+  journey: {
+    origin: "Home",
+    mode: "drive",
+    routeMinutes: 30,
+    marginPercent: 20,
+    arrivalMinutes: 10,
+    wrapUpMinutes: 5,
+  },
+  ...values,
+});
+
+test("Journeys separate route, margin, arrival and wrap-up; online and remote hybrid Events need no travel", () => {
+  const event = travelEvent();
+  const {
+    journeys: [j],
+    blocks,
+  } = planTravel([event]);
+  assert.equal(j.startAt, travelInstant("09:14"));
+  assert.equal(j.endAt, travelInstant("09:50"));
+  assert.equal(j.marginMinutes, 6);
+  assert.equal(blocks.length, 3);
+  assert.equal(blocks[1].endAt, event.startAt);
+  assert.equal(blocks[2].endAt, travelInstant("11:05"));
+  assert.deepEqual(
+    planTravel([travelEvent({ attendance: "online" })]).blocks,
+    []
+  );
+  assert.deepEqual(
+    planTravel([
+      travelEvent({ attendance: "hybrid", hybridAttendance: "online" }),
+    ]).journeys,
+    []
+  );
+  assert.equal(
+    planTravel([travelEvent({ attendance: "hybrid" })]).journeys[0]
+      .routeMinutes,
+    undefined
+  );
+});
+
+test("Unknown route time and whereabouts remain unresolved, while infeasible travel preserves fixed Events", () => {
+  const event = travelEvent();
+  const previous = travelEvent({
+    title: "Earlier",
+    startAt: travelInstant("08:00"),
+    endAt: travelInstant("09:45"),
+    locationRequirement: "Home",
+  });
+  const original = structuredClone([previous, event]);
+  const result = planTravel([previous, event]);
+  assert.equal(result.journeys[1].shortfallMinutes, 36);
+  assert.deepEqual([previous, event], original);
+  const unknown = travelEvent({
+    journey: { ...event.journey, routeMinutes: undefined },
+  });
+  const unresolved = planTravel([unknown]);
+  assert.match(unresolved.journeys[0].uncertainty, /manual route/);
+  assert.equal(unresolved.journeys[0].routeMinutes, undefined);
+  assert.ok(
+    placementConflicts(
+      { startAt: travelInstant("09:00"), endAt: travelInstant("09:30") },
+      null,
+      [unknown]
+    ).some((r) => r.includes("Journey"))
+  );
+  assert.match(
+    planTravel([travelEvent({ journey: { ...event.journey, origin: "" } })])
+      .journeys[0].uncertainty,
+    /origin/
+  );
+});
+
+test("Compatible errands share an existing Journey only at its location and without moving unrelated Sessions", () => {
+  const event = travelEvent();
+  const errand = {
+    _id: "errand",
+    title: "Collect medicine",
+    attendance: "physical",
+    locationRequirement: "Clinic",
+    effortMinutes: 15,
+  };
+  const unrelated = {
+    _id: "unrelated",
+    taskId: "read",
+    startAt: travelInstant("12:00"),
+    endAt: travelInstant("12:30"),
+    pinned: true,
+  };
+  const settings = {
+    timezone: "UTC",
+    weekly: [],
+    overrides: [],
+    protectedWeekly: [],
+    protectedDates: [],
+  };
+  const result = planSessions({
+    date: "2026-11-17",
+    now: travelInstant("08:00"),
+    settings,
+    events: [event],
+    tasks: [errand, { _id: "read", title: "Read", effortMinutes: 30 }],
+    sessions: [unrelated],
+  });
+  const placement = result.changes.find((c) => c.taskId === "errand").after;
+  assert.equal(placement.startAt, travelInstant("11:05"));
+  assert.equal(
+    result.changes.some((c) => c.id === unrelated._id),
+    false
+  );
+  assert.deepEqual(locationConflicts(placement, errand, [event]), []);
+  assert.equal(
+    locationConflicts(
+      placement,
+      { ...errand, locationRequirement: "Elsewhere" },
+      [event]
+    ).length,
+    1
+  );
+  assert.equal(
+    locationConflicts(
+      { startAt: travelInstant("08:00"), endAt: travelInstant("08:15") },
+      errand,
+      [event]
+    ).length,
+    1
+  );
+});
+
+test("Travel is enforced for manual and automatic Sessions, Event edits, and ownership", async () => {
+  const { db, context } = database();
+  const taskId = await db.insert("tasks", { userId: "alice", title: "Read" });
+  const eventId = await planning.saveEvent._handler(
+    context("alice"),
+    travelEvent()
+  );
+  for (const automatic of [false, true]) {
+    await assert.rejects(
+      saveSession._handler(context("alice"), {
+        taskId,
+        startAt: travelInstant("09:20"),
+        endAt: travelInstant("09:40"),
+        automatic,
+      }),
+      /Journey/
+    );
+  }
+  await saveSession._handler(context("alice"), {
+    taskId,
+    startAt: travelInstant("09:20"),
+    endAt: travelInstant("09:40"),
+    allowConflict: true,
+  });
+  await assert.rejects(
+    planning.saveEvent._handler(context("bob"), { ...travelEvent(), eventId })
+  );
+  await assert.rejects(
+    planning.saveEvent._handler(
+      context("alice"),
+      travelEvent({ journey: { ...travelEvent().journey, routeMinutes: -1 } })
+    )
+  );
+  await planning.saveEvent._handler(context("alice"), {
+    ...travelEvent({ attendance: "online" }),
+    eventId,
+  });
+  assert.equal((await db.get(eventId)).startAt, travelInstant("10:00"));
+  assert.deepEqual(
+    placementConflicts(
+      { startAt: travelInstant("09:20"), endAt: travelInstant("09:40") },
+      null,
+      [await db.get(eventId)]
+    ),
+    []
+  );
+});
+
+test("Task attendance and Location requirements persist through create and edit", async () => {
+  const { db, context } = database();
+  const taskTypeId = await db.insert("taskTypes", {
+    userId: "alice",
+    valueKind: "boolean",
+  });
+  const priorityClassId = await db.insert("priorityClasses", {
+    userId: "alice",
+  });
+  const input = {
+    title: "Collect medicine",
+    taskTypeId,
+    priorityClassId,
+    tags: [],
+    attendance: "physical",
+    locationRequirement: "Clinic",
+  };
+  const taskId = await tasks.create._handler(context("alice"), input);
+  assert.equal((await db.get(taskId)).attendance, "physical");
+  assert.equal((await db.get(taskId)).locationRequirement, "Clinic");
+  await tasks.update._handler(context("alice"), {
+    ...input,
+    taskId,
+    attendance: "hybrid",
+    hybridAttendance: "online",
+    locationRequirement: "",
+  });
+  const updated = await db.get(taskId);
+  assert.equal(updated.attendance, "hybrid");
+  assert.equal(updated.hybridAttendance, "online");
+  assert.equal(updated.locationRequirement, "");
+});
+
+test("Travel spans midnight and DST using elapsed duration without shifting the fixed Event", () => {
+  for (const startAt of [
+    zonedInstant("2026-03-29T03:15", "Europe/Prague"),
+    zonedInstant("2026-10-25T02:15", "Europe/Prague", "later"),
+    zonedInstant("2026-11-18T00:15", "Europe/Prague"),
+  ]) {
+    const event = travelEvent({
+      startAt,
+      endAt: startAt + 3600000,
+      timezone: "Europe/Prague",
+    });
+    const [journey] = planTravel([event]).journeys;
+    assert.equal(journey.startAt, startAt - 46 * 60000);
+    assert.equal(journey.endAt, startAt - 10 * 60000);
+    assert.equal(event.startAt, startAt);
+  }
+});
+
+test("Sharing a Journey never displaces an existing Session just to batch an errand", () => {
+  const settings = {
+    timezone: "UTC",
+    weekly: [],
+    overrides: [],
+    protectedWeekly: [],
+    protectedDates: [],
+  };
+  const event = travelEvent();
+  const next = travelEvent({
+    title: "Leave",
+    startAt: travelInstant("12:00"),
+    endAt: travelInstant("13:00"),
+    locationRequirement: "Office",
+    journey: { ...event.journey, origin: "Clinic" },
+  });
+  const session = {
+    _id: "keep",
+    taskId: "read",
+    startAt: travelInstant("11:05"),
+    endAt: travelInstant("11:14"),
+    manualOverride: false,
+  };
+  const result = planSessions({
+    date: "2026-11-17",
+    now: travelInstant("08:00"),
+    settings,
+    events: [event, next],
+    tasks: [
+      { _id: "read", title: "Read", effortMinutes: 9, minSessionMinutes: 9 },
+      {
+        _id: "errand",
+        title: "Collect",
+        attendance: "physical",
+        locationRequirement: "Clinic",
+        effortMinutes: 9,
+        minSessionMinutes: 9,
+        priority: "high",
+      },
+    ],
+    sessions: [session],
+  });
+  assert.equal(
+    result.changes.some((c) => c.id === session._id),
+    false
+  );
+  assert.equal(
+    result.changes.some((c) => c.taskId === "errand"),
+    false
+  );
+  assert.equal(result.shortfalls.find((s) => s.taskId === "errand").minutes, 9);
+});
+
 test("Leisure displacement records only net duration lost to pressing work; moves and manual skips create no request", () => {
   const leisure = task("reading", 60, {
     leisure: true,
@@ -4695,4 +4987,43 @@ test("Changing the protected reserve minimum adjusts flexible automatic Sessions
   );
   assert.equal(pinned.changes.length, 0);
   assert.ok(pinned.conflicts.some((c) => c.includes("reserve minimum")));
+});
+
+test("Recovery Sessions retain a physical Task's Location requirement after planner integration", () => {
+  const result = planSessions({
+    date: "2026-11-17",
+    now: travelInstant("08:00"),
+    settings: {
+      timezone: "UTC",
+      weekly: [],
+      overrides: [],
+      protectedWeekly: [],
+      protectedDates: [],
+    },
+    tasks: [
+      {
+        _id: "sport",
+        title: "Sport",
+        attendance: "physical",
+        locationRequirement: "Gym",
+        effortMinutes: 15,
+        leisure: true,
+      },
+    ],
+    sessions: [],
+    events: [],
+    recoveryRequests: [
+      {
+        _id: "recover",
+        kind: "leisure",
+        taskId: "sport",
+        title: "Sport",
+        date: "2026-11-16",
+        expiresOn: "2026-11-23",
+        minutes: 15,
+        allocations: [],
+      },
+    ],
+  });
+  assert.deepEqual(result.recoveryPlacements, []);
 });

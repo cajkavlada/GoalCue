@@ -4,10 +4,12 @@ import { fixedEventFields, planningFields } from "@gc/db";
 import {
   dayBounds,
   localDateTime,
+  locationConflicts,
   overlaps,
   placementConflicts,
   shiftDate,
   validatePlanning,
+  validateTravel,
 } from "@gc/validators";
 
 import { taskQueries } from "./dbQueries";
@@ -174,6 +176,7 @@ export const undoPlan = authedMutation({
         change.before &&
         (change.before.startAt <= now ||
           placementConflicts(change.before, settings, events).length ||
+          locationConflicts(change.before, task, events).length ||
           (task.dueAt !== undefined &&
             task.finishKind !== "preferred" &&
             change.before.endAt > task.dueAt) ||
@@ -337,6 +340,13 @@ export const saveEvent = authedMutation({
   args: { eventId: v.optional(v.id("fixedEvents")), ...fixedEventFields },
   rateLimit: { name: "saveEvent" },
   handler: async (ctx, { eventId, ...event }) => {
+    try {
+      validateTravel(event);
+    } catch (error) {
+      throw new ConvexError({
+        message: error instanceof Error ? error.message : "Invalid travel",
+      });
+    }
     if (
       !event.title.trim() ||
       !Number.isFinite(event.startAt) ||

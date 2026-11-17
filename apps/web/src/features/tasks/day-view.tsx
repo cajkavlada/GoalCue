@@ -30,8 +30,10 @@ import {
   dayBounds,
   eventsCompatible,
   localDateTime,
+  locationWindows,
   overlaps,
   placementConflicts,
+  planTravel,
   zonedInstant,
 } from "@gc/validators";
 
@@ -185,6 +187,10 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
   const dayEvents = events.filter(
     (event) => event.startAt < end && event.endAt > start
   );
+  const travel = planTravel(events);
+  const dayJourneys = travel.journeys.filter(
+    (j) => j.startAt < end && j.eventStartAt >= start
+  );
   const focusedEvents = dayEvents.filter(
     (event) => event.attention === "focused"
   );
@@ -193,7 +199,12 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
     (total, window) =>
       total +
       freeDayMinutes(
-        [...today, ...focusedEvents, ...constraints.protected],
+        [
+          ...today,
+          ...focusedEvents,
+          ...constraints.protected,
+          ...travel.blocks,
+        ],
         window.startAt,
         window.endAt
       ),
@@ -840,6 +851,94 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
           </aside>
         </div>
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {dayJourneys.length > 0 && (
+            <details
+              className="max-h-60 shrink-0 overflow-auto border-b px-4 py-2"
+              open
+            >
+              <summary>{m.travel_agenda()}</summary>
+              {dayJourneys.map((j, index) => {
+                const visit = events.find(
+                  (e) => e.startAt === j.eventStartAt && e.title === j.title
+                );
+                const shared = visit
+                  ? sessions.filter(
+                      (s) =>
+                        s.locationRequirement?.trim() === j.destination &&
+                        locationWindows(s, events)?.some(
+                          (w) =>
+                            w.startAt ===
+                              visit.endAt + j.wrapUpMinutes * MINUTE &&
+                            s.startAt >= w.startAt &&
+                            s.endAt <= w.endAt
+                        )
+                    )
+                  : [];
+                return (
+                  <div
+                    key={index}
+                    className="space-y-1 border-t py-2 text-sm"
+                  >
+                    <Button
+                      variant="link"
+                      onClick={() =>
+                        editEvent(
+                          events.find(
+                            (e) =>
+                              e.startAt === j.eventStartAt &&
+                              e.title === j.title
+                          )
+                        )
+                      }
+                    >
+                      {j.title}
+                    </Button>
+                    <p>
+                      {j.origin || m.travel_unknown()} →{" "}
+                      {j.destination || m.travel_unknown()} ·{" "}
+                      {j.mode ?? m.travel_unknown()} · {clock(j.startAt)}–
+                      {clock(j.endAt)}
+                    </p>
+                    <p>
+                      {m.travel_route_summary({
+                        route:
+                          j.routeMinutes === undefined
+                            ? m.travel_unresolved()
+                            : j.routeMinutes,
+                        margin: Math.ceil(j.marginMinutes),
+                        arrival: j.arrivalMinutes,
+                        wrap: j.wrapUpMinutes,
+                      })}
+                    </p>
+                    {shared.length > 0 && (
+                      <p>
+                        {m.travel_shared()}{" "}
+                        {shared.map((s) => (
+                          <Button
+                            key={s._id}
+                            variant="link"
+                            onClick={() => openTask(s.taskId)}
+                          >
+                            {s.taskTitle}
+                          </Button>
+                        ))}
+                      </p>
+                    )}
+                    {(j.uncertainty || j.shortfallMinutes > 0) && (
+                      <p role="alert">
+                        {j.uncertainty}{" "}
+                        {j.shortfallMinutes > 0 &&
+                          m.travel_shortfall({
+                            minutes: Math.ceil(j.shortfallMinutes),
+                          })}{" "}
+                        {m.travel_options()}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </details>
+          )}
           <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
             <div
               className="flex min-h-0 flex-1 flex-col"
@@ -889,6 +988,27 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
                         <span className="text-xs">
                           {m.constraints_availability()}
                         </span>
+                      </div>
+                    ))}
+                  {travel.blocks
+                    .filter((b) => overlaps(b, { startAt: start, endAt: end }))
+                    .map((block, index) => (
+                      <div
+                        key={`travel-${index}`}
+                        className="pointer-events-none absolute inset-x-0 border-l-4 border-sky-600 bg-sky-500/20"
+                        style={{
+                          top:
+                            ((Math.max(start, block.startAt) - start) /
+                              MINUTE) *
+                            PX,
+                          height:
+                            ((Math.min(end, block.endAt) -
+                              Math.max(start, block.startAt)) /
+                              MINUTE) *
+                            PX,
+                        }}
+                      >
+                        <span className="text-xs">{block.title}</span>
                       </div>
                     ))}
                   {constraints.protected.map((window, index) => (
