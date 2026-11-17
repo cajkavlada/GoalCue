@@ -14,6 +14,7 @@ import {
   Input,
   parseDateToString,
   Select,
+  StatusSpinner,
   TimePicker,
   useModal,
 } from "@gc/ui";
@@ -230,6 +231,27 @@ export function PlanningTimeSettings() {
           ].map((label, day) => ({ label, value: String(day) }))}
         />
       </label>
+      {(
+        [
+          ["recoveryWindowDays", m.recovery_window(), 7],
+          ["dailyRecoveryMinutes", m.recovery_cap(), 60],
+          ["reservePreferredMinutes", m.recovery_reserve_preferred(), 0],
+          ["reserveMinimumMinutes", m.recovery_reserve_minimum(), 0],
+        ] as const
+      ).map(([key, label, fallback]) => (
+        <label key={key}>
+          {label}
+          <Input
+            type="number"
+            min={key === "recoveryWindowDays" ? 1 : 0}
+            max={key === "recoveryWindowDays" ? 90 : 1440}
+            value={settings[key] ?? fallback}
+            onChange={(e) =>
+              setSettings({ ...settings, [key]: Number(e.target.value) })
+            }
+          />
+        </label>
+      ))}
       <h3>{m.constraints_protected()}</h3>
       <Windows
         weekly
@@ -925,6 +947,11 @@ export function EventDetails({
           }
         >
           {m.save()}
+          <StatusSpinner
+            status={
+              save.isPending ? "pending" : save.isError ? "error" : "idle"
+            }
+          />
         </Button>
       </Drawer.Footer>
     </form>

@@ -26,6 +26,7 @@ import {
   taskTypeEnumOptionQueries,
   taskTypeQueries,
 } from "./dbQueries";
+import { validateMembership } from "./projects";
 import {
   authedMutation,
   AuthedMutationCtx,
@@ -141,6 +142,7 @@ export const create = authedMutation({
   rateLimit: { name: "createTask" },
   handler: async (ctx, input) => {
     validateTravel(input);
+    await validateMembership(ctx, input.projectId, input.milestoneId);
     Object.assign(input, await volumeProgress(ctx, input, input.taskTypeId));
     if (input.recurrence) {
       input.recurrence = {
@@ -222,6 +224,7 @@ export const update = authedMutation({
   handler: async (ctx, { taskId, editScope = "future", ...taskArgs }) => {
     validateTravel(taskArgs);
     const existing = await taskQueries({ ctx }).getById({ taskId });
+    await validateMembership(ctx, taskArgs.projectId, taskArgs.milestoneId);
     Object.assign(
       taskArgs,
       await volumeProgress(ctx, taskArgs, existing.taskTypeId)
@@ -267,8 +270,12 @@ export const update = authedMutation({
 
     const changes = {
       ...rawTask,
+      projectId: taskArgs.projectId,
+      milestoneId: taskArgs.milestoneId,
       dueAt: taskArgs.dueAt ?? undefined,
       effortMinutes: taskArgs.effortMinutes,
+      leisure: taskArgs.leisure,
+      recoveryWindowDays: taskArgs.recoveryWindowDays,
       minSessionMinutes: taskArgs.minSessionMinutes,
       maxSessionMinutes: taskArgs.maxSessionMinutes,
       automaticSchedulingPaused: taskArgs.automaticSchedulingPaused,

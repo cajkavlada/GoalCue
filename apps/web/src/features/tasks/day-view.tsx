@@ -2,12 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { convexQuery, useConvexMutation } from "@convex-dev/react-query";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import {
-  ChevronLeft,
-  ChevronRight,
   GripVertical,
   PanelLeftClose,
   PanelLeftOpen,
-  Plus,
   RefreshCw,
   Trash2,
 } from "lucide-react";
@@ -22,9 +19,9 @@ import {
   Button,
   Checkbox,
   Drawer,
-  DrawerButton,
   DropdownMenuItem,
   Input,
+  StatusSpinner,
   Tooltip,
   useModal,
 } from "@gc/ui";
@@ -37,7 +34,6 @@ import {
   overlaps,
   placementConflicts,
   planTravel,
-  shiftDate,
   zonedInstant,
 } from "@gc/validators";
 
@@ -62,7 +58,6 @@ import {
   SessionReviewPanel,
 } from "./session-check-ins";
 import { TaskCard } from "./task-card";
-import { TaskCreateDrawer } from "./task-create-drawer";
 import { TaskDeleteDialog } from "./task-delete-dialog";
 import { TaskEditDrawer, TaskProgress } from "./task-edit-drawer";
 
@@ -85,15 +80,13 @@ type Gesture = Placement & {
   readOnly: boolean;
 };
 
-export function DayView() {
+export function DayView({ selectedDay }: { selectedDay: string }) {
   const { data: settings } = useSuspenseQuery(
     convexQuery(api.planning.getSettings, {})
   );
   const timezone =
     settings?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const [day, setDay] = useState(() =>
-    localDateTime(Date.now(), timezone).slice(0, 10)
-  );
+  const day = selectedDay;
   const [tasksOpen, setTasksOpen] = useState(true);
   const [highlightedTaskId, setHighlightedTaskId] =
     useState<Id<"tasks"> | null>(null);
@@ -481,6 +474,7 @@ export function DayView() {
             endAt: overlay.endAt,
             taskTitle: tasks.find((t) => t._id === overlay.taskId)?.title ?? "",
             taskCompletedAt: undefined,
+            recoveryRequestId: undefined,
           },
         ]
     : today;
@@ -503,7 +497,7 @@ export function DayView() {
 
   return (
     <div className="bg-background flex h-full min-h-0 flex-col">
-      <header className="flex shrink-0 flex-wrap items-center gap-3 border-b px-4 py-3">
+      <div className="flex shrink-0 items-center gap-2 border-b px-3 py-1">
         <Button
           size="icon"
           variant="ghost"
@@ -519,60 +513,19 @@ export function DayView() {
         >
           {tasksOpen ? <PanelLeftClose /> : <PanelLeftOpen />}
         </Button>
-        <h1 className="mr-auto text-lg font-semibold">{m.planning_day()}</h1>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            disabled={replan.isPending || save.isPending}
-            onClick={() =>
-              replan.mutate({ date: day, timezone, replanAll: true })
-            }
-          >
-            <RefreshCw
-              className={replan.isPending ? "animate-spin" : undefined}
-            />
-            {m.planning_replan_all()}
-          </Button>
-          <DrawerButton
-            variant="outline"
-            drawerContent={<TaskCreateDrawer />}
-          >
-            <Plus />
-            {m.planning_create_task()}
-          </DrawerButton>
-
-          <Button
-            variant="outline"
-            onClick={() => editEvent()}
-          >
-            <Plus />
-            {m.constraints_new_event()}
-          </Button>
-        </div>
         <Button
-          size="icon"
           variant="outline"
-          aria-label={m.planning_previous()}
-          onClick={() => setDay(shiftDate(day, -1))}
+          disabled={replan.isPending || save.isPending}
+          onClick={() =>
+            replan.mutate({ date: day, timezone, replanAll: true })
+          }
         >
-          <ChevronLeft />
-        </Button>
-        <div className="w-48">
-          <PlanningDatePicker
-            label={m.planning_displayed_day()}
-            value={day}
-            onChange={setDay}
+          <RefreshCw
+            className={replan.isPending ? "animate-spin" : undefined}
           />
-        </div>
-        <Button
-          size="icon"
-          variant="outline"
-          aria-label={m.planning_next()}
-          onClick={() => setDay(shiftDate(day, 1))}
-        >
-          <ChevronRight />
+          {m.planning_replan_all()}
         </Button>
-      </header>
+      </div>
       <div className="flex min-h-0 flex-1 max-md:flex-col">
         <div
           aria-hidden={!tasksOpen}
@@ -817,45 +770,48 @@ export function DayView() {
                 )}
                 {replan.error && <p role="alert">{replan.error.message}</p>}
                 {undo.error && <p role="alert">{undo.error.message}</p>}
-                {!!dayPlan?.changes.length && (
-                  <details>
-                    <summary>
-                      {m.planning_automatic_changes({
-                        count: dayPlan.changes.length,
-                      })}
-                    </summary>
-                    <ul>
-                      {dayPlan.changes.map((change) => (
-                        <li key={change.sessionId}>
-                          {change.title}: {change.reason}
-                          {change.before && (
-                            <>
-                              {" "}
-                              · {localDateTime(change.before.startAt, timezone)}
-                              –{clock(change.before.endAt)}
-                            </>
-                          )}
-                          {" → "}
-                          {change.after ? (
-                            <>
-                              {localDateTime(change.after.startAt, timezone)}–
-                              {clock(change.after.endAt)}
-                            </>
-                          ) : (
-                            m.planning_unschedule_session()
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                    <Button
-                      variant="outline"
-                      disabled={undo.isPending}
-                      onClick={() => undo.mutate({})}
-                    >
-                      {m.planning_undo_plan()}
-                    </Button>
-                  </details>
-                )}
+                {!!dayPlan &&
+                  (!!dayPlan.changes.length ||
+                    !!dayPlan.recoveryUndo?.length) && (
+                    <details>
+                      <summary>
+                        {m.planning_automatic_changes({
+                          count: dayPlan.changes.length,
+                        })}
+                      </summary>
+                      <ul>
+                        {dayPlan.changes.map((change) => (
+                          <li key={change.sessionId}>
+                            {change.title}: {change.reason}
+                            {change.before && (
+                              <>
+                                {" "}
+                                ·{" "}
+                                {localDateTime(change.before.startAt, timezone)}
+                                –{clock(change.before.endAt)}
+                              </>
+                            )}
+                            {" → "}
+                            {change.after ? (
+                              <>
+                                {localDateTime(change.after.startAt, timezone)}–
+                                {clock(change.after.endAt)}
+                              </>
+                            ) : (
+                              m.planning_unschedule_session()
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                      <Button
+                        variant="outline"
+                        disabled={undo.isPending}
+                        onClick={() => undo.mutate({})}
+                      >
+                        {m.planning_undo_plan()}
+                      </Button>
+                    </details>
+                  )}
                 {!!dayPlan?.shortfalls.length && (
                   <details open>
                     <summary>{m.planning_shortfalls()}</summary>
@@ -880,6 +836,7 @@ export function DayView() {
                     {conflict}
                   </p>
                 ))}
+                <RecoveryHistory timezone={timezone} />
               </div>
             </details>
             <details
@@ -1120,6 +1077,9 @@ export function DayView() {
                         content={
                           <div>
                             <p className="font-semibold">{session.taskTitle}</p>
+                            {session.recoveryRequestId && (
+                              <p>{m.recovery_session()}</p>
+                            )}
                             <p>
                               {clock(session.startAt)}–{clock(session.endAt)} ·{" "}
                               {Math.round(
@@ -1188,6 +1148,9 @@ export function DayView() {
                             {!compact && (
                               <p className="truncate text-xs font-semibold">
                                 {session.taskTitle}
+                                {session.recoveryRequestId && (
+                                  <> · {m.recovery_session()}</>
+                                )}
                               </p>
                             )}
                             {!compact &&
@@ -1314,6 +1277,86 @@ export function DayView() {
         </div>
       )}
     </div>
+  );
+}
+
+function RecoveryHistory({ timezone }: { timezone: string }) {
+  const { data: requests } = useSuspenseQuery(
+    convexQuery(api.planning.listRecovery, {})
+  );
+  const update = useMutation({
+    mutationFn: useConvexMutation(api.planning.updateRecovery),
+  });
+  const today = localDateTime(Date.now(), timezone).slice(0, 10);
+  if (!requests.length) return null;
+  return (
+    <details open>
+      <summary>{m.recovery_title()}</summary>
+      <ul className="space-y-3">
+        {requests.map((request) => {
+          const restored = request.allocations.reduce(
+            (n, w) => n + (w.endAt - w.startAt) / 60000,
+            0
+          );
+          const status =
+            request.dismissedAt !== undefined
+              ? m.recovery_dismissed()
+              : restored >= request.minutes
+                ? m.recovery_restored()
+                : request.expiresOn < today
+                  ? m.recovery_expired()
+                  : m.recovery_pending();
+          return (
+            <li key={request._id}>
+              <p>
+                {request.title}: {restored}/{request.minutes} min · {status} ·{" "}
+                {m.recovery_until()} {request.expiresOn}
+              </p>
+              {request.allocations.map((allocation) => (
+                <p
+                  key={allocation.startAt}
+                  className="text-muted-foreground text-xs"
+                >
+                  {localDateTime(allocation.startAt, timezone)}–
+                  {localDateTime(allocation.endAt, timezone)}
+                </p>
+              ))}
+              {restored < request.minutes && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    disabled={update.isPending}
+                    onClick={() =>
+                      update.mutate({
+                        requestId: request._id,
+                        action: "extend",
+                      })
+                    }
+                  >
+                    {m.recovery_extend()}
+                  </Button>
+                  {request.dismissedAt === undefined && (
+                    <Button
+                      variant="outline"
+                      disabled={update.isPending}
+                      onClick={() =>
+                        update.mutate({
+                          requestId: request._id,
+                          action: "dismiss",
+                        })
+                      }
+                    >
+                      {m.recovery_dismiss()}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {update.error && <p role="alert">{update.error.message}</p>}
+    </details>
   );
 }
 
@@ -1530,6 +1573,11 @@ function SessionDetails({ placement }: { placement: Placement }) {
           }
         >
           {m.save()}
+          <StatusSpinner
+            status={
+              save.isPending ? "pending" : save.isError ? "error" : "idle"
+            }
+          />
         </Button>
       </Drawer.Footer>
     </>

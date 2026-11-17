@@ -48,6 +48,10 @@ export const planningFields = {
   timezone: v.string(),
   weekStartsOn: v.optional(v.number()),
   restrictAvailability: v.optional(v.boolean()),
+  recoveryWindowDays: v.optional(v.number()),
+  dailyRecoveryMinutes: v.optional(v.number()),
+  reservePreferredMinutes: v.optional(v.number()),
+  reserveMinimumMinutes: v.optional(v.number()),
   weekly: v.array(weeklyWindow),
   overrides: v.array(dateOverride),
   protectedWeekly: v.array(weeklyWindow),
@@ -65,7 +69,44 @@ export const fixedEventFields = {
   attention: v.union(v.literal("focused"), v.literal("background")),
 };
 export const planningDbSchema = {
+  recoveryRequests: defineTable({
+    userId: v.string(),
+    revision: v.optional(v.number()),
+    taskId: v.optional(v.id("tasks")),
+    kind: v.union(v.literal("leisure"), v.literal("reserve")),
+    title: v.string(),
+    date: v.string(),
+    expiresOn: v.string(),
+    minutes: v.number(),
+    dismissedAt: v.optional(v.number()),
+    undoneAt: v.optional(v.number()),
+    allocations: v.array(v.object({ startAt: v.number(), endAt: v.number() })),
+  }).index("by_user", ["userId"]),
+  projects: defineTable({
+    userId: v.string(),
+    title: v.string(),
+    weeklyMinutes: v.number(),
+    weekdays: v.array(v.number()),
+  }).index("by_user", ["userId"]),
+  milestones: defineTable({
+    userId: v.string(),
+    projectId: v.id("projects"),
+    title: v.string(),
+  }).index("by_user", ["userId"]),
   dayPlans: defineTable({
+    recoveryUndo: v.optional(
+      v.array(
+        v.object({
+          requestId: v.id("recoveryRequests"),
+          created: v.boolean(),
+          revision: v.number(),
+          allocations: v.array(
+            v.object({ startAt: v.number(), endAt: v.number() })
+          ),
+          sessionIds: v.array(v.id("sessions")),
+        })
+      )
+    ),
     userId: v.string(),
     date: v.string(),
     timezone: v.string(),
@@ -91,6 +132,16 @@ export const planningDbSchema = {
       })
     ),
     conflicts: v.array(v.string()),
+    projectShortfalls: v.optional(
+      v.array(
+        v.object({
+          projectId: v.id("projects"),
+          title: v.string(),
+          minutes: v.number(),
+          reason: v.string(),
+        })
+      )
+    ),
   }).index("by_user", ["userId"]),
   planningSettings: defineTable({
     userId: v.string(),

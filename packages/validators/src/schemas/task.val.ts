@@ -28,6 +28,8 @@ export type ExtendedTask = Infer<typeof extendedTaskConvexSchema>;
 export const createTaskConvexSchema = v.object({
   ...pick(taskConvexSchema, [
     "title",
+    "projectId",
+    "milestoneId",
     "description",
     "taskTypeId",
     "priorityClassId",
@@ -35,6 +37,8 @@ export const createTaskConvexSchema = v.object({
     "recurrence",
     "dueAt",
     "effortMinutes",
+    "leisure",
+    "recoveryWindowDays",
     "minSessionMinutes",
     "maxSessionMinutes",
     "automaticSchedulingPaused",
@@ -56,7 +60,10 @@ const createArgsSchema = convexToZod(createTaskConvexSchema);
 export const createTaskZodSchema = z
   .object({
     ...createArgsSchema.pick({
+      leisure: true,
       priority: true,
+      projectId: true,
+      milestoneId: true,
       automaticSchedulingPaused: true,
       finishKind: true,
       progressMeasure: true,
@@ -73,6 +80,7 @@ export const createTaskZodSchema = z
       completedNumValue: true,
       tags: true,
     }).shape,
+    recoveryWindowDays: z.number().int().min(1).max(90).optional(),
     effortMinutes: z.number().positive().finite().optional(),
     minSessionMinutes: z.number().int().min(1).max(1440).optional(),
     maxSessionMinutes: z.number().int().min(1).max(1440).optional(),
@@ -127,12 +135,16 @@ export const updateTaskConvexSchema = v.object({
   editScope: v.optional(v.union(v.literal("future"), v.literal("occurrence"))),
   ...pick(taskConvexSchema, [
     "title",
+    "projectId",
+    "milestoneId",
     "description",
     "priorityClassId",
     "repetitionId",
     "recurrence",
     "dueAt",
     "effortMinutes",
+    "leisure",
+    "recoveryWindowDays",
     "minSessionMinutes",
     "maxSessionMinutes",
     "automaticSchedulingPaused",
@@ -154,7 +166,10 @@ const updateArgsSchema = convexToZod(updateTaskConvexSchema);
 export const updateTaskZodSchema = z
   .object({
     ...updateArgsSchema.pick({
+      leisure: true,
       priority: true,
+      projectId: true,
+      milestoneId: true,
       automaticSchedulingPaused: true,
       finishKind: true,
       progressMeasure: true,
@@ -170,6 +185,7 @@ export const updateTaskZodSchema = z
       completedNumValue: true,
       tags: true,
     }).shape,
+    recoveryWindowDays: z.number().int().min(1).max(90).optional(),
     effortMinutes: z.number().positive().finite().optional(),
     minSessionMinutes: z.number().int().min(1).max(1440).optional(),
     maxSessionMinutes: z.number().int().min(1).max(1440).optional(),

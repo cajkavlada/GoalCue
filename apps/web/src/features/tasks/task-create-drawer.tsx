@@ -23,6 +23,7 @@ import { TagCreateDrawer } from "../tags/tag-create-drawer";
 import { tagApi } from "../tags/tag.api";
 import { TaskTypeCreateDrawer } from "../task-types/task-type-create-drawer";
 import { taskTypeApi } from "../task-types/task-type.api";
+import { ProjectFields } from "./projects";
 import { RecurrenceEditor } from "./recurrence-editor";
 import { taskApi } from "./task.api";
 
@@ -31,7 +32,10 @@ type CreateTaskClientArgs = Omit<CreateTaskArgs, "dueAt"> & {
   dueAt: NonNullable<CreateTaskArgs["dueAt"]>;
 };
 
-export function TaskCreateDrawer() {
+export function TaskCreateDrawer({
+  projectId,
+  milestoneId,
+}: Pick<CreateTaskArgs, "projectId" | "milestoneId"> = {}) {
   return (
     <Drawer
       title={m.tasks_create_dialog_title()}
@@ -40,14 +44,23 @@ export function TaskCreateDrawer() {
     >
       <div className="min-h-0 flex-1 overflow-y-auto">
         <ErrorSuspense>
-          <TaskCreateForm />
+          <TaskCreateForm
+            projectId={projectId}
+            milestoneId={milestoneId}
+          />
         </ErrorSuspense>
       </div>
     </Drawer>
   );
 }
 
-function TaskCreateForm() {
+function TaskCreateForm({
+  projectId,
+  milestoneId,
+}: Pick<CreateTaskArgs, "projectId" | "milestoneId">) {
+  const [membership, setMembership] = useState<
+    Pick<CreateTaskArgs, "projectId" | "milestoneId">
+  >({ projectId, milestoneId });
   const { data: priorityClasses } = priorityClassApi.useList();
   const { data: taskTypes } = taskTypeApi.useList();
   const { data: tags } = tagApi.useList();
@@ -66,6 +79,8 @@ function TaskCreateForm() {
     hybridAttendance: undefined,
     locationRequirement: "",
     title: "",
+    leisure: false,
+    recoveryWindowDays: undefined,
     effortMinutes: undefined,
     minSessionMinutes: undefined,
     maxSessionMinutes: undefined,
@@ -100,6 +115,7 @@ function TaskCreateForm() {
         dueAt: useDueAt ? dueAt.getTime() : undefined,
         ...rest,
         recurrence,
+        ...membership,
       });
     },
   });
@@ -129,6 +145,12 @@ function TaskCreateForm() {
   return (
     <form.AppForm>
       <form.FormRoot className="flex flex-col gap-4">
+        <ProjectFields
+          {...membership}
+          onChange={(projectId, milestoneId) =>
+            setMembership({ projectId, milestoneId })
+          }
+        />
         <form.AppField name="title">
           {(field) => (
             <field.Input
@@ -247,6 +269,25 @@ function TaskCreateForm() {
         <p className="text-muted-foreground text-xs">
           {m.travel_errands_hint()}
         </p>
+        <form.AppField name="leisure">
+          {(field) => <field.Switch label={m.recovery_leisure()} />}
+        </form.AppField>
+        <form.AppField name="recoveryWindowDays">
+          {(field) => (
+            <field.Input
+              label={m.recovery_window()}
+              type="number"
+              min="1"
+              max="90"
+              placeholder={String(settings?.recoveryWindowDays ?? 7)}
+              onChange={(e) =>
+                field.handleChange(
+                  e.target.value ? Number(e.target.value) : undefined
+                )
+              }
+            />
+          )}
+        </form.AppField>
         <form.AppField name="effortMinutes">
           {(field) => (
             <field.Input

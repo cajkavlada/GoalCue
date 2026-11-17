@@ -46,6 +46,7 @@ const { saveSession, listSessions, unscheduleSession, reportCheckIn } =
   await import("../convex/sessions.ts");
 const tasks = await import("../convex/tasks.ts");
 const planning = await import("../convex/planning.ts");
+const projects = await import("../convex/projects.ts");
 const {
   availabilityOn,
   dayBounds,
@@ -63,6 +64,208 @@ const { recurrenceWindows, recurrenceDate, validateRecurrence } = await import(
   "../../validators/src/recurrence.ts"
 );
 const { syncOccurrences } = await import("../convex/utils/recurrence.ts");
+
+function featureRenderer(filename, name, scope) {
+  const source = readFileSync(
+    new URL(
+      "../../../apps/web/src/features/tasks/" + filename,
+      import.meta.url
+    ),
+    "utf8"
+  );
+  const file = ts.createSourceFile(
+    filename,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX
+  );
+  const fn = file.statements.find((statement) => statement.name?.text === name);
+  const code = ts.transpileModule(fn.getText(file).replace(/^export /, ""), {
+    compilerOptions: { jsx: ts.JsxEmit.React, module: ts.ModuleKind.CommonJS },
+  }).outputText;
+  return runInNewContext(code + "\n" + name, {
+    React: {
+      Fragment: "Fragment",
+      createElement: (type, props, ...children) => ({
+        type,
+        props: props ?? {},
+        children,
+      }),
+    },
+    m: new Proxy({}, { get: (_, key) => () => key }),
+    ...scope,
+  });
+}
+
+function featureNodes(node) {
+  if (Array.isArray(node)) return node.flatMap(featureNodes);
+  if (!node || typeof node !== "object") return [];
+  return [
+    node,
+    ...featureNodes(node.children),
+    ...featureNodes(node.props?.drawerContent),
+  ];
+}
+
+test("Day, Week and Month share creation drawers and date controls that preserve the current route", () => {
+  const webRequire = createRequire(
+    new URL("../../../apps/web/package.json", import.meta.url)
+  );
+  const { addMonths, format } = webRequire("date-fns");
+  let selectedDate = "2026-11-17";
+  const navigations = [];
+  const render = featureRenderer("plan-view.tsx", "PlanView", {
+    planningRoute: { useSearch: () => ({ date: selectedDate }) },
+    useNavigate: () => (args) => navigations.push(args),
+    useSuspenseQuery: () => ({ data: { timezone: "Europe/Prague" } }),
+    convexQuery: () => ({}),
+    api: { planning: { getSettings: "settings" } },
+    localDateTime,
+    shiftDate: (date, days) =>
+      new Date(Date.parse(date + "T12:00Z") + days * 86400000)
+        .toISOString()
+        .slice(0, 10),
+    addMonths,
+    format,
+    Button: "Button",
+    Drawer: "Drawer",
+    DrawerButton: "DrawerButton",
+    TaskCreateDrawer: "TaskCreateDrawer",
+    ProjectCreateDrawer: "ProjectCreateDrawer",
+    EventDetails: "EventDetails",
+    PlanningDatePicker: "PlanningDatePicker",
+    ErrorSuspense: "ErrorSuspense",
+    DayView: "DayView",
+    PlanOverview: "PlanOverview",
+    ProjectsView: "ProjectsView",
+    ChevronLeft: "ChevronLeft",
+    ChevronRight: "ChevronRight",
+    Plus: "Plus",
+  });
+  for (const [view, previous, next] of [
+    ["day", "2026-11-16", "2026-11-18"],
+    ["week", "2026-11-10", "2026-11-24"],
+    ["month", "2026-10-17", "2026-12-17"],
+  ]) {
+    const nodes = featureNodes(render({ view }));
+    assert.deepEqual(
+      nodes
+        .filter((node) => node.type === "DrawerButton")
+        .map((node) => node.children.at(-1)),
+      ["plan_task", "constraints_event", "projects_project"]
+    );
+    for (const type of [
+      "TaskCreateDrawer",
+      "ProjectCreateDrawer",
+      "EventDetails",
+      "PlanningDatePicker",
+    ])
+      assert.equal(nodes.filter((node) => node.type === type).length, 1);
+    const event = nodes.find((node) => node.type === "EventDetails");
+    assert.equal(event.props.day, selectedDate);
+    assert.equal(event.props.timezone, "Europe/Prague");
+    nodes
+      .find((node) => node.props["aria-label"] === "planning_previous")
+      .props.onClick();
+    assert.equal(navigations.at(-1).search.date, previous);
+    nodes
+      .find((node) => node.props["aria-label"] === "planning_next")
+      .props.onClick();
+    assert.equal(navigations.at(-1).search.date, next);
+    nodes
+      .find((node) => node.type === "PlanningDatePicker")
+      .props.onChange("2026-12-01");
+    assert.equal(navigations.at(-1).to, "/{-$locale}/dashboard/" + view);
+    assert.equal(navigations.at(-1).search.date, "2026-12-01");
+  }
+  selectedDate = "2027-01-31";
+  featureNodes(render({ view: "month" }))
+    .find((node) => node.props["aria-label"] === "planning_next")
+    .props.onClick();
+  assert.equal(navigations.at(-1).search.date, "2027-02-28");
+});
+
+test("Compact Project weekday chips follow calendar settings and save the selected cadence", async () => {
+  let state = [];
+  let index = 0;
+  let options;
+  let saved;
+  const render = featureRenderer("projects.tsx", "ProjectForm", {
+    useConvexMutation: () => async (value) => {
+      saved = value;
+      return "projects-1";
+    },
+    useSuspenseQuery: () => ({ data: { weekStartsOn: 1 } }),
+    convexQuery: () => ({}),
+    api: { projects: { saveProject: 0 }, planning: { getSettings: 0 } },
+    useState: (initial) => {
+      const slot = index++;
+      if (!(slot in state)) state[slot] = initial;
+      return [
+        state[slot],
+        (value) => {
+          state[slot] = value;
+        },
+      ];
+    },
+    useAppForm: (value) => {
+      options = value;
+      return {
+        AppForm: "AppForm",
+        FormRoot: "FormRoot",
+        AppField: "AppField",
+        SubmitButton: "SubmitButton",
+        reset: () => {},
+      };
+    },
+    Checkbox: "Checkbox",
+    Drawer: { Footer: "DrawerFooter" },
+    Button: "Button",
+    getLocale: () => "en",
+  });
+  const project = {
+    _id: "projects-1",
+    title: "Book",
+    weeklyMinutes: 90,
+    weekdays: [1, 3],
+  };
+  let nodes = featureNodes(render({ project }));
+  const labels = nodes.filter((node) => node.type === "label");
+  assert.deepEqual(
+    labels.map((node) => node.children[2].children[0]),
+    [
+      "constraints_monday",
+      "constraints_tuesday",
+      "constraints_wednesday",
+      "constraints_thursday",
+      "constraints_friday",
+      "constraints_saturday",
+      "constraints_sunday",
+    ]
+  );
+  assert.equal(nodes.filter((node) => node.type === "SubmitButton").length, 1);
+  nodes
+    .filter((node) => node.type === "Checkbox")[4]
+    .props.onCheckedChange(true);
+  index = 0;
+  nodes = featureNodes(render({ project }));
+  assert.equal(
+    nodes.filter((node) => node.type === "Checkbox")[4].props.checked,
+    true
+  );
+  await options.onSubmit({
+    value: { title: "Book revised", weeklyMinutes: 120 },
+  });
+  assert.equal(saved.title, "Book revised");
+  assert.equal(saved.weeklyMinutes, 120);
+  assert.deepEqual(Array.from(saved.weekdays), [1, 3, 5]);
+  assert.equal(saved.projectId, project._id);
+  index = 0;
+  const drawer = featureNodes(render({ drawer: true }));
+  assert.equal(drawer.filter((node) => node.type === "DrawerFooter").length, 1);
+  assert.equal(drawer.filter((node) => node.type === "SubmitButton").length, 1);
+});
 
 test.beforeEach((t) => {
   t.mock.method(Date, "now", () => 100);
@@ -240,7 +443,17 @@ test("Day-panel Task search returns bounded pages, excludes inactive and other u
 
 test("Calendar Sessions retain Task identity and completion state independently of Task search pages", async () => {
   const { db, context } = database();
-  const taskId = await db.insert("tasks", { userId: "alice", title: "Read" });
+  const projectId = await db.insert("projects", {
+    userId: "alice",
+    title: "Reading",
+    weeklyMinutes: 60,
+    weekdays: [],
+  });
+  const taskId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Read",
+    projectId,
+  });
   const sessionId = await saveSession._handler(context("alice"), {
     taskId,
     startAt: 1000,
@@ -253,6 +466,7 @@ test("Calendar Sessions retain Task identity and completion state independently 
   assert.deepEqual(panel.page, []);
   const [session] = await listSessions._handler(context("alice"), {});
   assert.equal(session.taskTitle, "Read");
+  assert.equal(session.projectId, projectId);
   assert.equal(session.taskCompletedAt, undefined);
   await saveSession._handler(context("alice"), {
     taskId,
@@ -263,6 +477,7 @@ test("Calendar Sessions retain Task identity and completion state independently 
   await db.patch(taskId, { completedAt: 1234 });
   const [completed] = await listSessions._handler(context("alice"), {});
   assert.equal(completed.taskCompletedAt, 1234);
+  assert.equal(completed.projectId, projectId);
 });
 
 test("Sessions persist across contexts; moves and resizing preserve Task progress and identity", async () => {
@@ -964,6 +1179,286 @@ const session = (id, taskId, from, to, extra = {}) => ({
   endAt: autoAt(to),
   manualOverride: false,
   ...extra,
+});
+
+test("Projects and Milestones persist per user and reject foreign or mismatched membership", async () => {
+  const { db, context } = database();
+  const alice = context("alice");
+  const projectId = await projects.saveProject._handler(alice, {
+    title: "Book",
+    weeklyMinutes: 120,
+    weekdays: [1, 3],
+  });
+  const milestoneId = await projects.createMilestone._handler(alice, {
+    projectId,
+    title: "Chapter one",
+  });
+  await projects.validateMembership(
+    { ...alice, userId: "alice" },
+    projectId,
+    milestoneId
+  );
+  const otherId = await projects.saveProject._handler(alice, {
+    title: "Other",
+    weeklyMinutes: 0,
+    weekdays: [],
+  });
+  await assert.rejects(
+    projects.validateMembership(
+      { ...alice, userId: "alice" },
+      otherId,
+      milestoneId
+    ),
+    /Milestone/
+  );
+  await assert.rejects(
+    projects.validateMembership(
+      { ...context("bob"), userId: "bob" },
+      projectId
+    ),
+    /Project not found/
+  );
+  await assert.rejects(
+    projects.createMilestone._handler(context("bob"), {
+      projectId,
+      title: "Foreign",
+    }),
+    /Project not found/
+  );
+  assert.equal(
+    (await projects.list._handler(context("bob"), {})).projects.length,
+    0
+  );
+  await projects.saveProject._handler(alice, {
+    projectId,
+    title: "Book edited",
+    weeklyMinutes: 90,
+    weekdays: [2],
+  });
+  assert.equal((await db.get(projectId)).weeklyMinutes, 90);
+  assert.equal(
+    (await projects.list._handler(alice, {})).milestones[0]._id,
+    milestoneId
+  );
+  for (const invalid of [
+    { weeklyMinutes: -1 },
+    { weeklyMinutes: 1.5 },
+    { weekdays: [7] },
+    { weekdays: [1, 1] },
+  ])
+    await assert.rejects(
+      projects.saveProject._handler(alice, {
+        title: "Invalid",
+        weeklyMinutes: 60,
+        weekdays: [],
+        ...invalid,
+      })
+    );
+});
+
+test("Task creation and editing preserve Project identity and validate Milestone ownership", async () => {
+  const { db, context } = database();
+  const alice = context("alice");
+  const taskTypeId = await db.insert("taskTypes", {
+    userId: "alice",
+    name: "Done",
+    valueKind: "boolean",
+  });
+  const priorityClassId = await db.insert("priorityClasses", {
+    userId: "alice",
+    name: "Normal",
+  });
+  const projectId = await projects.saveProject._handler(alice, {
+    title: "Book",
+    weeklyMinutes: 0,
+    weekdays: [],
+  });
+  const milestoneId = await projects.createMilestone._handler(alice, {
+    projectId,
+    title: "First",
+  });
+  const base = { title: "Read", taskTypeId, priorityClassId, tags: [] };
+  const taskId = await tasks.create._handler(alice, {
+    ...base,
+    projectId,
+    milestoneId,
+  });
+  assert.equal((await db.get(taskId)).milestoneId, milestoneId);
+  await tasks.update._handler(alice, {
+    ...base,
+    taskId,
+    projectId,
+    milestoneId,
+  });
+  assert.equal((await db.get(taskId)).projectId, projectId);
+  await assert.rejects(
+    tasks.update._handler(alice, { ...base, taskId, milestoneId }),
+    /Milestone/
+  );
+  await tasks.update._handler(alice, { ...base, taskId });
+  assert.equal((await db.get(taskId)).projectId, undefined);
+  assert.equal((await db.get(taskId)).milestoneId, undefined);
+});
+
+test("Project reservations use concrete ready Tasks, spread preferred cadence, and are stable on reload", () => {
+  const project = {
+    _id: "book",
+    title: "Book",
+    weeklyMinutes: 120,
+    weekdays: [1, 3],
+  };
+  const rules = {
+    ...autoSettings,
+    weekly: [1, 3].map((weekday) => ({ weekday, start: 540, end: 600 })),
+  };
+  const work = [task("read", 120, { projectId: "book" })];
+  const first = plan(work, [], { projects: [project], settings: rules });
+  assert.equal(first.projectShortfalls.length, 0);
+  const placed = first.changes.filter((c) => c.after);
+  assert.equal(placed.length, 2);
+  assert.ok(
+    placed.every((c) => c.taskId === "read" && c.reason.includes("Project"))
+  );
+  assert.deepEqual(
+    placed.map((c) =>
+      localDateTime(c.after.startAt, rules.timezone).slice(0, 10)
+    ),
+    [autoDate, "2030-01-09"]
+  );
+  const persisted = placed.map((c) => ({
+    _id: c.id,
+    taskId: c.taskId,
+    ...c.after,
+    manualOverride: false,
+  }));
+  assert.equal(
+    plan(work, persisted, { projects: [project], settings: rules }).changes
+      .length,
+    0
+  );
+});
+
+test("Empty or paused Projects show the next-work shortfall without placeholder Sessions", () => {
+  const project = {
+    _id: "empty",
+    title: "Empty",
+    weeklyMinutes: 60,
+    weekdays: [],
+  };
+  const result = plan(
+    [
+      task("paused", 60, {
+        projectId: "empty",
+        automaticSchedulingPaused: true,
+      }),
+      task("unknown", undefined, {
+        projectId: "empty",
+        effortMinutes: undefined,
+      }),
+    ],
+    [],
+    { projects: [project] }
+  );
+  assert.equal(result.changes.length, 0);
+  assert.equal(result.projectShortfalls[0].minutes, 60);
+  assert.match(result.projectShortfalls[0].reason, /next Task/);
+});
+
+test("Project reservations respect Events, protected time, Pins and Firm deadlines", () => {
+  const project = {
+    _id: "p",
+    title: "Project",
+    weeklyMinutes: 120,
+    weekdays: [1],
+  };
+  const pinned = session("pin", "other", "09:00", "09:30", { pinned: true });
+  const result = plan(
+    [
+      task("other", 30),
+      task("project", 120, {
+        projectId: "p",
+        dueAt: autoAt("11:00"),
+        finishKind: "firm",
+      }),
+    ],
+    [pinned],
+    {
+      projects: [project],
+      events: [
+        {
+          title: "Event",
+          attention: "focused",
+          startAt: autoAt("09:30"),
+          endAt: autoAt("10:00"),
+        },
+      ],
+      settings: {
+        ...autoSettings,
+        protectedDates: [{ date: autoDate, start: 600, end: 630 }],
+      },
+    }
+  );
+  assert.ok(result.changes.every((c) => c.id !== "pin"));
+  const placed = result.changes.filter(
+    (c) => c.after && c.taskId === "project"
+  );
+  assert.equal(
+    placed.reduce((n, c) => n + (c.after.endAt - c.after.startAt) / 60000, 0),
+    30
+  );
+  assert.equal(result.projectShortfalls[0].minutes, 90);
+});
+
+test("Completed Project Tasks still credit the weekly target without generating placeholder work", () => {
+  const project = {
+    _id: "book",
+    title: "Book",
+    weeklyMinutes: 60,
+    weekdays: [1],
+  };
+  const result = plan(
+    [task("done", 60, { projectId: "book", completedAt: autoAt("10:00") })],
+    [
+      session("history", "done", "09:00", "10:00", {
+        checkIn: { reportedAt: autoAt("10:00"), timeMinutes: 60 },
+      }),
+    ],
+    { projects: [project], now: autoAt("10:30") }
+  );
+  assert.deepEqual(result.projectShortfalls, []);
+  assert.deepEqual(result.changes, []);
+});
+
+test("Project targets follow configured calendar weeks through DST without duplicating planned credit", () => {
+  const project = {
+    _id: "book",
+    title: "Book",
+    weeklyMinutes: 60,
+    weekdays: [0],
+  };
+  const date = "2026-10-25";
+  const result = planSessions({
+    date,
+    settings: { ...settings, weekStartsOn: 0, weekly: [], protectedWeekly: [] },
+    tasks: [task("read", 60, { projectId: "book" })],
+    sessions: [],
+    events: [],
+    projects: [project],
+    now: at(date + "T00:00"),
+  });
+  assert.equal(result.projectShortfalls.length, 0);
+  assert.equal(
+    result.changes.reduce(
+      (n, c) => n + (c.after.endAt - c.after.startAt) / 60000,
+      0
+    ),
+    60
+  );
+  assert.ok(
+    result.changes.every((c) =>
+      localDateTime(c.after.startAt, settings.timezone).startsWith(date)
+    )
+  );
 });
 
 test("Automatic planning splits effort around Events and Protected periods within Session limits", () => {
@@ -4090,4 +4585,445 @@ test("Sharing a Journey never displaces an existing Session just to batch an err
     false
   );
   assert.equal(result.shortfalls.find((s) => s.taskId === "errand").minutes, 9);
+});
+
+test("Leisure displacement records only net duration lost to pressing work; moves and manual skips create no request", () => {
+  const leisure = task("reading", 60, {
+    leisure: true,
+    priority: "low",
+    recoveryWindowDays: 3,
+  });
+  const work = task("work", 180, {
+    priority: "critical",
+    dueAt: autoAt("12:00"),
+  });
+  const previous = session("read", "reading", "09:00", "10:00");
+  const lost = plan([leisure, work], [previous]);
+  assert.equal(lost.recoveries.length, 1);
+  assert.equal(lost.recoveries[0].minutes, 60);
+  assert.equal(lost.recoveries[0].expiresOn, "2030-01-10");
+  assert.equal(lost.recoveries[0].taskId, "reading");
+  const shortened = plan(
+    [leisure, { ...work, effortMinutes: 150 }],
+    [previous]
+  );
+  assert.equal(shortened.recoveries[0].minutes, 30);
+  const moved = plan([leisure, { ...work, effortMinutes: 60 }], [previous]);
+  assert.equal(moved.recoveries.length, 0);
+  assert.equal(
+    plan([leisure], [{ ...previous, unscheduledAt: autoAt("08:00") }])
+      .recoveries.length,
+    0
+  );
+  assert.equal(
+    plan([leisure], [previous], { replanAll: true }).recoveries.length,
+    0
+  );
+});
+
+test("Leisure and reserve recovery share the daily cap, preserve activity identity, and expire without ordinary effort debt", () => {
+  const request = {
+    _id: "leisure",
+    taskId: "reading",
+    kind: "leisure",
+    title: "Read",
+    date: "2030-01-06",
+    expiresOn: "2030-01-09",
+    minutes: 90,
+    allocations: [],
+  };
+  const reserve = {
+    ...request,
+    _id: "reserve",
+    taskId: undefined,
+    kind: "reserve",
+    title: "Free-time reserve",
+    minutes: 60,
+  };
+  const rules = {
+    ...autoSettings,
+    weekly: Array.from({ length: 7 }, (_, weekday) => ({
+      weekday,
+      start: 540,
+      end: 720,
+    })),
+    dailyRecoveryMinutes: 30,
+  };
+  const result = plan(
+    [task("reading", 90, { leisure: true, maxSessionMinutes: 20 })],
+    [],
+    { settings: rules, recoveryRequests: [request, reserve] }
+  );
+  assert.ok(result.recoveryPlacements.length > 0);
+  assert.ok(
+    result.recoveryPlacements.every(
+      (p) =>
+        p.taskId === "reading" &&
+        p.requestId === "leisure" &&
+        (p.endAt - p.startAt) / 60000 <= 20
+    )
+  );
+  assert.ok(result.changes.length === 0);
+  const byDay = new Map();
+  for (const allocation of result.recoveries.flatMap((r) => r.allocations)) {
+    const date = localDateTime(allocation.startAt, rules.timezone).slice(0, 10);
+    byDay.set(
+      date,
+      (byDay.get(date) ?? 0) + (allocation.endAt - allocation.startAt) / 60000
+    );
+    assert.ok(date <= request.expiresOn);
+  }
+  assert.ok([...byDay.values()].every((minutes) => minutes <= 30));
+  assert.ok(
+    result.recoveries.find((r) => r.kind === "reserve").allocations.length > 0
+  );
+  const expired = plan([task("reading", 90, { leisure: true })], [], {
+    recoveryRequests: [{ ...request, expiresOn: "2030-01-06" }],
+  });
+  assert.deepEqual(expired.changes, []);
+  assert.deepEqual(expired.recoveryPlacements, []);
+  assert.equal(expired.recoveries[0].minutes, 90);
+});
+
+test("Reserve borrowing preserves the protected minimum, records only automatic borrowing, and restores unallocated time", () => {
+  const rules = {
+    ...autoSettings,
+    reservePreferredMinutes: 60,
+    reserveMinimumMinutes: 30,
+  };
+  const ordinary = plan([task("ordinary", 180)], [], { settings: rules });
+  assert.equal(
+    ordinary.changes.reduce(
+      (n, c) => n + (c.after.endAt - c.after.startAt) / 60000,
+      0
+    ),
+    120
+  );
+  assert.equal(ordinary.recoveries.length, 0);
+  const work = task("work", 180, { priority: "critical" });
+  const urgent = plan([work], [], { settings: rules });
+  assert.equal(
+    urgent.changes.reduce(
+      (n, c) => n + (c.after.endAt - c.after.startAt) / 60000,
+      0
+    ),
+    150
+  );
+  assert.equal(urgent.recoveries.length, 1);
+  assert.equal(urgent.recoveries[0].kind, "reserve");
+  assert.equal(urgent.recoveries[0].minutes, 30);
+  const sessions = urgent.changes.map((c) => ({
+    _id: c.id,
+    taskId: c.taskId,
+    ...c.after,
+    manualOverride: false,
+  }));
+  const reload = plan([work], sessions, {
+    settings: rules,
+    recoveryRequests: urgent.recoveries,
+  });
+  assert.equal(reload.recoveries.length, 1);
+  const manual = plan(
+    [work],
+    [session("manual", "work", "09:00", "12:00", { manualOverride: true })],
+    { settings: rules }
+  );
+  assert.equal(manual.recoveries.length, 0);
+  const restored = plan([], [], {
+    settings: rules,
+    date: "2030-01-14",
+    now: at("2030-01-14T08:00"),
+    recoveryRequests: urgent.recoveries,
+  });
+  assert.equal(restored.recoveryPlacements.length, 0);
+  assert.equal(
+    restored.recoveries[0].allocations.reduce(
+      (n, a) => n + (a.endAt - a.startAt) / 60000,
+      0
+    ),
+    30
+  );
+});
+
+test("Recovery respects boundaries and exposes repeated displacement without extending old requests", () => {
+  const requests = ["2030-01-04", "2030-01-05", "2030-01-06"].map(
+    (date, i) => ({
+      _id: String(i),
+      taskId: "read",
+      kind: "leisure",
+      title: "Read",
+      date,
+      expiresOn: "2030-01-07",
+      minutes: 60,
+      allocations: [],
+    })
+  );
+  const result = plan([task("read", 180, { leisure: true })], [], {
+    recoveryRequests: requests,
+    settings: {
+      ...autoSettings,
+      protectedDates: [{ date: autoDate, start: 540, end: 720 }],
+    },
+  });
+  assert.equal(result.recoveryImbalance, true);
+  assert.deepEqual(result.recoveryPlacements, []);
+  assert.ok(result.recoveries.every((r) => r.expiresOn === "2030-01-07"));
+  assert.throws(
+    () =>
+      validatePlanning({
+        ...autoSettings,
+        reservePreferredMinutes: 10,
+        reserveMinimumMinutes: 20,
+      }),
+    /minimum/
+  );
+  assert.throws(() =>
+    validatePlanning({ ...autoSettings, dailyRecoveryMinutes: -1 })
+  );
+  assert.throws(() =>
+    validatePlanning({ ...autoSettings, recoveryWindowDays: 0 })
+  );
+});
+
+test("Recovery requests and same-activity Sessions persist without duplicates; ownership, extension, dismissal and undo are enforced", async () => {
+  const { db, context } = database();
+  const alice = context("alice");
+  await db.insert("planningSettings", { userId: "alice", ...autoSettings });
+  const readId = await db.insert("tasks", {
+    userId: "alice",
+    title: "Read",
+    leisure: true,
+    effortMinutes: 60,
+    priority: "low",
+  });
+  const readSessionId = await db.insert("sessions", {
+    userId: "alice",
+    taskId: readId,
+    startAt: autoAt("09:00"),
+    endAt: autoAt("10:00"),
+    manualOverride: false,
+  });
+  await db.insert("tasks", {
+    userId: "alice",
+    title: "Urgent",
+    priority: "critical",
+    effortMinutes: 180,
+    dueAt: autoAt("12:00"),
+  });
+  const selection = { date: autoDate, timezone: autoSettings.timezone };
+  await planning.planDay._handler(alice, selection);
+  let requests = await planning.listRecovery._handler(alice, {});
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].minutes, 60);
+  assert.equal(requests[0].taskId, readId);
+  await planning.planDay._handler(alice, selection);
+  assert.equal((await planning.listRecovery._handler(alice, {})).length, 1);
+  await planning.undoPlan._handler(alice, {});
+  assert.equal((await planning.listRecovery._handler(alice, {})).length, 0);
+  assert.equal((await db.get(readSessionId)).unscheduledAt, undefined);
+  assert.deepEqual(
+    await planning.listRecovery._handler(context("bob"), {}),
+    []
+  );
+
+  const requestId = await db.insert("recoveryRequests", {
+    userId: "alice",
+    kind: "leisure",
+    taskId: readId,
+    title: "Read",
+    date: "2030-01-06",
+    expiresOn: "2030-01-10",
+    minutes: 60,
+    allocations: [],
+  });
+  await db.patch(readSessionId, { unscheduledAt: Date.now() });
+  await db.patch(readId, { automaticSchedulingPaused: false });
+  await planning.planDay._handler(alice, selection);
+  const recoverySessions = await db.query("sessions").collect();
+  const restored = recoverySessions.filter(
+    (s) => s.recoveryRequestId === requestId && s.unscheduledAt === undefined
+  );
+  assert.equal(restored.length, 1);
+  assert.equal(restored[0].taskId, readId);
+  assert.equal((restored[0].endAt - restored[0].startAt) / 60000, 60);
+  await planning.planDay._handler(alice, selection);
+  assert.equal(
+    (await db.query("sessions").collect()).filter(
+      (s) => s.recoveryRequestId === requestId && s.unscheduledAt === undefined
+    ).length,
+    1
+  );
+  await assert.rejects(
+    planning.updateRecovery._handler(context("bob"), {
+      requestId,
+      action: "dismiss",
+    })
+  );
+  await saveSession._handler(alice, {
+    sessionId: restored[0]._id,
+    taskId: readId,
+    startAt: autoAt("10:00"),
+    endAt: autoAt("11:00"),
+  });
+  assert.deepEqual((await db.get(requestId)).allocations, [
+    { startAt: autoAt("10:00"), endAt: autoAt("11:00") },
+  ]);
+  await assert.rejects(
+    planning.undoPlan._handler(alice, {}),
+    /Recovery has changed/
+  );
+  await planning.updateRecovery._handler(alice, {
+    requestId,
+    action: "extend",
+  });
+  assert.equal((await db.get(requestId)).expiresOn, "2030-01-17");
+  await planning.updateRecovery._handler(alice, {
+    requestId,
+    action: "dismiss",
+  });
+  assert.ok((await db.get(requestId)).dismissedAt);
+  assert.ok((await db.get(restored[0]._id)).unscheduledAt);
+});
+
+test("A new fixed Event replans a recovery opportunity within its original window instead of creating fresh debt", () => {
+  const allocation = { startAt: autoAt("09:00"), endAt: autoAt("10:00") };
+  const request = {
+    _id: "recover",
+    taskId: "read",
+    kind: "leisure",
+    title: "Read",
+    date: "2030-01-06",
+    expiresOn: "2030-01-07",
+    minutes: 60,
+    allocations: [allocation],
+  };
+  const result = plan(
+    [task("read", 60, { leisure: true })],
+    [
+      {
+        _id: "recovery-session",
+        taskId: "read",
+        recoveryRequestId: "recover",
+        ...allocation,
+      },
+    ],
+    {
+      recoveryRequests: [request],
+      events: [{ title: "Meeting", attention: "focused", ...allocation }],
+    }
+  );
+  assert.equal(result.recoveries.length, 1);
+  assert.equal(result.recoveries[0].expiresOn, request.expiresOn);
+  assert.equal(result.recoveryPlacements.length, 1);
+  assert.equal(result.recoveryPlacements[0].startAt, autoAt("10:00"));
+  assert.ok(
+    result.changes.some(
+      (c) => c.id === "recovery-session" && c.after === undefined
+    )
+  );
+  assert.deepEqual(request.allocations, [allocation]);
+});
+
+test("Recovery opportunities outlive an expired leisure Occurrence and remain editable without generating recurrence debt", async (t) => {
+  const f = await recurringFixture(t);
+  const first = f.occurrences()[0];
+  await f.db.patch(first._id, { leisure: true });
+  await f.db.insert("recoveryRequests", {
+    userId: "alice",
+    kind: "leisure",
+    taskId: first._id,
+    title: "Exercise",
+    date: "2030-01-07",
+    expiresOn: "2030-01-10",
+    minutes: 30,
+    allocations: [],
+  });
+  f.now("2030-01-08T08:00");
+  await planning.planDay._handler(f.context("alice"), {
+    date: "2030-01-08",
+    timezone: f.rule.timezone,
+  });
+  assert.ok((await f.db.get(first._id)).expiredAt);
+  const recovery = (await f.db.query("sessions").collect()).find(
+    (s) => s.recoveryRequestId
+  );
+  assert.ok(recovery);
+  assert.equal(recovery.taskId, first._id);
+  await saveSession._handler(f.context("alice"), {
+    sessionId: recovery._id,
+    taskId: first._id,
+    startAt: at("2030-01-08T15:00"),
+    endAt: at("2030-01-08T15:30"),
+  });
+  await f.sync();
+  assert.equal((await f.db.get(recovery._id)).unscheduledAt, undefined);
+});
+
+test("Changing the protected reserve minimum adjusts flexible automatic Sessions and surfaces immovable shortfalls", () => {
+  const rules = {
+    ...autoSettings,
+    reservePreferredMinutes: 60,
+    reserveMinimumMinutes: 30,
+  };
+  const work = task("work", 180, { priority: "critical" });
+  const automatic = plan(
+    [work],
+    [session("work-session", "work", "09:00", "12:00")],
+    { settings: rules }
+  );
+  const placements = automatic.changes.filter((c) => c.after);
+  assert.equal(
+    placements.reduce(
+      (n, c) => n + (c.after.endAt - c.after.startAt) / 60000,
+      0
+    ),
+    150
+  );
+  assert.equal(automatic.recoveries.length, 0);
+  const pinned = plan(
+    [work],
+    [session("pinned", "work", "09:00", "12:00", { pinned: true })],
+    { settings: rules }
+  );
+  assert.equal(pinned.changes.length, 0);
+  assert.ok(pinned.conflicts.some((c) => c.includes("reserve minimum")));
+});
+
+test("Recovery Sessions retain a physical Task's Location requirement after planner integration", () => {
+  const result = planSessions({
+    date: "2026-11-17",
+    now: travelInstant("08:00"),
+    settings: {
+      timezone: "UTC",
+      weekly: [],
+      overrides: [],
+      protectedWeekly: [],
+      protectedDates: [],
+    },
+    tasks: [
+      {
+        _id: "sport",
+        title: "Sport",
+        attendance: "physical",
+        locationRequirement: "Gym",
+        effortMinutes: 15,
+        leisure: true,
+      },
+    ],
+    sessions: [],
+    events: [],
+    recoveryRequests: [
+      {
+        _id: "recover",
+        kind: "leisure",
+        taskId: "sport",
+        title: "Sport",
+        date: "2026-11-16",
+        expiresOn: "2026-11-23",
+        minutes: 15,
+        allocations: [],
+      },
+    ],
+  });
+  assert.deepEqual(result.recoveryPlacements, []);
 });
