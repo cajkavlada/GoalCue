@@ -1,3 +1,7 @@
+## UI forms
+
+When creating or changing forms, inspect nearby forms and reuse the existing shadcn-based components from `@gc/ui` and field wrappers from `@gc/form` where available. Use the existing DatePicker, TimePicker, Select, Switch, and Tooltip components for their respective controls. Preserve their validation, accessibility, and locale behavior.
+
 ## Agent skills
 
 ### Issue tracker

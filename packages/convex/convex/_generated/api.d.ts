@@ -21,6 +21,7 @@ import type * as users from "../users.js";
 import type * as utils_authedFunctions from "../utils/authedFunctions.js";
 import type * as utils_autoPlan from "../utils/autoPlan.js";
 import type * as utils_rateLimiter from "../utils/rateLimiter.js";
+import type * as utils_recurrence from "../utils/recurrence.js";
 import type * as utils_relationsUtils from "../utils/relationsUtils.js";
 
 import type {
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   "utils/authedFunctions": typeof utils_authedFunctions;
   "utils/autoPlan": typeof utils_autoPlan;
   "utils/rateLimiter": typeof utils_rateLimiter;
+  "utils/recurrence": typeof utils_recurrence;
   "utils/relationsUtils": typeof utils_relationsUtils;
 }>;
 

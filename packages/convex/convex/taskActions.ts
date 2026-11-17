@@ -25,6 +25,8 @@ export const add = authedMutation({
     zodParse(addTaskActionZodSchema, input);
 
     const task = await taskQueries({ ctx }).getById({ taskId });
+    if (task.recurrence)
+      throw new ConvexError({ message: "Record progress on an Occurrence" });
     const taskType = await taskTypeQueries({ ctx }).getById({
       taskTypeId: task.taskTypeId,
     });
@@ -105,6 +107,8 @@ async function checkTasksAndGetBorderValues(
   return await Promise.all(
     taskIds.map(async (taskId) => {
       const task = await taskQueries({ ctx }).getById({ taskId });
+      if (task.recurrence)
+        throw new ConvexError({ message: "Record progress on an Occurrence" });
       if (task.valueKind === "enum") {
         const taskType = await taskTypeQueries({ ctx }).getById({
           taskTypeId: task.taskTypeId,

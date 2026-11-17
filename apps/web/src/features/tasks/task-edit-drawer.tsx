@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { convexQuery } from "@convex-dev/react-query";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { addDays, endOfDay } from "date-fns";
@@ -9,9 +10,10 @@ import { Id } from "@gc/convex/types";
 import { asFormValidator, useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
 import { ErrorSuspense } from "@gc/react-kit";
-import { Drawer, DrawerButton, parseDateToString } from "@gc/ui";
+import { Drawer, DrawerButton, parseDateToString, Select } from "@gc/ui";
 import {
   ExtendedTask,
+  RecurrenceRule,
   UpdateTaskArgs,
   updateTaskZodSchema,
 } from "@gc/validators";
@@ -20,6 +22,7 @@ import { translatePregeneratedItem } from "../../utils/translate-pregenerated-it
 import { priorityClassApi } from "../priority-classes/priority-class.api";
 import { TagCreateDrawer } from "../tags/tag-create-drawer";
 import { tagApi } from "../tags/tag.api";
+import { RecurrenceEditor } from "./recurrence-editor";
 import { taskApi } from "./task.api";
 
 type UpdateTaskClientArgs = Omit<UpdateTaskArgs, "dueAt"> & {
@@ -34,10 +37,12 @@ export function TaskEditDrawer({ editedTask }: { editedTask: ExtendedTask }) {
       description={m.tasks_update_dialog_description()}
       customFooter
     >
-      <ErrorSuspense>
-        <TaskProgress taskId={editedTask._id} />
-        <TaskEditForm editedTask={editedTask} />
-      </ErrorSuspense>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <ErrorSuspense>
+          <TaskProgress taskId={editedTask._id} />
+          <TaskEditForm editedTask={editedTask} />
+        </ErrorSuspense>
+      </div>
     </Drawer>
   );
 }
@@ -129,6 +134,20 @@ function TaskEditForm({ editedTask }: { editedTask: ExtendedTask }) {
   const { data: tags } = tagApi.useList();
 
   const updateMutation = taskApi.useUpdate();
+  const { data: settings } = useSuspenseQuery(
+    convexQuery(api.planning.getSettings, {})
+  );
+  const [recurrence, setRecurrence] = useState<RecurrenceRule | undefined>(
+    editedTask.recurrence
+      ? {
+          ...editedTask.recurrence,
+          endAfter: editedTask.recurrence.endDate
+            ? undefined
+            : editedTask.recurrence.endAfter,
+        }
+      : undefined
+  );
+  const [editScope, setEditScope] = useState<"future" | "occurrence">("future");
 
   const defaultDueAt = addDays(endOfDay(new Date()), 2);
   const defaultValues: UpdateTaskClientArgs = {
@@ -167,6 +186,8 @@ function TaskEditForm({ editedTask }: { editedTask: ExtendedTask }) {
         taskId: editedTask._id,
         dueAt: useDueAt ? dueAt.getTime() : undefined,
         ...rest,
+        recurrence,
+        editScope,
       });
     },
   });
@@ -418,6 +439,40 @@ function TaskEditForm({ editedTask }: { editedTask: ExtendedTask }) {
             </div>
           )}
         </form.AppField>
+        {editedTask.seriesId && (
+          <label>
+            {m.recurrence_edit_scope()}
+            <Select
+              value={editScope}
+              onValueChange={setEditScope}
+              options={[
+                { value: "future", label: m.recurrence_future() },
+                { value: "occurrence", label: m.recurrence_only() },
+              ]}
+            />
+          </label>
+        )}
+        <form.Subscribe
+          selector={(state) =>
+            [state.values.progressMeasure, state.values.progressUnit] as const
+          }
+        >
+          {([measure, unit]) => (
+            <RecurrenceEditor
+              progressMeasure={measure}
+              progressUnit={unit}
+              unitId={editedTask.taskType.unitId}
+              value={recurrence}
+              onChange={setRecurrence}
+              timezone={
+                settings?.timezone ??
+                Intl.DateTimeFormat().resolvedOptions().timeZone
+              }
+              weekStartsOn={settings?.weekStartsOn}
+              disabled={!!editedTask.seriesId && editScope === "occurrence"}
+            />
+          )}
+        </form.Subscribe>
         <Drawer.Footer>
           <form.SubmitButton />
         </Drawer.Footer>

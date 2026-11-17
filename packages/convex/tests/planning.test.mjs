@@ -56,6 +56,10 @@ const {
   zonedInstant,
 } = await import("../../validators/src/planning.ts");
 const { planSessions } = await import("../../validators/src/auto-planning.ts");
+const { recurrenceWindows, recurrenceDate, validateRecurrence } = await import(
+  "../../validators/src/recurrence.ts"
+);
+const { syncOccurrences } = await import("../convex/utils/recurrence.ts");
 
 test.beforeEach((t) => {
   t.mock.method(Date, "now", () => 100);
@@ -3199,4 +3203,599 @@ test("Batch undo respects a newly tightened Firm deadline", async (t) => {
     /no longer feasible/
   );
   assert.equal((await db.get(taskId)).completedAt, now);
+});
+
+const recurringRule = {
+  kind: "calendar",
+  unit: "day",
+  interval: 1,
+  startDate: "2030-01-07",
+  time: "09:00",
+  timezone: "Europe/Prague",
+  weekStartsOn: 1,
+  count: 3,
+  volume: 150,
+  carryForward: false,
+};
+
+async function recurringFixture(t, overrides = {}) {
+  let now = zonedInstant("2030-01-07T08:00", "Europe/Prague");
+  t.mock.method(Date, "now", () => now);
+  const store = database();
+  const { db, context, rows } = store;
+  const taskTypeId = await db.insert("taskTypes", {
+    userId: "alice",
+    valueKind: "boolean",
+  });
+  const priorityClassId = await db.insert("priorityClasses", {
+    userId: "alice",
+  });
+  const tagId = await db.insert("tags", { userId: "alice", name: "Sport" });
+  const rule = { ...recurringRule, ...overrides };
+  const seriesId = await tasks.create._handler(context("alice"), {
+    title: "Exercise",
+    taskTypeId,
+    priorityClassId,
+    tags: [tagId],
+    progressMeasure: "time",
+    completedNumValue: 30,
+    effortMinutes: 30,
+    recurrence: rule,
+  });
+  return {
+    ...store,
+    rule,
+    seriesId,
+    priorityClassId,
+    now: (value) => {
+      now = zonedInstant(value, rule.timezone);
+    },
+    occurrences: () =>
+      [...rows.values()].filter((row) => row.seriesId === seriesId),
+    sync: () => syncOccurrences({ ...context("alice"), userId: "alice" }),
+    edit: (taskId, values = {}) =>
+      tasks.update._handler(context("alice"), {
+        taskId,
+        title: "Edited exercise",
+        priorityClassId,
+        tags: [tagId],
+        progressMeasure: "time",
+        completedNumValue: 30,
+        effortMinutes: 30,
+        recurrence: rule,
+        ...values,
+      }),
+  };
+}
+
+test("Recurrence follows local DST time, configured calendar weeks, and clamped month ends", () => {
+  const spring = recurrenceWindows(
+    { ...recurringRule, startDate: "2026-03-28", time: "02:30" },
+    "2026-03-28",
+    "2026-03-30"
+  );
+  assert.equal(
+    localDateTime(spring[0].startAt, "Europe/Prague"),
+    "2026-03-28T02:30"
+  );
+  assert.equal(
+    localDateTime(spring[1].startAt, "Europe/Prague"),
+    "2026-03-29T03:30"
+  );
+  assert.equal(
+    localDateTime(spring[2].startAt, "Europe/Prague"),
+    "2026-03-30T02:30"
+  );
+  const fall = recurrenceWindows(
+    { ...recurringRule, startDate: "2026-10-25", time: "02:30" },
+    "2026-10-25",
+    "2026-10-25"
+  )[0];
+  assert.equal(
+    fall.startAt,
+    zonedInstant("2026-10-25T02:30", "Europe/Prague", "earlier")
+  );
+  assert.equal(recurrenceDate("2028-01-31", "month", 1), "2028-02-29");
+  assert.equal(recurrenceDate("2028-01-31", "month", 2), "2028-03-31");
+  const monday = recurrenceWindows(
+    { ...recurringRule, kind: "frequency", unit: "week", endAfter: 3 },
+    "2030-01-07",
+    "2030-01-20"
+  );
+  assert.equal(monday.length, 3);
+  assert.equal(
+    localDateTime(monday[0].endAt, "Europe/Prague"),
+    "2030-01-14T00:00"
+  );
+  const sunday = recurrenceWindows(
+    {
+      ...recurringRule,
+      kind: "frequency",
+      unit: "week",
+      weekStartsOn: 0,
+      endDate: "2030-01-08",
+    },
+    "2030-01-07",
+    "2030-01-20"
+  );
+  assert.equal(
+    localDateTime(sunday[0].endAt, "Europe/Prague"),
+    "2030-01-09T00:00"
+  );
+  for (const patch of [
+    { interval: 0 },
+    { count: 1.5 },
+    { weekStartsOn: 7 },
+    { endAfter: 0 },
+    { timezone: "invalid" },
+    { endDate: "2029-12-31" },
+  ])
+    assert.throws(() => validateRecurrence({ ...recurringRule, ...patch }));
+});
+
+test("Recurring Tasks persist independent Occurrences, copied tags, Sessions and progress without duplicate generation", async (t) => {
+  const f = await recurringFixture(t, { endAfter: 3 });
+  await f.sync();
+  assert.equal(f.occurrences().length, 3);
+  const [first, second] = f.occurrences();
+  const sessionId = await saveSession._handler(f.context("alice"), {
+    taskId: first._id,
+    startAt: first.occurrenceStartAt,
+    endAt: first.occurrenceStartAt + 30 * 60000,
+  });
+  f.now("2030-01-07T10:00");
+  await reportCheckIn._handler(f.context("alice"), {
+    sessionId,
+    outcome: "progress",
+    value: 12,
+    timeMinutes: 15,
+  });
+  assert.equal((await f.db.get(first._id)).currentNumValue, 12);
+  assert.equal((await f.db.get(second._id)).currentNumValue, 0);
+  await reportCheckIn._handler(f.context("alice"), {
+    sessionId,
+    outcome: "finished",
+    timeMinutes: 30,
+  });
+  assert.ok((await f.db.get(first._id)).completedAt);
+  assert.equal((await f.db.get(second._id)).completedAt, undefined);
+  assert.equal((await f.db.get(f.seriesId)).completedAt, undefined);
+  assert.equal(f.occurrences().length, 3);
+  assert.equal(
+    [...f.rows.values()].filter((row) => row.taskId === second._id && row.tagId)
+      .length,
+    1
+  );
+  await assert.rejects(
+    saveSession._handler(f.context("bob"), {
+      taskId: second._id,
+      startAt: second.occurrenceStartAt,
+      endAt: second.occurrenceStartAt + 60000,
+    })
+  );
+  await assert.rejects(f.edit(second._id, { priorityClassId: "someone-else" }));
+});
+
+test("Missed Occurrences expire without losing partial results, while carry-forward keeps independent unfinished work", async (t) => {
+  const f = await recurringFixture(t, { endAfter: 3 });
+  const first = f.occurrences()[0];
+  await f.db.patch(first._id, { currentNumValue: 12 });
+  f.now("2030-01-08T08:00");
+  await f.sync();
+  assert.ok((await f.db.get(first._id)).expiredAt);
+  assert.equal((await f.db.get(first._id)).currentNumValue, 12);
+  assert.equal((await f.db.get(first._id)).completedAt, undefined);
+  assert.equal(f.occurrences().length, 3);
+  const carried = await recurringFixture(t, {
+    carryForward: true,
+    endAfter: 3,
+  });
+  const old = carried.occurrences()[0];
+  await carried.db.patch(old._id, { currentNumValue: 10 });
+  carried.now("2030-01-09T08:00");
+  await carried.sync();
+  assert.equal((await carried.db.get(old._id)).expiredAt, undefined);
+  assert.equal((await carried.db.get(old._id)).currentNumValue, 10);
+  assert.equal(carried.occurrences().length, 3);
+});
+
+test("Weekly frequency creates distinct Occurrences and volume accumulates across Sessions", async (t) => {
+  const f = await recurringFixture(t, {
+    kind: "frequency",
+    unit: "week",
+    endAfter: 3,
+  });
+  assert.equal(f.occurrences().length, 3);
+  assert.equal(
+    new Set(f.occurrences().map((o) => o.occurrenceStartAt)).size,
+    1
+  );
+  const v = await recurringFixture(t, {
+    kind: "volume",
+    unit: "week",
+    endAfter: 1,
+  });
+  const occurrence = v.occurrences()[0];
+  assert.equal(occurrence.completedNumValue, 150);
+  const ids = [];
+  for (const hour of [9, 10])
+    ids.push(
+      await saveSession._handler(v.context("alice"), {
+        taskId: occurrence._id,
+        startAt: occurrence.occurrenceStartAt + (hour - 9) * 3600000,
+        endAt: occurrence.occurrenceStartAt + (hour - 9) * 3600000 + 30 * 60000,
+      })
+    );
+  v.now("2030-01-07T11:00");
+  for (const sessionId of ids)
+    await reportCheckIn._handler(v.context("alice"), {
+      sessionId,
+      outcome: "progress",
+      value: 75,
+      timeMinutes: 30,
+    });
+  assert.equal((await v.db.get(occurrence._id)).currentNumValue, 150);
+  assert.ok((await v.db.get(occurrence._id)).completedAt);
+  assert.equal((await v.db.get(ids[0])).checkIn.timeMinutes, 30);
+});
+
+test("Occurrence-only and this-and-future edits preserve history and explicit exceptions", async (t) => {
+  const f = await recurringFixture(t, { endAfter: 4 });
+  const [past, current, exception, future] = f.occurrences();
+  await f.edit(exception._id, {
+    editScope: "occurrence",
+    title: "Special workout",
+  });
+  f.now("2030-01-08T08:00");
+  await f.edit(current._id, { title: "New workout" });
+  assert.equal((await f.db.get(past._id)).title, "Exercise");
+  assert.equal((await f.db.get(current._id)).title, "New workout");
+  assert.equal((await f.db.get(exception._id)).title, "Special workout");
+  assert.equal((await f.db.get(future._id)).title, "New workout");
+  assert.equal((await f.db.get(f.seriesId)).title, "New workout");
+  await f.edit(current._id, { recurrence: { ...f.rule, time: "11:00" } });
+  assert.equal(
+    localDateTime(
+      (await f.db.get(current._id)).occurrenceStartAt,
+      f.rule.timezone
+    ),
+    "2030-01-08T11:00"
+  );
+  const active = f.occurrences().filter((o) => o.archivedAt === undefined);
+  assert.equal(
+    active.filter((o) =>
+      localDateTime(o.occurrenceStartAt, f.rule.timezone).startsWith(
+        "2030-01-09"
+      )
+    ).length,
+    1
+  );
+  assert.equal(
+    active.filter(
+      (o) =>
+        localDateTime(o.occurrenceStartAt, f.rule.timezone) ===
+        "2030-01-10T11:00"
+    ).length,
+    1
+  );
+  assert.equal((await f.db.get(exception._id)).title, "Special workout");
+  await f.sync();
+  assert.equal(
+    f.occurrences().filter((o) => o.archivedAt === undefined).length,
+    active.length
+  );
+});
+
+test("Completion-based intervals start from actual completion, and undo withdraws the dependent future Occurrence", async (t) => {
+  const f = await recurringFixture(t, {
+    kind: "completion",
+    interval: 2,
+    endAfter: 2,
+  });
+  assert.equal(f.occurrences().length, 1);
+  const first = f.occurrences()[0];
+  const sessionId = await saveSession._handler(f.context("alice"), {
+    taskId: first._id,
+    startAt: first.occurrenceStartAt,
+    endAt: first.occurrenceStartAt + 30 * 60000,
+  });
+  f.now("2030-01-08T12:45");
+  await reportCheckIn._handler(f.context("alice"), {
+    sessionId,
+    outcome: "finished",
+  });
+  assert.equal(f.occurrences().length, 2);
+  const second = f.occurrences().find((o) => o._id !== first._id);
+  assert.equal(
+    localDateTime(second.occurrenceStartAt, f.rule.timezone),
+    "2030-01-10T12:45"
+  );
+  await reportCheckIn._handler(f.context("alice"), {
+    sessionId,
+    outcome: "undo",
+  });
+  assert.ok((await f.db.get(second._id)).archivedAt);
+  await f.sync();
+  assert.equal(
+    f.occurrences().filter((o) => o.archivedAt === undefined).length,
+    1
+  );
+});
+
+test("Automatic and manual placement respect Occurrence windows and leave series templates unscheduled", async (t) => {
+  const f = await recurringFixture(t, { endAfter: 2 });
+  await planning.planDay._handler(f.context("alice"), {
+    date: "2030-01-07",
+    timezone: f.rule.timezone,
+  });
+  const sessions = [...f.rows.values()].filter(
+    (r) => r._id.startsWith("sessions-") && r.unscheduledAt === undefined
+  );
+  assert.ok(sessions.length > 0);
+  for (const s of sessions) {
+    const o = await f.db.get(s.taskId);
+    assert.notEqual(o._id, f.seriesId);
+    assert.ok(s.startAt >= o.occurrenceStartAt);
+    assert.ok(s.endAt <= o.occurrenceEndAt);
+  }
+  const next = f.occurrences()[1];
+  await assert.rejects(
+    saveSession._handler(f.context("alice"), {
+      taskId: next._id,
+      startAt: next.occurrenceStartAt - 3600000,
+      endAt: next.occurrenceStartAt + 60000,
+      allowConflict: true,
+    })
+  );
+  await assert.rejects(
+    saveSession._handler(f.context("alice"), {
+      taskId: next._id,
+      startAt: next.occurrenceEndAt,
+      endAt: next.occurrenceEndAt + 60000,
+      allowConflict: true,
+    })
+  );
+});
+
+test("No-end recurrence materializes only the current and requested windows, without filling intervening years", async (t) => {
+  const f = await recurringFixture(t);
+  assert.ok(f.occurrences().length <= 8);
+  await syncOccurrences(
+    { ...f.context("alice"), userId: "alice" },
+    "2040-01-01"
+  );
+  assert.ok(f.occurrences().length <= 16);
+  const count = f.occurrences().length;
+  await syncOccurrences(
+    { ...f.context("alice"), userId: "alice" },
+    "2040-01-01"
+  );
+  assert.equal(f.occurrences().length, count);
+  assert.ok(
+    f
+      .occurrences()
+      .some((o) =>
+        localDateTime(o.occurrenceStartAt, f.rule.timezone).startsWith("2040")
+      )
+  );
+  assert.ok(
+    !f
+      .occurrences()
+      .some((o) =>
+        localDateTime(o.occurrenceStartAt, f.rule.timezone).startsWith("2035")
+      )
+  );
+});
+
+test("Recurrence uses calendar Settings across Tasks, including after timezone and week-start changes", async (t) => {
+  const f = await recurringFixture(t, {
+    kind: "frequency",
+    unit: "week",
+    endAfter: 6,
+  });
+  await f.edit(f.seriesId, {
+    recurrence: { ...f.rule, timezone: "America/New_York", weekStartsOn: 0 },
+  });
+  assert.equal(
+    (await f.db.get(f.seriesId)).recurrence.timezone,
+    "Europe/Prague"
+  );
+  assert.equal((await f.db.get(f.seriesId)).recurrence.weekStartsOn, 1);
+  await planning.saveSettings._handler(f.context("alice"), {
+    timezone: "America/New_York",
+    weekStartsOn: 0,
+    weekly: [],
+    overrides: [],
+    protectedWeekly: [],
+    protectedDates: [],
+  });
+  assert.equal(
+    (await f.db.get(f.seriesId)).recurrence.timezone,
+    "America/New_York"
+  );
+  assert.equal((await f.db.get(f.seriesId)).recurrence.weekStartsOn, 0);
+  const pending = f
+    .occurrences()
+    .filter(
+      (o) => o.archivedAt === undefined && o.occurrenceStartAt > Date.now()
+    );
+  assert.ok(pending.length);
+  for (const occurrence of pending) {
+    assert.equal(
+      localDateTime(occurrence.occurrenceStartAt, "America/New_York").slice(11),
+      "09:00"
+    );
+    assert.equal(
+      new Date(
+        localDateTime(occurrence.occurrenceEndAt, "America/New_York").slice(
+          0,
+          10
+        ) + "T12:00Z"
+      ).getUTCDay(),
+      0
+    );
+  }
+  assert.throws(
+    () =>
+      validateRecurrence({
+        ...recurringRule,
+        endDate: "2030-02-01",
+        endAfter: 5,
+      }),
+    /either/
+  );
+});
+
+test("Volume recurrence inherits the selected numeric Task type's units and target", async (t) => {
+  const f = await recurringFixture(t);
+  const unitId = await f.db.insert("units", {
+    name: "Pages",
+    symbol: "pages",
+    i18nKey: "units_page",
+  });
+  const taskTypeId = await f.db.insert("taskTypes", {
+    userId: "alice",
+    valueKind: "number",
+    unitId,
+    initialNumValue: 0,
+    completedNumValue: 20,
+  });
+  const seriesId = await tasks.create._handler(f.context("alice"), {
+    title: "Read",
+    taskTypeId,
+    priorityClassId: f.priorityClassId,
+    tags: [],
+    recurrence: { ...f.rule, kind: "volume", volume: 100, endAfter: 1 },
+  });
+  const occurrence = [...f.rows.values()].find(
+    (row) => row.seriesId === seriesId
+  );
+  assert.equal(occurrence.progressMeasure, "quantity");
+  assert.equal(occurrence.progressUnit, "pages");
+  assert.equal(occurrence.completedNumValue, 100);
+});
+
+test("Two-minute recurring Tasks are scheduled at their actual duration and remain stable on replanning", async (t) => {
+  const f = await recurringFixture(t, { endAfter: 3 });
+  await f.edit(f.seriesId, { effortMinutes: 2 });
+  const selection = { date: "2030-01-07", timezone: f.rule.timezone };
+  await planning.planDay._handler(f.context("alice"), selection);
+  const scheduled = () =>
+    [...f.rows.values()].filter(
+      (r) => r._id.startsWith("sessions-") && r.unscheduledAt === undefined
+    );
+  assert.equal(scheduled().length, 3);
+  for (const session of scheduled())
+    assert.equal((session.endAt - session.startAt) / 60000, 2);
+  const before = scheduled().map((s) => [
+    s._id,
+    s.startAt,
+    s.endAt,
+    s.revision,
+  ]);
+  await planning.planDay._handler(f.context("alice"), selection);
+  assert.deepEqual(
+    scheduled().map((s) => [s._id, s.startAt, s.endAt, s.revision]),
+    before
+  );
+});
+
+test("The Day panel shows one entry per recurring series on every Day", async (t) => {
+  const f = await recurringFixture(t, { endAfter: 3 });
+  const page = await tasks.listForDayPanel._handler(f.context("alice"), {
+    search: "",
+    paginationOpts: { cursor: null, numItems: 30 },
+  });
+  assert.equal(page.page.length, 1);
+  assert.equal(page.page[0]._id, f.seriesId);
+  assert.equal(page.page[0].recurring, true);
+  const future = await tasks.listForDayPanel._handler(f.context("alice"), {
+    search: "Exercise",
+    paginationOpts: { cursor: null, numItems: 30 },
+  });
+  assert.deepEqual(
+    future.page.map((task) => task._id),
+    [f.seriesId]
+  );
+});
+
+test("Dropping a recurring series selects the target Day's Occurrence and moves an existing Session without duplication", async (t) => {
+  const f = await recurringFixture(t, { endAfter: 3 });
+  await f.edit(f.seriesId, { effortMinutes: 2 });
+  const at = (local) => zonedInstant(local, f.rule.timezone);
+  const sessionId = await saveSession._handler(f.context("alice"), {
+    taskId: f.seriesId,
+    startAt: at("2030-01-08T10:00"),
+    endAt: at("2030-01-08T10:02"),
+  });
+  const session = await f.db.get(sessionId);
+  const occurrence = await f.db.get(session.taskId);
+  assert.equal(occurrence.seriesId, f.seriesId);
+  assert.equal(
+    localDateTime(occurrence.occurrenceStartAt, f.rule.timezone).slice(0, 10),
+    "2030-01-08"
+  );
+  const movedId = await saveSession._handler(f.context("alice"), {
+    taskId: f.seriesId,
+    startAt: at("2030-01-08T11:00"),
+    endAt: at("2030-01-08T11:02"),
+  });
+  assert.equal(movedId, sessionId);
+  assert.equal((await f.db.get(sessionId)).startAt, at("2030-01-08T11:00"));
+  assert.equal(
+    [...f.rows.values()].filter(
+      (row) =>
+        row._id.startsWith("sessions-") && row.unscheduledAt === undefined
+    ).length,
+    1
+  );
+  await assert.rejects(
+    saveSession._handler(f.context("alice"), {
+      taskId: f.seriesId,
+      startAt: at("2030-01-20T10:00"),
+      endAt: at("2030-01-20T10:02"),
+    }),
+    /no unfinished Occurrence/
+  );
+  await assert.rejects(
+    saveSession._handler(f.context("bob"), {
+      taskId: f.seriesId,
+      startAt: at("2030-01-08T12:00"),
+      endAt: at("2030-01-08T12:02"),
+    })
+  );
+});
+
+test("Scheduling a series resumes the selected Occurrence and frequency drops use distinct Occurrences first", async (t) => {
+  const f = await recurringFixture(t, {
+    kind: "frequency",
+    unit: "week",
+    endAfter: 3,
+  });
+  await f.edit(f.seriesId, { effortMinutes: 2 });
+  const ids = [];
+  for (const hour of [10, 11, 12]) {
+    const startAt = zonedInstant("2030-01-08T" + hour + ":00", f.rule.timezone);
+    ids.push(
+      await saveSession._handler(f.context("alice"), {
+        taskId: f.seriesId,
+        startAt,
+        endAt: startAt + 2 * 60000,
+      })
+    );
+  }
+  assert.equal(
+    new Set(
+      await Promise.all(ids.map(async (id) => (await f.db.get(id)).taskId))
+    ).size,
+    3
+  );
+  const selected = (await f.db.get(ids[0])).taskId;
+  await f.db.patch(selected, { automaticSchedulingPaused: true });
+  await planning.scheduleTask._handler(f.context("alice"), {
+    taskId: f.seriesId,
+    date: "2030-01-08",
+    timezone: f.rule.timezone,
+  });
+  assert.equal((await f.db.get(selected)).automaticSchedulingPaused, false);
 });

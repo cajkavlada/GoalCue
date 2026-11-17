@@ -11,15 +11,27 @@ import {
 import { taskQueries } from "./dbQueries";
 import { authedMutation, authedQuery } from "./utils/authedFunctions";
 import { autoPlan } from "./utils/autoPlan";
+import { resolveOccurrence } from "./utils/recurrence";
 
 export const scheduleTask = authedMutation({
   args: { taskId: v.id("tasks"), date: v.string(), timezone: v.string() },
   rateLimit: { name: "scheduleTask" },
   handler: async (ctx, { taskId, date, timezone }) => {
-    const task = await taskQueries({ ctx }).getById({ taskId });
+    const requested = await taskQueries({ ctx }).getById({ taskId });
+    if (
+      requested.archivedAt !== undefined ||
+      requested.completedAt !== undefined
+    )
+      throw new ConvexError({ message: "Choose an active Task" });
+    const task = await resolveOccurrence(
+      ctx,
+      requested,
+      dayBounds(date, timezone).startAt
+    );
     if (
       task.archivedAt !== undefined ||
       task.completedAt !== undefined ||
+      task.expiredAt !== undefined ||
       task.effortMinutes === undefined
     )
       throw new ConvexError({
@@ -32,7 +44,7 @@ export const scheduleTask = authedMutation({
         message: "Enter a valid planning date and timezone",
       });
     }
-    await ctx.db.patch(taskId, { automaticSchedulingPaused: false });
+    await ctx.db.patch(task._id, { automaticSchedulingPaused: false });
     await autoPlan(ctx, { date, timezone });
   },
 });

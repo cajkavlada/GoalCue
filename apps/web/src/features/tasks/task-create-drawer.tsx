@@ -1,13 +1,21 @@
+import { useState } from "react";
+import { convexQuery } from "@convex-dev/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { addDays, endOfDay } from "date-fns";
 import { Plus } from "lucide-react";
 import z from "zod";
 
+import { api } from "@gc/convex/api";
 import { asFormValidator, useAppForm } from "@gc/form";
 import { m } from "@gc/i18n/messages";
 import { getLocale } from "@gc/i18n/runtime";
 import { ErrorSuspense } from "@gc/react-kit";
 import { Drawer, DrawerButton, parseDateToString } from "@gc/ui";
-import { CreateTaskArgs, createTaskZodSchema } from "@gc/validators";
+import {
+  CreateTaskArgs,
+  createTaskZodSchema,
+  RecurrenceRule,
+} from "@gc/validators";
 
 import { PriorityClassCreateDrawer } from "../priority-classes/priority-class-create-drawer";
 import { priorityClassApi } from "../priority-classes/priority-class.api";
@@ -15,6 +23,7 @@ import { TagCreateDrawer } from "../tags/tag-create-drawer";
 import { tagApi } from "../tags/tag.api";
 import { TaskTypeCreateDrawer } from "../task-types/task-type-create-drawer";
 import { taskTypeApi } from "../task-types/task-type.api";
+import { RecurrenceEditor } from "./recurrence-editor";
 import { taskApi } from "./task.api";
 
 type CreateTaskClientArgs = Omit<CreateTaskArgs, "dueAt"> & {
@@ -29,9 +38,11 @@ export function TaskCreateDrawer() {
       description={m.tasks_create_dialog_description()}
       customFooter
     >
-      <ErrorSuspense>
-        <TaskCreateForm />
-      </ErrorSuspense>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <ErrorSuspense>
+          <TaskCreateForm />
+        </ErrorSuspense>
+      </div>
     </Drawer>
   );
 }
@@ -42,6 +53,12 @@ function TaskCreateForm() {
   const { data: tags } = tagApi.useList();
 
   const createMutation = taskApi.useCreate();
+  const { data: settings } = useSuspenseQuery(
+    convexQuery(api.planning.getSettings, {})
+  );
+  const [recurrence, setRecurrence] = useState<RecurrenceRule | undefined>(
+    undefined
+  );
 
   const defaultDueAt = addDays(endOfDay(new Date()), 2);
   const defaultValues: CreateTaskClientArgs = {
@@ -79,6 +96,7 @@ function TaskCreateForm() {
       await createMutation.mutateAsync({
         dueAt: useDueAt ? dueAt.getTime() : undefined,
         ...rest,
+        recurrence,
       });
     },
   });
@@ -402,6 +420,33 @@ function TaskCreateForm() {
             </div>
           )}
         </form.AppField>
+        <form.Subscribe
+          selector={(state) =>
+            [
+              state.values.taskTypeId,
+              state.values.progressMeasure,
+              state.values.progressUnit,
+            ] as const
+          }
+        >
+          {([taskTypeId, measure, unit]) => (
+            <RecurrenceEditor
+              progressMeasure={measure}
+              progressUnit={unit}
+              unitId={
+                taskTypes.find((taskType) => taskType._id === taskTypeId)
+                  ?.unitId
+              }
+              value={recurrence}
+              onChange={setRecurrence}
+              timezone={
+                settings?.timezone ??
+                Intl.DateTimeFormat().resolvedOptions().timeZone
+              }
+              weekStartsOn={settings?.weekStartsOn}
+            />
+          )}
+        </form.Subscribe>
         <Drawer.Footer>
           <form.SubmitButton />
         </Drawer.Footer>

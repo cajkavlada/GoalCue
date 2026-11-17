@@ -1,8 +1,15 @@
 import * as React from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
+import {
+  CheckIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  CircleHelp,
+} from "lucide-react";
 
 import { cn } from "@gc/utils";
+
+import { Tooltip } from "../tooltip/tooltip";
 
 function Select({
   ...props
@@ -114,8 +121,11 @@ function SelectLabel({
 function SelectItem({
   className,
   children,
+  description,
   ...props
-}: React.ComponentProps<typeof SelectPrimitive.Item>) {
+}: React.ComponentProps<typeof SelectPrimitive.Item> & {
+  description?: string;
+}) {
   return (
     <SelectPrimitive.Item
       data-slot="select-item"
@@ -131,6 +141,24 @@ function SelectItem({
         </SelectPrimitive.ItemIndicator>
       </span>
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+      {description && (
+        <Tooltip
+          content={<span className="block max-w-64">{description}</span>}
+        >
+          <span
+            tabIndex={0}
+            role="img"
+            aria-label={description}
+            className="ml-auto inline-flex cursor-help"
+            onPointerUp={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+          >
+            <CircleHelp className="size-4" />
+          </span>
+        </Tooltip>
+      )}
     </SelectPrimitive.Item>
   );
 }
