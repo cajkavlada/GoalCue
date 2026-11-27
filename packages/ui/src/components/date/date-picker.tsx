@@ -138,6 +138,16 @@ export function DatePicker({
             selected={value}
             captionLayout="dropdown"
             month={selectedMonth}
+            endMonth={
+              new Date(
+                Math.max(
+                  new Date().getFullYear(),
+                  selectedMonth.getFullYear()
+                ) + 10,
+                11,
+                31
+              )
+            }
             formatters={{
               formatMonthDropdown: (month) => parseDateToString(month),
             }}

@@ -1,10 +1,11 @@
+import type { ComponentProps } from "react";
 import { useEffect, useState } from "react";
 import { convexQuery } from "@convex-dev/react-query";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { addMonths, format } from "date-fns";
 import { cs, enUS } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { CalendarIcon, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 
 import { api } from "@gc/convex/api";
 import { m } from "@gc/i18n/messages";
@@ -13,9 +14,11 @@ import { ErrorSuspense } from "@gc/react-kit";
 import {
   Button,
   Calendar,
-  CalendarDayButton,
   Drawer,
   DrawerButton,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Select,
   useModal,
 } from "@gc/ui";
@@ -47,8 +50,30 @@ export function PlanView({
   const timezone =
     settings?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   const today = localDateTime(Date.now(), timezone).slice(0, 10);
-  const day = date ?? today;
   const weekStartsOn = settings?.weekStartsOn ?? 1;
+  const selectedDay = date?.length === 7 ? `${date}-01` : (date ?? today);
+  const day =
+    view === "week"
+      ? shiftDate(
+          selectedDay,
+          -(
+            (new Date(`${selectedDay}T12:00Z`).getUTCDay() - weekStartsOn + 7) %
+            7
+          )
+        )
+      : view === "month"
+        ? `${selectedDay.slice(0, 7)}-01`
+        : selectedDay;
+  const urlDate = view === "month" ? day.slice(0, 7) : day;
+  useEffect(() => {
+    if (view !== "projects" && date !== urlDate) {
+      void navigate({
+        to: `/{-$locale}/dashboard/${view}`,
+        search: { date: urlDate },
+        replace: true,
+      });
+    }
+  }, [date, navigate, urlDate, view]);
   const currentRange =
     view === "month"
       ? day.slice(0, 7) === today.slice(0, 7)
@@ -63,9 +88,18 @@ export function PlanView({
           )
         : day === today;
   const setDay = (date: string) => {
+    const normalizedDate =
+      view === "month"
+        ? date.slice(0, 7)
+        : view === "week"
+          ? shiftDate(
+              date,
+              -((new Date(`${date}T12:00Z`).getUTCDay() - weekStartsOn + 7) % 7)
+            )
+          : date;
     void navigate({
       to: `/{-$locale}/dashboard/${view}`,
-      search: { date },
+      search: { date: normalizedDate },
     });
   };
   const shiftPeriod = (direction: number) =>
@@ -89,12 +123,22 @@ export function PlanView({
           >
             <ChevronLeft />
           </Button>
-          <div className="w-48">
-            <PlanningDatePicker
-              label={m.plan_selected_date()}
-              value={day}
-              onChange={setDay}
-            />
+          <div className={view === "week" ? "w-80" : "w-48"}>
+            {view === "week" || view === "month" ? (
+              <PlanningPeriodPicker
+                key={`${view}-${day}`}
+                view={view}
+                day={day}
+                weekStartsOn={weekStartsOn}
+                onChange={setDay}
+              />
+            ) : (
+              <PlanningDatePicker
+                label={m.plan_selected_date()}
+                value={day}
+                onChange={setDay}
+              />
+            )}
           </div>
           <Button
             size="icon"
@@ -174,6 +218,105 @@ export function PlanView({
         />
       )}
     </>
+  );
+}
+
+function PlanningPeriodPicker({
+  view,
+  day,
+  weekStartsOn,
+  onChange,
+}: {
+  view: "week" | "month";
+  day: string;
+  weekStartsOn: number;
+  onChange: (date: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [month, setMonth] = useState(day.slice(0, 7));
+  const year = Number(month.slice(0, 4));
+  const formatter = new Intl.DateTimeFormat(getLocale(), {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  const rangeLabel = (start: string) =>
+    formatter.formatRange(
+      new Date(`${start}T12:00`),
+      new Date(`${shiftDate(start, 6)}T12:00`)
+    );
+  const firstDay = `${month}-01`;
+  const firstWeek = shiftDate(
+    firstDay,
+    -((new Date(`${firstDay}T12:00Z`).getUTCDay() - weekStartsOn + 7) % 7)
+  );
+  const weeks = Array.from({ length: 6 }, (_, i) =>
+    shiftDate(firstWeek, i * 7)
+  ).filter(
+    (start) =>
+      start.slice(0, 7) === month || shiftDate(start, 6).slice(0, 7) === month
+  );
+  return (
+    <Popover
+      open={open}
+      onOpenChange={setOpen}
+    >
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className="w-full justify-between"
+          aria-label={m.plan_selected_date()}
+        >
+          {view === "week"
+            ? rangeLabel(day)
+            : new Intl.DateTimeFormat(getLocale(), {
+                year: "numeric",
+                month: "long",
+              }).format(new Date(`${day}T12:00`))}
+          <CalendarIcon className="size-4 shrink-0" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 space-y-2">
+        <div className="flex gap-2">
+          <Select
+            value={month.slice(5)}
+            onValueChange={(value) => setMonth(`${year}-${value}`)}
+            options={Array.from({ length: 12 }, (_, i) => ({
+              value: String(i + 1).padStart(2, "0"),
+              label: new Intl.DateTimeFormat(getLocale(), {
+                month: "long",
+              }).format(new Date(year, i, 1)),
+            }))}
+          />
+          <Select
+            value={String(year)}
+            onValueChange={(value) => setMonth(`${value}-${month.slice(5)}`)}
+            options={Array.from({ length: 21 }, (_, i) => ({
+              value: String(year - 10 + i),
+              label: String(year - 10 + i),
+            }))}
+          />
+        </div>
+        {(view === "week" ? weeks : [firstDay]).map((start) => (
+          <Button
+            key={start}
+            variant="ghost"
+            className="w-full justify-start"
+            onClick={() => {
+              onChange(start);
+              setOpen(false);
+            }}
+          >
+            {view === "week"
+              ? rangeLabel(start)
+              : new Intl.DateTimeFormat(getLocale(), {
+                  month: "long",
+                  year: "numeric",
+                }).format(new Date(`${start}T12:00`))}
+          </Button>
+        ))}
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -359,13 +502,9 @@ function PlanOverview({
                   className="min-w-0 border-r"
                 >
                   <div className="h-28 overflow-y-auto">
-                    <Button
-                      variant={date === day ? "secondary" : "ghost"}
-                      className="w-full"
-                      onClick={() => onDayChange(date)}
-                    >
+                    <div className="flex h-9 w-full items-center justify-center px-4 text-sm font-medium">
                       {dateLabel(date)}
-                    </Button>
+                    </div>
                     <p className="px-2 text-xs">
                       {m.plan_workload({ minutes: workload(date) })}
                     </p>
@@ -461,67 +600,80 @@ function PlanOverview({
         <div className="overflow-x-auto p-3">
           <Calendar
             hideNavigation
-            mode="single"
-            required
-            selected={selectedDate}
             month={selectedDate}
             locale={getLocale() === "cs" ? cs : enUS}
             weekStartsOn={
               (settings?.weekStartsOn ?? 1) as 0 | 1 | 2 | 3 | 4 | 5 | 6
             }
             onMonthChange={(date) => onDayChange(format(date, "yyyy-MM-dd"))}
-            onSelect={(date) => date && onDayChange(format(date, "yyyy-MM-dd"))}
-            className="[&_.rdp-day]:border-border/60 w-full min-w-[700px] [--cell-size:7rem] [&_.rdp-day:first-child]:border-l [&_.rdp-day]:rounded-none [&_.rdp-day]:border-0 [&_.rdp-day]:border-r"
+            className="w-full min-w-[700px] p-0"
             classNames={{
-              week: "flex w-full border-t border-border/60 last:border-b",
+              month: "flex w-full flex-col",
+              month_caption: "hidden",
+              month_grid: "block w-full [&>thead]:block",
+              weeks: "block w-full",
+              weekdays: "grid grid-cols-7",
+              week: "grid w-full grid-cols-7 border-border/60 border-t last:border-b",
+              day: "group/day relative min-w-0 overflow-hidden border-border/60 border-r p-0 first:border-l",
+              today: "bg-muted/40",
             }}
             components={{
-              DayButton: (props) => {
-                const date = format(props.day.date, "yyyy-MM-dd");
+              Day: ({
+                day: calendarDay,
+                modifiers: _modifiers,
+                ...props
+              }: ComponentProps<"td"> & {
+                day: { date: Date };
+                modifiers: Record<string, boolean>;
+              }) => {
+                const date = format(calendarDay.date, "yyyy-MM-dd");
                 const items = itemsFor(date);
                 const deadlines = deadlinesFor(date);
                 return (
-                  <div className="h-40 overflow-y-auto p-1">
-                    <CalendarDayButton
-                      {...props}
-                      className="aspect-auto h-auto min-w-0 items-start justify-start p-1 text-left"
-                    >
-                      <strong>{props.day.date.getDate()}</strong>
-                      <span>
-                        {m.plan_workload({ minutes: workload(date) })}
-                      </span>
-                    </CalendarDayButton>
-                    {date === today && (
-                      <div className="my-1 flex items-center gap-1 text-xs font-semibold text-rose-600 dark:text-rose-400">
-                        <span className="h-2 w-2 rounded-full bg-rose-500" />
-                        <time dateTime={new Date(now).toISOString()}>
-                          {clock(now)}
-                        </time>
-                        <span className="h-0.5 flex-1 bg-rose-500" />
+                  <td {...props}>
+                    <div className="flex h-48 min-w-0 flex-col overflow-hidden p-1">
+                      <div className="flex h-8 min-w-0 shrink-0 items-center justify-between gap-1 p-1 text-left">
+                        <strong className="text-base">
+                          {calendarDay.date.getDate()}
+                        </strong>
+                        <span className="truncate text-xs opacity-70">
+                          {m.plan_workload({ minutes: workload(date) })}
+                        </span>
                       </div>
-                    )}
-                    {items.map((item) => (
-                      <button
-                        type="button"
-                        key={item.id}
-                        className={`focus-visible:ring-ring mb-1 block w-full truncate rounded border px-1 py-0.5 text-left text-xs focus-visible:ring-2 ${item.event ? "bg-muted border-border" : "border-primary/35 bg-accent text-accent-foreground"}`}
-                        onClick={() => openItem(item)}
-                      >
-                        {item.title}
-                      </button>
-                    ))}
-                    {deadlines.map((task) => (
-                      <span
-                        key={task._id}
-                        className="block truncate px-1 text-xs"
-                      >
-                        {task.finishKind === "preferred"
-                          ? m.plan_preferred()
-                          : m.plan_deadline()}
-                        : {task.title}
-                      </span>
-                    ))}
-                  </div>
+                      <div className="min-h-0 flex-1 overflow-y-auto">
+                        {date === today && (
+                          <div className="my-1 flex items-center gap-1 text-xs font-semibold text-rose-600 dark:text-rose-400">
+                            <span className="h-2 w-2 rounded-full bg-rose-500" />
+                            <time dateTime={new Date(now).toISOString()}>
+                              {clock(now)}
+                            </time>
+                            <span className="h-0.5 flex-1 bg-rose-500" />
+                          </div>
+                        )}
+                        {items.map((item) => (
+                          <button
+                            type="button"
+                            key={item.id}
+                            className={`focus-visible:ring-ring mb-1 block w-full truncate rounded border px-1 py-0.5 text-left text-xs focus-visible:ring-2 ${item.event ? "bg-muted border-border" : "border-primary/35 bg-accent text-accent-foreground"}`}
+                            onClick={() => openItem(item)}
+                          >
+                            {item.title}
+                          </button>
+                        ))}
+                        {deadlines.map((task) => (
+                          <span
+                            key={task._id}
+                            className="block truncate px-1 text-xs"
+                          >
+                            {task.finishKind === "preferred"
+                              ? m.plan_preferred()
+                              : m.plan_deadline()}
+                            : {task.title}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </td>
                 );
               },
             }}

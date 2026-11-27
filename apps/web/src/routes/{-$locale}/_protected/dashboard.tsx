@@ -8,7 +8,11 @@ import { PlanningChat } from "@/features/planning-chat";
 
 export const Route = createFileRoute("/{-$locale}/_protected/dashboard")({
   validateSearch: (search: Record<string, unknown>): { date?: string } => ({
-    date: z.iso.date().optional().catch(undefined).parse(search.date),
+    date: z
+      .union([z.iso.date(), z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/)])
+      .optional()
+      .catch(undefined)
+      .parse(search.date),
   }),
   component: RouteComponent,
 });
