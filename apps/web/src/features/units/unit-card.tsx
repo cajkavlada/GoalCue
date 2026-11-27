@@ -17,7 +17,7 @@ import { unitApi } from "./unit.api";
 
 export function UnitCard() {
   return (
-    <Card className="min-w-sm flex h-full max-w-md flex-col p-4">
+    <Card className="flex h-[min(40rem,75dvh)] min-h-96 w-full min-w-0 flex-col p-4">
       <CardHeader className="flex items-center justify-between">
         <CardTitle>{m.units_heading()}</CardTitle>
         <CardAction>

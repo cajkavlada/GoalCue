@@ -38,7 +38,10 @@ function RouteComponent() {
                   activeProps={{
                     className: "bg-accent text-accent-foreground",
                   }}
-                  activeOptions={{ exact: true, includeSearch: false }}
+                  activeOptions={{
+                    exact: link.to !== "/{-$locale}/settings",
+                    includeSearch: false,
+                  }}
                 >
                   {link.label}
                 </Link>

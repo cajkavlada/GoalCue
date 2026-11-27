@@ -51,7 +51,7 @@ export function WorkCalendars() {
   const args = { text, from, to, timezone };
   const source = sources.find((s) => s._id === sourceId);
   return (
-    <Card className="mx-auto w-full max-w-xl shrink-0">
+    <Card className="w-full shrink-0">
       <CardHeader>
         <CardTitle>{m.work_calendar_title()}</CardTitle>
       </CardHeader>
