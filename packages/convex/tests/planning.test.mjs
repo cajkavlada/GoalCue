@@ -6027,7 +6027,7 @@ test("Disconnecting one calendar preserves other Sources and their Events", asyn
   );
 });
 
-test("The Day warning distinguishes stale and failed Sources while disconnect confirmation defaults to keeping Events", () => {
+test("The Day warning distinguishes stale and failed Sources while disconnect confirmation defaults to removing Events", () => {
   let sources = [];
   const render = featureRenderer("../calendar-sources.tsx", "CalendarSources", {
     Date,
@@ -6064,7 +6064,7 @@ test("The Day warning distinguishes stale and failed Sources while disconnect co
   assert.ok(nodes.some((node) => node.type === "Link"));
   sources[0].disconnectedAt = Date.now();
   assert.equal(render({ compact: true }), null);
-  const state = [true, false];
+  const state = [true, true];
   const changes = [];
   const disconnect = featureRenderer(
     "../calendar-sources.tsx",
@@ -6075,13 +6075,13 @@ test("The Day warning distinguishes stale and failed Sources while disconnect co
       useConvexMutation: () => {},
       useMutation: () => ({ mutate: (args) => changes.push(args) }),
       Button: "Button",
-      Select: "Select",
+      Checkbox: "Checkbox",
     }
   );
   const confirmation = featureNodes(disconnect({ source: { _id: "source" } }));
   assert.equal(
-    confirmation.find((node) => node.type === "Select").props.value,
-    "keep"
+    confirmation.find((node) => node.type === "Checkbox").props.checked,
+    true
   );
   confirmation
     .find(
@@ -6091,7 +6091,7 @@ test("The Day warning distinguishes stale and failed Sources while disconnect co
     )
     .props.onClick();
   assert.equal(changes.at(-1).sourceId, "source");
-  assert.equal(changes.at(-1).removeRecords, false);
+  assert.equal(changes.at(-1).removeRecords, true);
 });
 
 test("All-day dates stay on their calendar dates across planning timezones without changing stored source data", async () => {
@@ -7554,5 +7554,34 @@ test("A date-specific chat Availability change preserves protected time and othe
       chat.needsConfirmation("archiveTasks", { taskIds: ["task", "other"] }, [])
     ),
     true
+  );
+});
+
+test("Retained calendar Events can only be deleted after their owned Source disconnects", async () => {
+  const f = await calendarFixture();
+  await calendars.applyRefresh._handler(f.context("alice"), f.snapshot);
+  const [event] = await planning.listEvents._handler(f.context("alice"), {});
+  assert.equal(event.canDelete, false);
+  await assert.rejects(
+    planning.deleteEvent._handler(f.context("alice"), { eventId: event._id })
+  );
+  await calendars.disconnectSource._handler(f.context("alice"), {
+    sourceId: f.sourceId,
+    removeRecords: false,
+  });
+  const [retained] = await planning.listEvents._handler(f.context("alice"), {});
+  assert.equal(retained.canDelete, true);
+  await assert.rejects(
+    planning.deleteEvent._handler(f.context("bob"), { eventId: event._id })
+  );
+  await planning.deleteEvent._handler(f.context("alice"), {
+    eventId: event._id,
+  });
+  assert.ok((await f.db.get(event._id)).deletedAt);
+  assert.equal(
+    (await planning.listEvents._handler(f.context("alice"), {})).some(
+      (e) => e._id === event._id
+    ),
+    false
   );
 });

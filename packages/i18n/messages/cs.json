@@ -24,6 +24,7 @@
   "calendar_disconnect_source_hint": "Zastaví přístup k tomuto kalendáři. Ostatní vybrané kalendáře zůstanou připojené. Události můžete zachovat nebo potvrdit jejich odstranění.",
   "calendar_remove_source_records": "Odstranit události tohoto kalendáře",
   "calendar_disconnect_hint": "Okamžitě zastaví přístup ke všem vybraným kalendářům tohoto účtu. Zvolte zachování nebo odstranění odvozených událostí. Ostatní plánovací záznamy jsou nezávislé.",
+  "calendar_remove_imported_events": "Odstranit importované události z GoalCue",
   "calendar_derived_records": "Importované události",
   "calendar_keep_records": "Zachovat události (výchozí)",
   "calendar_remove_records": "Odstranit události tohoto účtu",

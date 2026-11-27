@@ -330,14 +330,30 @@ export const saveSettingsTool = planningTool({
 export const listEvents = authedQuery({
   args: { timezone: v.optional(v.string()) },
   handler: async (ctx, { timezone }) =>
-    (
-      await ctx.db
-        .query("fixedEvents")
-        .withIndex("by_user_start", (q) => q.eq("userId", ctx.userId))
-        .collect()
-    )
-      .filter((event) => event.deletedAt === undefined)
-      .map((event) => projectAllDayEvent(event, timezone ?? event.timezone)),
+    Promise.all(
+      (
+        await ctx.db
+          .query("fixedEvents")
+          .withIndex("by_user_start", (q) => q.eq("userId", ctx.userId))
+          .collect()
+      )
+        .filter((event) => event.deletedAt === undefined)
+        .map(async (event) => {
+          const source = event.sourceId
+            ? await ctx.db.get(event.sourceId)
+            : null;
+          return {
+            ...projectAllDayEvent(event, timezone ?? event.timezone),
+            canDelete:
+              !event.sourceId ||
+              !!(
+                source &&
+                source.userId === ctx.userId &&
+                source.disconnectedAt !== undefined
+              ),
+          };
+        })
+    ),
 });
 
 export const setEventAttention = authedMutation({
@@ -435,10 +451,17 @@ export const deleteEventTool = planningTool({
     const event = await ctx.db.get(eventId);
     if (!event || event.userId !== ctx.userId)
       throw new ConvexError({ message: "Event not found" });
-    if (event.sourceId)
-      throw new ConvexError({
-        message: "Disconnect the calendar Source to remove imported Events",
-      });
+    if (event.sourceId) {
+      const source = await ctx.db.get(event.sourceId);
+      if (
+        !source ||
+        source.userId !== ctx.userId ||
+        source.disconnectedAt === undefined
+      )
+        throw new ConvexError({
+          message: "Disconnect the calendar Source to remove imported Events",
+        });
+    }
     await ctx.db.patch(eventId, {
       deletedAt: Date.now(),
       ...(event.workSourceId ? { locallyDeleted: true } : {}),

@@ -24,6 +24,7 @@
   "calendar_disconnect_source_hint": "Stop access to this calendar. Other selected calendars stay connected. Keep its Events or confirm their removal.",
   "calendar_remove_source_records": "Remove this calendar’s Events",
   "calendar_disconnect_hint": "Stop access to all selected calendars on this account immediately. Choose whether to keep their derived Events or remove them. Other planning records remain independent.",
+  "calendar_remove_imported_events": "Remove imported events from GoalCue",
   "calendar_derived_records": "Imported Events",
   "calendar_keep_records": "Keep Events (default)",
   "calendar_remove_records": "Remove this account’s Events",
