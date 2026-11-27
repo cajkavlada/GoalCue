@@ -198,7 +198,7 @@ Work planning fields may be imported while work descriptions and excerpts remain
 
 ### 8.4 Exports
 
-Lower-priority future exports include complete portable planning data in JSON, Task lists in CSV, and selected plan date ranges in ICS. Exports are user-initiated and never write changes back to connected calendars, mail, or Jira.
+User-triggered exports of GoalCue planning data as JSON, Task lists as CSV, and selected plan date ranges as ICS are out of scope. See [#229](https://github.com/cajkavlada/GoalCue/issues/229).
 
 ## 9. Privacy, AI, and chat
 

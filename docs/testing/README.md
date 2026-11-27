@@ -1,6 +1,6 @@
 # Try issues #223–#232
 
-Nine example-led guides; #229 was intentionally skipped. These describe the checked-out implementation, not just the issue promises. They are manual test instructions, **not results of a completed browser test**.
+These nine example-led guides cover the checked-out implementation. Each guide provides manual test instructions. File exports ([#229](https://github.com/cajkavlada/GoalCue/issues/229)) were dropped from the planning scope.
 
 Use a test account with no unrelated Tasks. Create a Task type and Priority class in Settings first if none exist. English control names are used below. Choose future dates so automatic planning has usable time; dates in file examples are fixed so the expected results are easy to compare.
 
