@@ -512,7 +512,8 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
             className="shrink-0 justify-start"
             onClick={() => editEvent(event)}
           >
-            {m.calendar_all_day()}: {event.title} · {event.sourceTitle}
+            {event.title} · {m.calendar_all_day()}
+            {event.sourceTitle && ` · ${event.sourceTitle}`}
           </Button>
         ))}
       <div className="flex shrink-0 items-center gap-2 border-b px-3 py-1">
@@ -1242,12 +1243,7 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
                             width: `calc(${100 / pos.lanes}% - 6px)`,
                           }}
                         >
-                          <p className="font-semibold">
-                            {event.attention === "focused"
-                              ? m.constraints_focused()
-                              : m.constraints_background()}
-                            : {event.title}
-                          </p>
+                          <p className="font-semibold">{event.title}</p>
                           <p>
                             {clock(event.startAt)}–{clock(event.endAt)}
                           </p>
@@ -1388,7 +1384,7 @@ function RecoveryHistory({ timezone }: { timezone: string }) {
   );
 }
 
-function SessionDetails({ placement }: { placement: Placement }) {
+export function SessionDetails({ placement }: { placement: Placement }) {
   const { data: task } = useSuspenseQuery(
     convexQuery(api.tasks.getExtendedById, { taskId: placement.taskId })
   );

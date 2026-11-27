@@ -17,6 +17,7 @@ import {
   Drawer,
   DrawerButton,
   Select,
+  useModal,
 } from "@gc/ui";
 import {
   availabilityOn,
@@ -26,7 +27,7 @@ import {
 } from "@gc/validators";
 
 import { layoutSessions } from "./day-calendar-layout";
-import { DayView } from "./day-view";
+import { DayView, SessionDetails } from "./day-view";
 import { ProjectCreateDrawer, ProjectsView } from "./projects";
 import { EventDetails, PlanningDatePicker } from "./schedule-constraints";
 import { TaskCreateDrawer } from "./task-create-drawer";
@@ -45,7 +46,22 @@ export function PlanView({
   );
   const timezone =
     settings?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const day = date ?? localDateTime(Date.now(), timezone).slice(0, 10);
+  const today = localDateTime(Date.now(), timezone).slice(0, 10);
+  const day = date ?? today;
+  const weekStartsOn = settings?.weekStartsOn ?? 1;
+  const currentRange =
+    view === "month"
+      ? day.slice(0, 7) === today.slice(0, 7)
+      : view === "week"
+        ? shiftDate(
+            day,
+            -((new Date(day + "T12:00Z").getUTCDay() - weekStartsOn + 7) % 7)
+          ) ===
+          shiftDate(
+            today,
+            -((new Date(today + "T12:00Z").getUTCDay() - weekStartsOn + 7) % 7)
+          )
+        : day === today;
   const setDay = (date: string) => {
     void navigate({
       to: `/{-$locale}/dashboard/${view}`,
@@ -88,6 +104,14 @@ export function PlanView({
           >
             <ChevronRight />
           </Button>
+          {view !== "projects" && !currentRange && (
+            <Button
+              variant="outline"
+              onClick={() => setDay(today)}
+            >
+              {m.check_in_today()}
+            </Button>
+          )}
           <span className="text-muted-foreground hidden pb-2 text-xs lg:inline">
             {timezone}
           </span>
@@ -182,6 +206,7 @@ function PlanOverview({
     convexQuery(api.planning.getSettings, {})
   );
   const { data: groups } = useSuspenseQuery(convexQuery(api.projects.list, {}));
+  const { openDrawer } = useModal();
   const [project, setProject] = useState("all");
   const weekday = new Date(`${day}T12:00Z`).getUTCDay();
   const weekStart = shiftDate(
@@ -210,7 +235,8 @@ function PlanOverview({
         .map((s) => ({
           id: s._id,
           title: s.taskTitle,
-          kind: m.plan_session(),
+          session: s,
+          eventDetails: undefined,
           startAt: s.startAt,
           endAt: s.endAt,
           event: false,
@@ -221,13 +247,52 @@ function PlanOverview({
         .map((e) => ({
           id: e._id,
           title: e.sourceTitle ? `${e.title} · ${e.sourceTitle}` : e.title,
-          kind: `${m.plan_event()} · ${e.attention === "background" ? m.constraints_background() : m.constraints_focused()}`,
+          session: undefined,
+          eventDetails: e,
           startAt: e.startAt,
           endAt: e.endAt,
           event: true,
           allDay: !!e.allDayStart,
         })),
     ].sort((a, b) => a.startAt - b.startAt || a.endAt - b.endAt);
+  };
+  const openItem = (item: ReturnType<typeof itemsFor>[number]) => {
+    openDrawer(
+      <Drawer
+        title={
+          item.eventDetails
+            ? m.constraints_event()
+            : m.planning_session_details()
+        }
+        description={
+          item.eventDetails
+            ? m.constraints_attention_hint()
+            : m.planning_session_description()
+        }
+        customFooter
+      >
+        <ErrorSuspense>
+          {item.eventDetails ? (
+            <EventDetails
+              day={localDateTime(item.startAt, timezone).slice(0, 10)}
+              timezone={timezone}
+              event={item.eventDetails}
+            />
+          ) : (
+            item.session && (
+              <SessionDetails
+                placement={{
+                  taskId: item.session.taskId,
+                  sessionId: item.session._id,
+                  startAt: item.startAt,
+                  endAt: item.endAt,
+                }}
+              />
+            )
+          )}
+        </ErrorSuspense>
+      </Drawer>
+    );
   };
   const deadlinesFor = (date: string) =>
     tasks.filter(
@@ -360,9 +425,8 @@ function PlanOverview({
                             left: `${(lane * 100) / lanes}%`,
                             zIndex: index + 1,
                           }}
-                          onClick={() => onDayChange(date)}
+                          onClick={() => openItem(item)}
                         >
-                          <span className="block">{item.kind}</span>
                           <strong>{item.title}</strong>
                           <span className="block">
                             {item.allDay
@@ -398,34 +462,39 @@ function PlanOverview({
                 const date = format(props.day.date, "yyyy-MM-dd");
                 const items = itemsFor(date);
                 const deadlines = deadlinesFor(date);
-                const labels = [
-                  ...items.map((item) => `${item.kind}: ${item.title}`),
-                  ...deadlines.map(
-                    (t) =>
-                      `${t.finishKind === "preferred" ? m.plan_preferred() : m.plan_deadline()}: ${t.title}`
-                  ),
-                ];
                 return (
-                  <CalendarDayButton
-                    {...props}
-                    className="h-32 items-start justify-start overflow-hidden p-2 text-left"
-                  >
-                    <strong>{props.day.date.getDate()}</strong>
-                    <span>{m.plan_workload({ minutes: workload(date) })}</span>
-                    {labels.slice(0, 2).map((label, i) => (
-                      <span
-                        key={i}
-                        className="block w-full truncate"
+                  <div className="h-40 overflow-y-auto p-1">
+                    <CalendarDayButton
+                      {...props}
+                      className="aspect-auto h-auto min-w-0 items-start justify-start p-1 text-left"
+                    >
+                      <strong>{props.day.date.getDate()}</strong>
+                      <span>
+                        {m.plan_workload({ minutes: workload(date) })}
+                      </span>
+                    </CalendarDayButton>
+                    {items.map((item) => (
+                      <button
+                        type="button"
+                        key={item.id}
+                        className="hover:bg-accent focus-visible:ring-ring block w-full truncate rounded px-1 py-0.5 text-left text-xs focus-visible:ring-2"
+                        onClick={() => openItem(item)}
                       >
-                        {label}
+                        {item.title}
+                      </button>
+                    ))}
+                    {deadlines.map((task) => (
+                      <span
+                        key={task._id}
+                        className="block truncate px-1 text-xs"
+                      >
+                        {task.finishKind === "preferred"
+                          ? m.plan_preferred()
+                          : m.plan_deadline()}
+                        : {task.title}
                       </span>
                     ))}
-                    {labels.length > 2 && (
-                      <span>
-                        {m.plan_overflow({ count: labels.length - 2 })}
-                      </span>
-                    )}
-                  </CalendarDayButton>
+                  </div>
                 );
               },
             }}
@@ -449,11 +518,16 @@ function PlanOverview({
               key={item.id}
               className={`rounded border p-2 ${item.event ? "border-dashed" : "border-l-4"}`}
             >
-              <span>{item.kind}: </span>
-              <strong>{item.title}</strong> ·{" "}
-              {item.allDay
-                ? m.calendar_all_day()
-                : `${clock(item.startAt)}–${clock(item.endAt)}`}
+              <button
+                type="button"
+                className="w-full text-left"
+                onClick={() => openItem(item)}
+              >
+                <strong>{item.title}</strong> ·{" "}
+                {item.allDay
+                  ? m.calendar_all_day()
+                  : `${clock(item.startAt)}–${clock(item.endAt)}`}
+              </button>
             </li>
           ))}
         </ul>
