@@ -278,7 +278,7 @@ export function WorkCalendars() {
                   <p>
                     {event.allDayStart
                       ? `${event.allDayStart} – ${event.allDayEnd} (${m.work_calendar_all_day()})`
-                      : `${new Date(event.startAt).toLocaleString(undefined, { timeZone: timezone })} – ${new Date(event.endAt).toLocaleString(undefined, { timeZone: timezone })} (${timezone})`}
+                      : `${new Date(event.startAt).toLocaleString(undefined, { timeZone: timezone })} – ${new Date(event.endAt).toLocaleString(undefined, { timeZone: timezone })}`}
                   </p>
                   {event.location && <p>{event.location}</p>}
                   {event.meetingLink && (

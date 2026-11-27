@@ -664,8 +664,8 @@ export function EventDetails({
           </p>
         ) : (
           <p>
-            {localDateTime(event.startAt, event.timezone)} –{" "}
-            {localDateTime(event.endAt, event.timezone)} · {event.timezone}
+            {localDateTime(event.startAt, timezone)} –{" "}
+            {localDateTime(event.endAt, timezone)}
           </p>
         )}
         {event.location && <p>{event.location}</p>}
@@ -931,13 +931,12 @@ export function EventDetails({
             }}
             options={startChoices.map((instant, index) => ({
               value: index === 0 ? ("earlier" as const) : ("later" as const),
-              label: new Intl.DateTimeFormat(undefined, {
+              label: `${new Intl.DateTimeFormat(undefined, {
                 timeZone: zone,
                 hour: "2-digit",
                 minute: "2-digit",
-                timeZoneName: "shortOffset",
                 hourCycle: "h23",
-              }).format(instant),
+              }).format(instant)} (${index + 1}/2)`,
             }))}
           />
           <span className="text-muted-foreground block text-xs">
@@ -964,13 +963,12 @@ export function EventDetails({
             }}
             options={endChoices.map((instant, index) => ({
               value: index === 0 ? ("earlier" as const) : ("later" as const),
-              label: new Intl.DateTimeFormat(undefined, {
+              label: `${new Intl.DateTimeFormat(undefined, {
                 timeZone: zone,
                 hour: "2-digit",
                 minute: "2-digit",
-                timeZoneName: "shortOffset",
                 hourCycle: "h23",
-              }).format(instant),
+              }).format(instant)} (${index + 1}/2)`,
             }))}
           />
           <span className="text-muted-foreground block text-xs">

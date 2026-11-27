@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { convexQuery } from "@convex-dev/react-query";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
@@ -112,9 +112,6 @@ export function PlanView({
               {m.check_in_today()}
             </Button>
           )}
-          <span className="text-muted-foreground hidden pb-2 text-xs lg:inline">
-            {timezone}
-          </span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <DrawerButton
@@ -207,6 +204,12 @@ function PlanOverview({
   );
   const { data: groups } = useSuspenseQuery(convexQuery(api.projects.list, {}));
   const { openDrawer } = useModal();
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const today = localDateTime(now, timezone).slice(0, 10);
   const [project, setProject] = useState("all");
   const weekday = new Date(`${day}T12:00Z`).getUTCDay();
   const weekStart = shiftDate(
@@ -385,7 +388,7 @@ function PlanOverview({
                     {Array.from({ length: Math.ceil(minutes / 60) }, (_, i) => (
                       <div
                         key={i}
-                        className="text-muted-foreground absolute w-full border-t text-[10px]"
+                        className="text-muted-foreground absolute w-full border-t border-dashed text-[10px]"
                         style={{ top: i * 60 }}
                       >
                         {clock(bounds.startAt + i * 3600000)}
@@ -394,7 +397,7 @@ function PlanOverview({
                     {protectedPeriods.map((p, i) => (
                       <div
                         key={i}
-                        className="bg-muted absolute inset-x-0 border-y border-dashed text-xs"
+                        className="bg-muted absolute inset-x-0 border-y text-xs"
                         style={{
                           top: (p.startAt - bounds.startAt) / 60000,
                           height: (p.endAt - p.startAt) / 60000,
@@ -403,13 +406,25 @@ function PlanOverview({
                         {m.constraints_protected()}
                       </div>
                     ))}
+                    {now >= bounds.startAt && now < bounds.endAt && (
+                      <div
+                        className="pointer-events-none absolute inset-x-0 z-30 border-t-2 border-rose-500"
+                        style={{ top: (now - bounds.startAt) / 60000 }}
+                        aria-label={clock(now)}
+                      >
+                        <span className="absolute -left-1 -top-1 h-2 w-2 rounded-full bg-rose-500" />
+                        <span className="absolute bottom-1 right-1 rounded bg-rose-500 px-1 text-[10px] font-semibold text-white">
+                          {clock(now)}
+                        </span>
+                      </div>
+                    )}
                     {items.map((item, index) => {
                       const { lane, lanes } = positions.get(item.id)!;
                       return (
                         <button
                           type="button"
                           key={item.id}
-                          className={`bg-background absolute overflow-hidden rounded border p-1 text-left text-xs focus:z-20 focus:ring-2 ${item.event ? "border-dashed" : "border-l-4 border-solid"}`}
+                          className={`absolute overflow-hidden rounded-md border p-2 text-left text-xs focus:z-40 focus:ring-2 ${item.event ? "bg-muted border-border" : "border-primary/35 bg-accent text-accent-foreground"}`}
                           style={{
                             top:
                               (Math.max(item.startAt, bounds.startAt) -
@@ -421,8 +436,8 @@ function PlanOverview({
                                 Math.max(item.startAt, bounds.startAt)) /
                                 60000
                             ),
-                            width: `${100 / lanes}%`,
-                            left: `${(lane * 100) / lanes}%`,
+                            width: `calc(${100 / lanes}% - 6px)`,
+                            left: `calc(${(lane * 100) / lanes}% + 3px)`,
                             zIndex: index + 1,
                           }}
                           onClick={() => openItem(item)}
@@ -456,7 +471,10 @@ function PlanOverview({
             }
             onMonthChange={(date) => onDayChange(format(date, "yyyy-MM-dd"))}
             onSelect={(date) => date && onDayChange(format(date, "yyyy-MM-dd"))}
-            className="w-full min-w-[700px] [--cell-size:7rem]"
+            className="[&_.rdp-day]:border-border/60 w-full min-w-[700px] [--cell-size:7rem] [&_.rdp-day:first-child]:border-l [&_.rdp-day]:rounded-none [&_.rdp-day]:border-0 [&_.rdp-day]:border-r"
+            classNames={{
+              week: "flex w-full border-t border-border/60 last:border-b",
+            }}
             components={{
               DayButton: (props) => {
                 const date = format(props.day.date, "yyyy-MM-dd");
@@ -473,11 +491,20 @@ function PlanOverview({
                         {m.plan_workload({ minutes: workload(date) })}
                       </span>
                     </CalendarDayButton>
+                    {date === today && (
+                      <div className="my-1 flex items-center gap-1 text-xs font-semibold text-rose-600 dark:text-rose-400">
+                        <span className="h-2 w-2 rounded-full bg-rose-500" />
+                        <time dateTime={new Date(now).toISOString()}>
+                          {clock(now)}
+                        </time>
+                        <span className="h-0.5 flex-1 bg-rose-500" />
+                      </div>
+                    )}
                     {items.map((item) => (
                       <button
                         type="button"
                         key={item.id}
-                        className="hover:bg-accent focus-visible:ring-ring block w-full truncate rounded px-1 py-0.5 text-left text-xs focus-visible:ring-2"
+                        className={`focus-visible:ring-ring mb-1 block w-full truncate rounded border px-1 py-0.5 text-left text-xs focus-visible:ring-2 ${item.event ? "bg-muted border-border" : "border-primary/35 bg-accent text-accent-foreground"}`}
                         onClick={() => openItem(item)}
                       >
                         {item.title}
@@ -516,7 +543,7 @@ function PlanOverview({
           {agenda.map((item) => (
             <li
               key={item.id}
-              className={`rounded border p-2 ${item.event ? "border-dashed" : "border-l-4"}`}
+              className={`rounded-md border p-2 ${item.event ? "bg-muted border-border" : "border-primary/35 bg-accent text-accent-foreground"}`}
             >
               <button
                 type="button"

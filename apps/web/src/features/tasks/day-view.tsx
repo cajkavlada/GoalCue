@@ -28,7 +28,6 @@ import {
 import {
   availabilityOn,
   dayBounds,
-  eventsCompatible,
   localDateTime,
   locationWindows,
   overlaps,
@@ -154,7 +153,6 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
       hour: "2-digit",
       minute: "2-digit",
       hourCycle: "h23",
-      timeZoneName: "shortOffset",
     }).format(instant);
   const save = useMutation({
     mutationFn: useConvexMutation(api.sessions.saveSession),
@@ -229,22 +227,6 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
         </ErrorSuspense>
       </Drawer>
     );
-  const eventConflicts = (event: Doc<"fixedEvents">) => [
-    ...events
-      .filter(
-        (other) =>
-          other._id !== event._id &&
-          overlaps(other, event) &&
-          !eventsCompatible(event, other)
-      )
-      .map((other) => other.title),
-    ...sessions
-      .filter(
-        (session) => overlaps(session, event) && event.attention === "focused"
-      )
-      .map((session) => session.taskTitle),
-  ];
-
   const inspect = useCallback(
     (placement: Placement) => {
       openDrawer(
@@ -1033,7 +1015,7 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
                   {constraints.protected.map((window, index) => (
                     <div
                       key={`protected-${index}`}
-                      className="pointer-events-none absolute inset-x-0 border-2 border-dashed border-amber-600 bg-amber-500/15"
+                      className="pointer-events-none absolute inset-x-0 border border-amber-600 bg-amber-500/15"
                       style={{
                         top: ((window.startAt - start) / MINUTE) * PX,
                         height: ((window.endAt - window.startAt) / MINUTE) * PX,
@@ -1049,7 +1031,7 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
                     (_, i) => (
                       <div
                         key={i}
-                        className={`pointer-events-none absolute left-0 right-0 border-t ${i % 4 === 0 ? "border-border" : "border-border/35 border-dashed"}`}
+                        className={`pointer-events-none absolute left-0 right-0 border-t border-dashed ${i % 4 === 0 ? "border-border" : "border-border/35"}`}
                         style={{ top: i * 15 * PX }}
                       >
                         {i % 4 === 0 && (
@@ -1062,10 +1044,13 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
                   )}
                   {now >= start && now < end && (
                     <div
-                      className="pointer-events-none absolute left-0 right-0 z-10 border-t border-rose-500"
+                      className="pointer-events-none absolute left-0 right-0 z-30 border-t-2 border-rose-500"
                       style={{ top: ((now - start) / MINUTE) * PX }}
                     >
                       <span className="absolute -left-1 -top-1 h-2 w-2 rounded-full bg-rose-500" />
+                      <span className="absolute bottom-1 right-1 rounded bg-rose-500 px-1 text-[10px] font-semibold text-white">
+                        {clock(now)}
+                      </span>
                     </div>
                   )}
                   {rendered.map((session) => {
@@ -1227,7 +1212,7 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
                       return (
                         <button
                           key={event._id}
-                          className="bg-muted absolute z-[2] overflow-auto rounded border-2 border-dashed p-2 text-left text-xs"
+                          className="bg-muted border-border absolute z-[2] overflow-auto rounded-md border p-2 text-left text-xs"
                           onClick={() => editEvent(event)}
                           style={{
                             top:
@@ -1250,15 +1235,6 @@ export function DayView({ selectedDay }: { selectedDay: string }) {
                           {event.sourceTitle && (
                             <p>
                               {m.calendar_source()}: {event.sourceTitle}
-                            </p>
-                          )}
-                          {event.attentionUncertain && (
-                            <p>{m.calendar_attention_uncertain()}</p>
-                          )}
-                          {!!eventConflicts(event).length && (
-                            <p role="status">
-                              {m.constraints_conflicts()}:{" "}
-                              {eventConflicts(event).join(", ")}
                             </p>
                           )}
                         </button>
@@ -1503,7 +1479,6 @@ export function SessionDetails({ placement }: { placement: Placement }) {
           />{" "}
           {m.planning_pin_session()}
         </label>
-        <p className="text-xs">{timezone}</p>
         {timeError && <p role="alert">{timeError}</p>}
         {!!reasons.length && (
           <p role="alert">
