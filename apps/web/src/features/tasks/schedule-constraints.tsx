@@ -690,6 +690,16 @@ export function EventDetails({
             {m.calendar_open_source()}
           </a>
         )}
+        {events.find((item) => item._id === event._id)?.canDelete && (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={remove.isPending || saveAttention.isPending}
+            onClick={() => remove.mutate({ eventId: event._id })}
+          >
+            {m.constraints_delete_event()}
+          </Button>
+        )}
         {event.attentionUncertain && (
           <p role="status">{m.calendar_attention_uncertain()}</p>
         )}
@@ -704,7 +714,7 @@ export function EventDetails({
             ]}
           />
         </label>
-        {saveAttention.isError && (
+        {(saveAttention.isError || remove.isError) && (
           <p role="alert">{m.planning_save_failed()}</p>
         )}
         <Button

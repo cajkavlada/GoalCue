@@ -170,7 +170,7 @@ function CalendarSourceDisconnect({
   source: Doc<"calendarSources">;
 }) {
   const [confirming, setConfirming] = useState(false);
-  const [removeRecords, setRemoveRecords] = useState(false);
+  const [removeRecords, setRemoveRecords] = useState(true);
   const disconnect = useMutation({
     mutationFn: useConvexMutation(api.calendars.disconnectSource),
   });
@@ -178,23 +178,22 @@ function CalendarSourceDisconnect({
     <div className="space-y-2">
       <Button
         variant="outline"
-        onClick={() => setConfirming(!confirming)}
+        onClick={() => {
+          setRemoveRecords(true);
+          setConfirming(!confirming);
+        }}
       >
         {m.calendar_disconnect_source()}
       </Button>
       {confirming && (
         <>
           <p className="text-sm">{m.calendar_disconnect_source_hint()}</p>
-          <label className="block space-y-1">
-            {m.calendar_derived_records()}
-            <Select
-              value={removeRecords ? "remove" : "keep"}
-              onValueChange={(value) => setRemoveRecords(value === "remove")}
-              options={[
-                { value: "keep", label: m.calendar_keep_records() },
-                { value: "remove", label: m.calendar_remove_source_records() },
-              ]}
+          <label className="flex items-center gap-2">
+            <Checkbox
+              checked={removeRecords}
+              onCheckedChange={(checked) => setRemoveRecords(checked === true)}
             />
+            {m.calendar_remove_imported_events()}
           </label>
           <Button
             disabled={disconnect.isPending}
@@ -220,7 +219,7 @@ function CalendarGrant({
 }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [disconnecting, setDisconnecting] = useState(false);
-  const [removeRecords, setRemoveRecords] = useState(false);
+  const [removeRecords, setRemoveRecords] = useState(true);
   const select = useMutation({
     mutationFn: useConvexMutation(api.calendars.select),
     onSuccess: () => setSelected([]),
@@ -263,23 +262,22 @@ function CalendarGrant({
       )}
       <Button
         variant="outline"
-        onClick={() => setDisconnecting(!disconnecting)}
+        onClick={() => {
+          setRemoveRecords(true);
+          setDisconnecting(!disconnecting);
+        }}
       >
         {m.calendar_disconnect()}
       </Button>
       {disconnecting && (
         <div className="space-y-2">
           <p className="text-sm">{m.calendar_disconnect_hint()}</p>
-          <label className="block space-y-1">
-            {m.calendar_derived_records()}
-            <Select
-              value={removeRecords ? "remove" : "keep"}
-              onValueChange={(value) => setRemoveRecords(value === "remove")}
-              options={[
-                { value: "keep", label: m.calendar_keep_records() },
-                { value: "remove", label: m.calendar_remove_records() },
-              ]}
+          <label className="flex items-center gap-2">
+            <Checkbox
+              checked={removeRecords}
+              onCheckedChange={(checked) => setRemoveRecords(checked === true)}
             />
+            {m.calendar_remove_imported_events()}
           </label>
           <Button
             disabled={disconnect.isPending}

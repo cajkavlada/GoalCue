@@ -28,9 +28,11 @@
 
 Use only the demo source:
 
-1. Choose **Disconnect source → Keep imported Events → Confirm**. Events remain, but further Google changes should no longer sync.
-2. Repeat with another demo source and choose **Remove source records**. Its imported Events disappear; unrelated Sources remain.
-3. Account-level **Disconnect** applies the keep/remove choice across that connection's Sources. Source-level disconnect affects only the selected calendar.
+1. Choose **Disconnect source**. **Remove imported events from GoalCue** starts checked. Uncheck it, cancel by toggling **Disconnect source**, and reopen: it should be checked again. Uncheck and confirm to retain Events; further Google changes should no longer sync.
+2. Repeat with another demo source and confirm with the checkbox checked. All its imported Events, including recurring occurrences, disappear; unrelated Sources and manual Events remain.
+3. Account-level **Disconnect** has the same checked default and reset behavior, and applies the choice across that connection’s Sources. Source-level disconnect affects only the selected calendar.
+4. Open a retained Event’s details and use **Delete Event**, as for a manual Event. It disappears and its time becomes available to the plan. Repeat with an Event retained before this change. Active-calendar Events must not show this action; backend deletion must reject active-calendar Events and another user’s Events.
+5. Verify the original appointments still exist in Google Calendar after both disconnect cleanup and individual deletion.
 
 **Look for throughout:** Google Calendar remains unchanged by GoalCue refreshes and local planning. Connected personal-calendar records are excluded from planning chat context in the current implementation.
 
