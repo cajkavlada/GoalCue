@@ -37,3 +37,22 @@ Use only the demo source:
 **Look for throughout:** Google Calendar remains unchanged by GoalCue refreshes and local planning. Connected personal-calendar records are excluded from planning chat context in the current implementation.
 
 **If connection fails immediately:** the deployment needs Google Calendar OAuth and encryption configuration. This is a setup prerequisite, not a calendar-selection mistake. The relevant server settings are in [googleCalendar.ts](../../packages/convex/convex/googleCalendar.ts#L20).
+
+## Settings routes and OAuth deployment migration
+
+Settings opens Planning time at `/settings/planning-time` by default. Personal calendars is at `/settings/personal-calendars`. Each path also supports the optional locale prefix, for example `/cs/settings/personal-calendars`.
+
+For every applicable Convex deployment (development, preview, and production), change `GOOGLE_CALENDAR_APP_URL` to the full frontend Personal calendars URL, for example `https://<app-host>/settings/personal-calendars` or `https://<app-host>/cs/settings/personal-calendars`. Keep the configured locale prefix when used. Existing deployment values pointing at `/settings` continue to work through a compatibility redirect.
+
+The Google Cloud authorized redirect URI stays `<CONVEX_SITE_URL>/calendar/google/callback`. It is the backend callback, not the frontend Settings URL.
+
+### Check the settings navigation
+
+- Visit each subsection directly: `mail`, `personal-calendars`, `planning-time`, `jira-import`, `work-calendars`, `task-types`, `units`, `priority-classes`, and `tags` under `/settings/`. Only the selected panel should render.
+- Reload a subsection, switch sections, and use browser Back/Forward. Repeat with `/cs/settings/…`; links and redirects must retain the locale.
+- Open `/settings` without callback parameters: it should replace the URL with Planning time. Check that Settings remains highlighted in the main navigation.
+- At desktop width, check the sidebar and adjacent panel. At mobile width, check the wrapping navigation, readable labels, and absence of horizontal page overflow. Tab through links and use Enter to open a section; the current section should have a visible active state.
+- Complete Google authorization with the new deployment value. Confirm the result appears in Personal calendars and `calendarState` / `calendarCode` disappear from the URL after completion.
+- Repeat authorization with `GOOGLE_CALENDAR_APP_URL` temporarily targeting legacy `/settings` (and a locale-prefixed equivalent). Callback parameters must forward to Personal calendars before authorization runs.
+- Try missing, invalid, and oversized callback parameters. State is bounded to 128 characters and code to 4096; invalid values are discarded. Confirm failure feedback still appears for a rejected authorization and parameters are cleared after the attempt.
+- From a stale-calendar banner in the plan, follow Manage calendars: it should open Personal calendars.

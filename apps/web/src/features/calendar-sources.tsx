@@ -74,7 +74,7 @@ export function CalendarSources({ compact = false }: { compact?: boolean }) {
         {m.calendar_stale()}: {stale.map((s) => s.title).join(", ")}.{" "}
         {m.calendar_previous_preserved()}
         <Link
-          to="/{-$locale}/settings"
+          to="/{-$locale}/settings/personal-calendars"
           className="ml-2 underline"
         >
           {m.calendar_manage()}

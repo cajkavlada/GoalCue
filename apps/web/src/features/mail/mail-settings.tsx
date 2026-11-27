@@ -89,7 +89,7 @@ export function MailSettings() {
   }, [sourceVersion]);
 
   return (
-    <Card className="mx-auto w-full max-w-xl shrink-0">
+    <Card className="w-full shrink-0">
       <CardHeader>
         <CardTitle>{m.mail_title()}</CardTitle>
       </CardHeader>

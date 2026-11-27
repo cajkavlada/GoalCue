@@ -14,7 +14,17 @@ import { Route as Char123LocaleChar125IndexRouteImport } from './routes/{-$local
 import { Route as Char123LocaleChar125ProtectedRouteRouteImport } from './routes/{-$locale}/_protected/route'
 import { Route as Char123LocaleChar125ProtectedSettingsRouteImport } from './routes/{-$locale}/_protected/settings'
 import { Route as Char123LocaleChar125ProtectedDashboardRouteImport } from './routes/{-$locale}/_protected/dashboard'
+import { Route as Char123LocaleChar125ProtectedSettingsIndexRouteImport } from './routes/{-$locale}/_protected/settings.index'
 import { Route as Char123LocaleChar125ProtectedDashboardIndexRouteImport } from './routes/{-$locale}/_protected/dashboard.index'
+import { Route as Char123LocaleChar125ProtectedSettingsWorkCalendarsRouteImport } from './routes/{-$locale}/_protected/settings.work-calendars'
+import { Route as Char123LocaleChar125ProtectedSettingsUnitsRouteImport } from './routes/{-$locale}/_protected/settings.units'
+import { Route as Char123LocaleChar125ProtectedSettingsTaskTypesRouteImport } from './routes/{-$locale}/_protected/settings.task-types'
+import { Route as Char123LocaleChar125ProtectedSettingsTagsRouteImport } from './routes/{-$locale}/_protected/settings.tags'
+import { Route as Char123LocaleChar125ProtectedSettingsPriorityClassesRouteImport } from './routes/{-$locale}/_protected/settings.priority-classes'
+import { Route as Char123LocaleChar125ProtectedSettingsPlanningTimeRouteImport } from './routes/{-$locale}/_protected/settings.planning-time'
+import { Route as Char123LocaleChar125ProtectedSettingsPersonalCalendarsRouteImport } from './routes/{-$locale}/_protected/settings.personal-calendars'
+import { Route as Char123LocaleChar125ProtectedSettingsMailRouteImport } from './routes/{-$locale}/_protected/settings.mail'
+import { Route as Char123LocaleChar125ProtectedSettingsJiraImportRouteImport } from './routes/{-$locale}/_protected/settings.jira-import'
 import { Route as Char123LocaleChar125ProtectedDashboardWeekRouteImport } from './routes/{-$locale}/_protected/dashboard.week'
 import { Route as Char123LocaleChar125ProtectedDashboardProjectsRouteImport } from './routes/{-$locale}/_protected/dashboard.projects'
 import { Route as Char123LocaleChar125ProtectedDashboardMonthRouteImport } from './routes/{-$locale}/_protected/dashboard.month'
@@ -49,11 +59,71 @@ const Char123LocaleChar125ProtectedDashboardRoute =
     path: '/dashboard',
     getParentRoute: () => Char123LocaleChar125ProtectedRouteRoute,
   } as any)
+const Char123LocaleChar125ProtectedSettingsIndexRoute =
+  Char123LocaleChar125ProtectedSettingsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => Char123LocaleChar125ProtectedSettingsRoute,
+  } as any)
 const Char123LocaleChar125ProtectedDashboardIndexRoute =
   Char123LocaleChar125ProtectedDashboardIndexRouteImport.update({
     id: '/',
     path: '/',
     getParentRoute: () => Char123LocaleChar125ProtectedDashboardRoute,
+  } as any)
+const Char123LocaleChar125ProtectedSettingsWorkCalendarsRoute =
+  Char123LocaleChar125ProtectedSettingsWorkCalendarsRouteImport.update({
+    id: '/work-calendars',
+    path: '/work-calendars',
+    getParentRoute: () => Char123LocaleChar125ProtectedSettingsRoute,
+  } as any)
+const Char123LocaleChar125ProtectedSettingsUnitsRoute =
+  Char123LocaleChar125ProtectedSettingsUnitsRouteImport.update({
+    id: '/units',
+    path: '/units',
+    getParentRoute: () => Char123LocaleChar125ProtectedSettingsRoute,
+  } as any)
+const Char123LocaleChar125ProtectedSettingsTaskTypesRoute =
+  Char123LocaleChar125ProtectedSettingsTaskTypesRouteImport.update({
+    id: '/task-types',
+    path: '/task-types',
+    getParentRoute: () => Char123LocaleChar125ProtectedSettingsRoute,
+  } as any)
+const Char123LocaleChar125ProtectedSettingsTagsRoute =
+  Char123LocaleChar125ProtectedSettingsTagsRouteImport.update({
+    id: '/tags',
+    path: '/tags',
+    getParentRoute: () => Char123LocaleChar125ProtectedSettingsRoute,
+  } as any)
+const Char123LocaleChar125ProtectedSettingsPriorityClassesRoute =
+  Char123LocaleChar125ProtectedSettingsPriorityClassesRouteImport.update({
+    id: '/priority-classes',
+    path: '/priority-classes',
+    getParentRoute: () => Char123LocaleChar125ProtectedSettingsRoute,
+  } as any)
+const Char123LocaleChar125ProtectedSettingsPlanningTimeRoute =
+  Char123LocaleChar125ProtectedSettingsPlanningTimeRouteImport.update({
+    id: '/planning-time',
+    path: '/planning-time',
+    getParentRoute: () => Char123LocaleChar125ProtectedSettingsRoute,
+  } as any)
+const Char123LocaleChar125ProtectedSettingsPersonalCalendarsRoute =
+  Char123LocaleChar125ProtectedSettingsPersonalCalendarsRouteImport.update({
+    id: '/personal-calendars',
+    path: '/personal-calendars',
+    getParentRoute: () => Char123LocaleChar125ProtectedSettingsRoute,
+  } as any)
+const Char123LocaleChar125ProtectedSettingsMailRoute =
+  Char123LocaleChar125ProtectedSettingsMailRouteImport.update({
+    id: '/mail',
+    path: '/mail',
+    getParentRoute: () => Char123LocaleChar125ProtectedSettingsRoute,
+  } as any)
+const Char123LocaleChar125ProtectedSettingsJiraImportRoute =
+  Char123LocaleChar125ProtectedSettingsJiraImportRouteImport.update({
+    id: '/jira-import',
+    path: '/jira-import',
+    getParentRoute: () => Char123LocaleChar125ProtectedSettingsRoute,
   } as any)
 const Char123LocaleChar125ProtectedDashboardWeekRoute =
   Char123LocaleChar125ProtectedDashboardWeekRouteImport.update({
@@ -84,21 +154,40 @@ export interface FileRoutesByFullPath {
   '/{-$locale}': typeof Char123LocaleChar125ProtectedRouteRouteWithChildren
   '/{-$locale}/': typeof Char123LocaleChar125IndexRoute
   '/{-$locale}/dashboard': typeof Char123LocaleChar125ProtectedDashboardRouteWithChildren
-  '/{-$locale}/settings': typeof Char123LocaleChar125ProtectedSettingsRoute
+  '/{-$locale}/settings': typeof Char123LocaleChar125ProtectedSettingsRouteWithChildren
   '/{-$locale}/dashboard/day': typeof Char123LocaleChar125ProtectedDashboardDayRoute
   '/{-$locale}/dashboard/month': typeof Char123LocaleChar125ProtectedDashboardMonthRoute
   '/{-$locale}/dashboard/projects': typeof Char123LocaleChar125ProtectedDashboardProjectsRoute
   '/{-$locale}/dashboard/week': typeof Char123LocaleChar125ProtectedDashboardWeekRoute
+  '/{-$locale}/settings/jira-import': typeof Char123LocaleChar125ProtectedSettingsJiraImportRoute
+  '/{-$locale}/settings/mail': typeof Char123LocaleChar125ProtectedSettingsMailRoute
+  '/{-$locale}/settings/personal-calendars': typeof Char123LocaleChar125ProtectedSettingsPersonalCalendarsRoute
+  '/{-$locale}/settings/planning-time': typeof Char123LocaleChar125ProtectedSettingsPlanningTimeRoute
+  '/{-$locale}/settings/priority-classes': typeof Char123LocaleChar125ProtectedSettingsPriorityClassesRoute
+  '/{-$locale}/settings/tags': typeof Char123LocaleChar125ProtectedSettingsTagsRoute
+  '/{-$locale}/settings/task-types': typeof Char123LocaleChar125ProtectedSettingsTaskTypesRoute
+  '/{-$locale}/settings/units': typeof Char123LocaleChar125ProtectedSettingsUnitsRoute
+  '/{-$locale}/settings/work-calendars': typeof Char123LocaleChar125ProtectedSettingsWorkCalendarsRoute
   '/{-$locale}/dashboard/': typeof Char123LocaleChar125ProtectedDashboardIndexRoute
+  '/{-$locale}/settings/': typeof Char123LocaleChar125ProtectedSettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/{-$locale}': typeof Char123LocaleChar125IndexRoute
-  '/{-$locale}/settings': typeof Char123LocaleChar125ProtectedSettingsRoute
   '/{-$locale}/dashboard/day': typeof Char123LocaleChar125ProtectedDashboardDayRoute
   '/{-$locale}/dashboard/month': typeof Char123LocaleChar125ProtectedDashboardMonthRoute
   '/{-$locale}/dashboard/projects': typeof Char123LocaleChar125ProtectedDashboardProjectsRoute
   '/{-$locale}/dashboard/week': typeof Char123LocaleChar125ProtectedDashboardWeekRoute
+  '/{-$locale}/settings/jira-import': typeof Char123LocaleChar125ProtectedSettingsJiraImportRoute
+  '/{-$locale}/settings/mail': typeof Char123LocaleChar125ProtectedSettingsMailRoute
+  '/{-$locale}/settings/personal-calendars': typeof Char123LocaleChar125ProtectedSettingsPersonalCalendarsRoute
+  '/{-$locale}/settings/planning-time': typeof Char123LocaleChar125ProtectedSettingsPlanningTimeRoute
+  '/{-$locale}/settings/priority-classes': typeof Char123LocaleChar125ProtectedSettingsPriorityClassesRoute
+  '/{-$locale}/settings/tags': typeof Char123LocaleChar125ProtectedSettingsTagsRoute
+  '/{-$locale}/settings/task-types': typeof Char123LocaleChar125ProtectedSettingsTaskTypesRoute
+  '/{-$locale}/settings/units': typeof Char123LocaleChar125ProtectedSettingsUnitsRoute
+  '/{-$locale}/settings/work-calendars': typeof Char123LocaleChar125ProtectedSettingsWorkCalendarsRoute
   '/{-$locale}/dashboard': typeof Char123LocaleChar125ProtectedDashboardIndexRoute
+  '/{-$locale}/settings': typeof Char123LocaleChar125ProtectedSettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -106,12 +195,22 @@ export interface FileRoutesById {
   '/{-$locale}/_protected': typeof Char123LocaleChar125ProtectedRouteRouteWithChildren
   '/{-$locale}/': typeof Char123LocaleChar125IndexRoute
   '/{-$locale}/_protected/dashboard': typeof Char123LocaleChar125ProtectedDashboardRouteWithChildren
-  '/{-$locale}/_protected/settings': typeof Char123LocaleChar125ProtectedSettingsRoute
+  '/{-$locale}/_protected/settings': typeof Char123LocaleChar125ProtectedSettingsRouteWithChildren
   '/{-$locale}/_protected/dashboard/day': typeof Char123LocaleChar125ProtectedDashboardDayRoute
   '/{-$locale}/_protected/dashboard/month': typeof Char123LocaleChar125ProtectedDashboardMonthRoute
   '/{-$locale}/_protected/dashboard/projects': typeof Char123LocaleChar125ProtectedDashboardProjectsRoute
   '/{-$locale}/_protected/dashboard/week': typeof Char123LocaleChar125ProtectedDashboardWeekRoute
+  '/{-$locale}/_protected/settings/jira-import': typeof Char123LocaleChar125ProtectedSettingsJiraImportRoute
+  '/{-$locale}/_protected/settings/mail': typeof Char123LocaleChar125ProtectedSettingsMailRoute
+  '/{-$locale}/_protected/settings/personal-calendars': typeof Char123LocaleChar125ProtectedSettingsPersonalCalendarsRoute
+  '/{-$locale}/_protected/settings/planning-time': typeof Char123LocaleChar125ProtectedSettingsPlanningTimeRoute
+  '/{-$locale}/_protected/settings/priority-classes': typeof Char123LocaleChar125ProtectedSettingsPriorityClassesRoute
+  '/{-$locale}/_protected/settings/tags': typeof Char123LocaleChar125ProtectedSettingsTagsRoute
+  '/{-$locale}/_protected/settings/task-types': typeof Char123LocaleChar125ProtectedSettingsTaskTypesRoute
+  '/{-$locale}/_protected/settings/units': typeof Char123LocaleChar125ProtectedSettingsUnitsRoute
+  '/{-$locale}/_protected/settings/work-calendars': typeof Char123LocaleChar125ProtectedSettingsWorkCalendarsRoute
   '/{-$locale}/_protected/dashboard/': typeof Char123LocaleChar125ProtectedDashboardIndexRoute
+  '/{-$locale}/_protected/settings/': typeof Char123LocaleChar125ProtectedSettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -124,16 +223,35 @@ export interface FileRouteTypes {
     | '/{-$locale}/dashboard/month'
     | '/{-$locale}/dashboard/projects'
     | '/{-$locale}/dashboard/week'
+    | '/{-$locale}/settings/jira-import'
+    | '/{-$locale}/settings/mail'
+    | '/{-$locale}/settings/personal-calendars'
+    | '/{-$locale}/settings/planning-time'
+    | '/{-$locale}/settings/priority-classes'
+    | '/{-$locale}/settings/tags'
+    | '/{-$locale}/settings/task-types'
+    | '/{-$locale}/settings/units'
+    | '/{-$locale}/settings/work-calendars'
     | '/{-$locale}/dashboard/'
+    | '/{-$locale}/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/{-$locale}'
-    | '/{-$locale}/settings'
     | '/{-$locale}/dashboard/day'
     | '/{-$locale}/dashboard/month'
     | '/{-$locale}/dashboard/projects'
     | '/{-$locale}/dashboard/week'
+    | '/{-$locale}/settings/jira-import'
+    | '/{-$locale}/settings/mail'
+    | '/{-$locale}/settings/personal-calendars'
+    | '/{-$locale}/settings/planning-time'
+    | '/{-$locale}/settings/priority-classes'
+    | '/{-$locale}/settings/tags'
+    | '/{-$locale}/settings/task-types'
+    | '/{-$locale}/settings/units'
+    | '/{-$locale}/settings/work-calendars'
     | '/{-$locale}/dashboard'
+    | '/{-$locale}/settings'
   id:
     | '__root__'
     | '/{-$locale}'
@@ -145,7 +263,17 @@ export interface FileRouteTypes {
     | '/{-$locale}/_protected/dashboard/month'
     | '/{-$locale}/_protected/dashboard/projects'
     | '/{-$locale}/_protected/dashboard/week'
+    | '/{-$locale}/_protected/settings/jira-import'
+    | '/{-$locale}/_protected/settings/mail'
+    | '/{-$locale}/_protected/settings/personal-calendars'
+    | '/{-$locale}/_protected/settings/planning-time'
+    | '/{-$locale}/_protected/settings/priority-classes'
+    | '/{-$locale}/_protected/settings/tags'
+    | '/{-$locale}/_protected/settings/task-types'
+    | '/{-$locale}/_protected/settings/units'
+    | '/{-$locale}/_protected/settings/work-calendars'
     | '/{-$locale}/_protected/dashboard/'
+    | '/{-$locale}/_protected/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -189,12 +317,82 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char123LocaleChar125ProtectedDashboardRouteImport
       parentRoute: typeof Char123LocaleChar125ProtectedRouteRoute
     }
+    '/{-$locale}/_protected/settings/': {
+      id: '/{-$locale}/_protected/settings/'
+      path: '/'
+      fullPath: '/{-$locale}/settings/'
+      preLoaderRoute: typeof Char123LocaleChar125ProtectedSettingsIndexRouteImport
+      parentRoute: typeof Char123LocaleChar125ProtectedSettingsRoute
+    }
     '/{-$locale}/_protected/dashboard/': {
       id: '/{-$locale}/_protected/dashboard/'
       path: '/'
       fullPath: '/{-$locale}/dashboard/'
       preLoaderRoute: typeof Char123LocaleChar125ProtectedDashboardIndexRouteImport
       parentRoute: typeof Char123LocaleChar125ProtectedDashboardRoute
+    }
+    '/{-$locale}/_protected/settings/work-calendars': {
+      id: '/{-$locale}/_protected/settings/work-calendars'
+      path: '/work-calendars'
+      fullPath: '/{-$locale}/settings/work-calendars'
+      preLoaderRoute: typeof Char123LocaleChar125ProtectedSettingsWorkCalendarsRouteImport
+      parentRoute: typeof Char123LocaleChar125ProtectedSettingsRoute
+    }
+    '/{-$locale}/_protected/settings/units': {
+      id: '/{-$locale}/_protected/settings/units'
+      path: '/units'
+      fullPath: '/{-$locale}/settings/units'
+      preLoaderRoute: typeof Char123LocaleChar125ProtectedSettingsUnitsRouteImport
+      parentRoute: typeof Char123LocaleChar125ProtectedSettingsRoute
+    }
+    '/{-$locale}/_protected/settings/task-types': {
+      id: '/{-$locale}/_protected/settings/task-types'
+      path: '/task-types'
+      fullPath: '/{-$locale}/settings/task-types'
+      preLoaderRoute: typeof Char123LocaleChar125ProtectedSettingsTaskTypesRouteImport
+      parentRoute: typeof Char123LocaleChar125ProtectedSettingsRoute
+    }
+    '/{-$locale}/_protected/settings/tags': {
+      id: '/{-$locale}/_protected/settings/tags'
+      path: '/tags'
+      fullPath: '/{-$locale}/settings/tags'
+      preLoaderRoute: typeof Char123LocaleChar125ProtectedSettingsTagsRouteImport
+      parentRoute: typeof Char123LocaleChar125ProtectedSettingsRoute
+    }
+    '/{-$locale}/_protected/settings/priority-classes': {
+      id: '/{-$locale}/_protected/settings/priority-classes'
+      path: '/priority-classes'
+      fullPath: '/{-$locale}/settings/priority-classes'
+      preLoaderRoute: typeof Char123LocaleChar125ProtectedSettingsPriorityClassesRouteImport
+      parentRoute: typeof Char123LocaleChar125ProtectedSettingsRoute
+    }
+    '/{-$locale}/_protected/settings/planning-time': {
+      id: '/{-$locale}/_protected/settings/planning-time'
+      path: '/planning-time'
+      fullPath: '/{-$locale}/settings/planning-time'
+      preLoaderRoute: typeof Char123LocaleChar125ProtectedSettingsPlanningTimeRouteImport
+      parentRoute: typeof Char123LocaleChar125ProtectedSettingsRoute
+    }
+    '/{-$locale}/_protected/settings/personal-calendars': {
+      id: '/{-$locale}/_protected/settings/personal-calendars'
+      path: '/personal-calendars'
+      fullPath: '/{-$locale}/settings/personal-calendars'
+      preLoaderRoute: typeof Char123LocaleChar125ProtectedSettingsPersonalCalendarsRouteImport
+      parentRoute: typeof Char123LocaleChar125ProtectedSettingsRoute
+    }
+    '/{-$locale}/_protected/settings/mail': {
+      id: '/{-$locale}/_protected/settings/mail'
+      path: '/mail'
+      fullPath: '/{-$locale}/settings/mail'
+      preLoaderRoute: typeof Char123LocaleChar125ProtectedSettingsMailRouteImport
+      parentRoute: typeof Char123LocaleChar125ProtectedSettingsRoute
+    }
+    '/{-$locale}/_protected/settings/jira-import': {
+      id: '/{-$locale}/_protected/settings/jira-import'
+      path: '/jira-import'
+      fullPath: '/{-$locale}/settings/jira-import'
+      preLoaderRoute: typeof Char123LocaleChar125ProtectedSettingsJiraImportRouteImport
+      parentRoute: typeof Char123LocaleChar125ProtectedSettingsRoute
     }
     '/{-$locale}/_protected/dashboard/week': {
       id: '/{-$locale}/_protected/dashboard/week'
@@ -254,9 +452,51 @@ const Char123LocaleChar125ProtectedDashboardRouteWithChildren =
     Char123LocaleChar125ProtectedDashboardRouteChildren,
   )
 
+interface Char123LocaleChar125ProtectedSettingsRouteChildren {
+  Char123LocaleChar125ProtectedSettingsJiraImportRoute: typeof Char123LocaleChar125ProtectedSettingsJiraImportRoute
+  Char123LocaleChar125ProtectedSettingsMailRoute: typeof Char123LocaleChar125ProtectedSettingsMailRoute
+  Char123LocaleChar125ProtectedSettingsPersonalCalendarsRoute: typeof Char123LocaleChar125ProtectedSettingsPersonalCalendarsRoute
+  Char123LocaleChar125ProtectedSettingsPlanningTimeRoute: typeof Char123LocaleChar125ProtectedSettingsPlanningTimeRoute
+  Char123LocaleChar125ProtectedSettingsPriorityClassesRoute: typeof Char123LocaleChar125ProtectedSettingsPriorityClassesRoute
+  Char123LocaleChar125ProtectedSettingsTagsRoute: typeof Char123LocaleChar125ProtectedSettingsTagsRoute
+  Char123LocaleChar125ProtectedSettingsTaskTypesRoute: typeof Char123LocaleChar125ProtectedSettingsTaskTypesRoute
+  Char123LocaleChar125ProtectedSettingsUnitsRoute: typeof Char123LocaleChar125ProtectedSettingsUnitsRoute
+  Char123LocaleChar125ProtectedSettingsWorkCalendarsRoute: typeof Char123LocaleChar125ProtectedSettingsWorkCalendarsRoute
+  Char123LocaleChar125ProtectedSettingsIndexRoute: typeof Char123LocaleChar125ProtectedSettingsIndexRoute
+}
+
+const Char123LocaleChar125ProtectedSettingsRouteChildren: Char123LocaleChar125ProtectedSettingsRouteChildren =
+  {
+    Char123LocaleChar125ProtectedSettingsJiraImportRoute:
+      Char123LocaleChar125ProtectedSettingsJiraImportRoute,
+    Char123LocaleChar125ProtectedSettingsMailRoute:
+      Char123LocaleChar125ProtectedSettingsMailRoute,
+    Char123LocaleChar125ProtectedSettingsPersonalCalendarsRoute:
+      Char123LocaleChar125ProtectedSettingsPersonalCalendarsRoute,
+    Char123LocaleChar125ProtectedSettingsPlanningTimeRoute:
+      Char123LocaleChar125ProtectedSettingsPlanningTimeRoute,
+    Char123LocaleChar125ProtectedSettingsPriorityClassesRoute:
+      Char123LocaleChar125ProtectedSettingsPriorityClassesRoute,
+    Char123LocaleChar125ProtectedSettingsTagsRoute:
+      Char123LocaleChar125ProtectedSettingsTagsRoute,
+    Char123LocaleChar125ProtectedSettingsTaskTypesRoute:
+      Char123LocaleChar125ProtectedSettingsTaskTypesRoute,
+    Char123LocaleChar125ProtectedSettingsUnitsRoute:
+      Char123LocaleChar125ProtectedSettingsUnitsRoute,
+    Char123LocaleChar125ProtectedSettingsWorkCalendarsRoute:
+      Char123LocaleChar125ProtectedSettingsWorkCalendarsRoute,
+    Char123LocaleChar125ProtectedSettingsIndexRoute:
+      Char123LocaleChar125ProtectedSettingsIndexRoute,
+  }
+
+const Char123LocaleChar125ProtectedSettingsRouteWithChildren =
+  Char123LocaleChar125ProtectedSettingsRoute._addFileChildren(
+    Char123LocaleChar125ProtectedSettingsRouteChildren,
+  )
+
 interface Char123LocaleChar125ProtectedRouteRouteChildren {
   Char123LocaleChar125ProtectedDashboardRoute: typeof Char123LocaleChar125ProtectedDashboardRouteWithChildren
-  Char123LocaleChar125ProtectedSettingsRoute: typeof Char123LocaleChar125ProtectedSettingsRoute
+  Char123LocaleChar125ProtectedSettingsRoute: typeof Char123LocaleChar125ProtectedSettingsRouteWithChildren
 }
 
 const Char123LocaleChar125ProtectedRouteRouteChildren: Char123LocaleChar125ProtectedRouteRouteChildren =
@@ -264,7 +504,7 @@ const Char123LocaleChar125ProtectedRouteRouteChildren: Char123LocaleChar125Prote
     Char123LocaleChar125ProtectedDashboardRoute:
       Char123LocaleChar125ProtectedDashboardRouteWithChildren,
     Char123LocaleChar125ProtectedSettingsRoute:
-      Char123LocaleChar125ProtectedSettingsRoute,
+      Char123LocaleChar125ProtectedSettingsRouteWithChildren,
   }
 
 const Char123LocaleChar125ProtectedRouteRouteWithChildren =
